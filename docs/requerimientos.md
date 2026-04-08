@@ -166,6 +166,7 @@ GeneracionPedido
   - id
   - semana_inicio: date  (lunes de la semana)
   - opcion_menu_id → OpcionMenu
+  - dias_habiles: str  (JSON array, ej: [1,2,3,4] para Lun-Jue; [1,2,3,4,5] = semana completa)
   - generado_por → Usuario
   - generado_at: datetime
   - notas: str (opcional)
@@ -179,7 +180,7 @@ GeneracionPedido
 
 2. **Cantidad a pedir por escuela**: `matrícula_escuela × cantidad_por_porción_ingrediente`, aplicado solo a los días/comidas que esa escuela ofrece.
 
-3. **Cantidad semanal por escuela**: Se suman los 5 días de la semana para cada comida que ofrece la escuela. Si una escuela solo tiene almuerzo, solo se suman los almuerzos de lunes a viernes.
+3. **Cantidad semanal por escuela**: Se suman únicamente los días hábiles seleccionados al generar el pedido. Si se deshabilita el viernes (feriado, paro, etc.), no se suma ninguna receta de ese día para ninguna escuela.
 
 4. **Asignación de proveedor**: Para cada ingrediente que necesita una escuela, el proveedor se determina por `(ingrediente, localidad_de_la_escuela)`. Se usa la asignación activa en la fecha de generación del pedido.
 
@@ -187,9 +188,13 @@ GeneracionPedido
 
 6. **Opciones de menú**: Hay exactamente 2 opciones por temporada. Al generar un pedido, el gestor elige qué opción aplica a esa semana.
 
-7. **Escuelas inactivas**: No se incluyen en los cálculos de pedidos.
+7. **Días inhábiles**: Al generar un pedido, el usuario puede desactivar cualquier día de la semana (1-5). Los días desactivados no se suman en el cálculo. Esto aplica uniformemente a todas las escuelas. Los días seleccionados quedan guardados en el registro histórico del pedido.
 
-8. **Ingredientes sin proveedor asignado**: Si al generar el pedido existe un ingrediente de una receta sin proveedor activo para esa localidad, el sistema muestra una advertencia y excluye ese ingrediente del documento, listándolo aparte para resolución manual.
+8. **Stock previo por escuela**: El stock parte desde cero cada semana. Si una escuela tiene stock de algún ingrediente, el gestor lo ingresa manualmente en el momento de generar el pedido. La cantidad a pedir se calcula como `max(0, cantidad_calculada - stock_ingresado)`. No se persiste ningún stock entre semanas.
+
+9. **Escuelas inactivas**: No se incluyen en los cálculos de pedidos.
+
+10. **Ingredientes sin proveedor asignado**: Si al generar el pedido existe un ingrediente de una receta sin proveedor activo para esa localidad, el sistema muestra una advertencia y excluye ese ingrediente del documento, listándolo aparte para resolución manual.
 
 ---
 
@@ -247,16 +252,19 @@ GeneracionPedido
 ### 5.10 Generación de Órdenes de Compra (Admin + Gestor)
 1. Seleccionar semana (fecha de inicio = lunes)
 2. Seleccionar opción de menú (temporada + opción 1 ó 2)
-3. El sistema calcula:
+3. **Seleccionar días hábiles**: 5 botones toggle (Lun/Mar/Mié/Jue/Vie), todos activados por defecto. El usuario desactiva los días sin clases (feriados, paros, etc.)
+4. **Cargar stock previo** (opcional): tabla editable con stock por escuela por ingrediente, iniciando todos los valores en 0. El gestor completa solo las celdas donde haya stock real antes de confirmar
+5. El sistema calcula:
    - Para cada escuela activa con comidas asignadas
-   - Para cada día de la semana y cada comida que ofrece esa escuela
+   - Solo para los días hábiles seleccionados
    - Suma cantidades de cada ingrediente × matrícula
-4. Agrupa resultados por proveedor (según asignación activa en esa fecha por localidad)
-5. Muestra resumen en pantalla con advertencias si hay ingredientes sin proveedor
-6. Exporta:
+   - Resta el stock disponible de la escuela: `max(0, calculado - stock)`
+6. Agrupa resultados por proveedor (según asignación activa en esa fecha por localidad)
+7. Muestra resumen en pantalla con advertencias si hay ingredientes sin proveedor
+8. Exporta:
    - **Un documento por proveedor**: lista de escuelas de su localidad con cantidades por ingrediente y totales
    - **Resumen global**: todos los ingredientes, todas las escuelas, cantidades, precios unitarios y costo total semanal
-7. Ambos formatos disponibles en **PDF** y **Excel (.xlsx)**
+9. Ambos formatos disponibles en **PDF** y **Excel (.xlsx)**
 
 ### 5.11 Historial de Pedidos
 - Listado de pedidos generados (fecha, semana, menú usado, usuario)
@@ -319,11 +327,12 @@ Generado por: [usuario] | [fecha y hora]
 - Actualización de matrícula con historial de cambios
 
 ### Fase 5 — Generación de Pedidos
-- Motor de cálculo de cantidades
+- Motor de cálculo de cantidades con soporte de días hábiles y descuento de stock
+- UI con toggles de días y tabla de stock editable pre-generación
 - Agrupación por proveedor y localidad
 - Generación de documentos PDF
 - Generación de documentos Excel (.xlsx)
-- Historial de pedidos generados
+- Historial de pedidos generados (incluye días hábiles usados)
 
 ### Fase 6 — Backups y producción
 - Backup automático de SQLite (diario, con retención configurable)
