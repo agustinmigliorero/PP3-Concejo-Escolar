@@ -40,7 +40,15 @@ Tiene acceso al día a día operativo:
 
 **No puede**: crear usuarios, modificar recetas, ingredientes, proveedores o menús.
 
-> **📋 Validar**: ¿Los dos roles cubren bien la organización interna? ¿Hay alguna persona que necesite permisos intermedios?
+### Escuela
+Usuario específico para cada escuela:
+
+- **Carga el stock previo** de su escuela antes de la generación del pedido semanal (ingredientes sobrantes de la semana anterior).
+- Consulta el **historial de pedidos** que incluyeron a su escuela, con los documentos descargables.
+
+**No puede**: ver datos de otras escuelas, generar pedidos, ni acceder a ninguna función administrativa.
+
+> **📋 Validar**: ¿Los tres roles cubren bien la organización interna? ¿Hay alguna persona que necesite permisos diferentes?
 
 ---
 
@@ -85,6 +93,28 @@ Ejemplo:
 
 > **📋 Validar**: ¿Está bien usar una única porción estándar (promedio 9-11 años) para todos los grupos etarios? En las planillas actuales vemos columnas separadas para Inicial / 6-8 / 9-11 / Secundaria, pero entendemos que el Concejo ya calcula con el promedio.
 
+### 3.6 Índice de corrección por desperdicios
+
+Algunos ingredientes necesitan pedirse en mayor cantidad para contemplar mermas (huesos, cáscaras, etc.). El sistema permite definir un **índice de corrección** opcional por ingrediente.
+
+Ejemplo:
+- La receta lleva **100 g de pollo** por porción.
+- El pollo tiene índice de corrección **1.68** (68% de desperdicio por hueso).
+- Al proveedor se le piden **168 g** por porción.
+
+El índice se aplica antes del descuento de stock, y los ingredientes sin índice configurado se tratan como 1.0 (sin corrección).
+
+### 3.7 Ingredientes comercializados por unidad
+
+Algunos ingredientes se venden por unidad (botella, lata, etc.) pero las recetas los miden en volumen o peso. En esos casos, el sistema convierte automáticamente y **siempre redondea hacia arriba** para garantizar cobertura.
+
+Ejemplo:
+- La receta usa aceite medido en **ml**.
+- El aceite se vende en **botellas de 900 ml**.
+- Si la semana se necesitan 1.200 ml para una escuela → se piden **2 botellas** (ceil(1200/900) = 2).
+
+El administrador configura la capacidad de la unidad comercial al cargar el ingrediente.
+
 ### 3.6 Temporadas y Menús
 - Hay **2 temporadas por año**: Verano e Invierno.
 - Cada temporada tiene **2 opciones de menú** (Opción 1 y Opción 2).
@@ -117,7 +147,6 @@ Para cada escuela:
 
 > **📋 Validar**:
 > - ¿La matrícula completa de una escuela recibe todas las comidas que esa escuela ofrece? (O sea, si una escuela tiene 100 alumnos y ofrece almuerzo + merienda, son 100 almuerzos + 100 meriendas).
-> - ¿Hace falta guardar historial de cambios de matrícula, o solo nos interesa el valor actual?
 
 ---
 
@@ -137,11 +166,11 @@ Aparecen 5 botones: **Lunes, Martes, Miércoles, Jueves, Viernes**. Todos activa
 El gestor **desactiva los días que no corresponden** a esa semana puntual: feriados, paros, suspensiones, etc. Por ejemplo, si el viernes es feriado, se desactiva Viernes y las recetas de ese día no se incluyen en el cálculo.
 
 ### Paso 4: Cargar stock previo (opcional)
-Aparece una tabla con las escuelas y los ingredientes que van a usarse esa semana. **Todos los valores arrancan en 0**.
+Aparece una tabla con las escuelas y los ingredientes que van a usarse esa semana. Las celdas **se pre-completan automáticamente** con el stock que cada escuela haya cargado desde su propio usuario. Las escuelas que no cargaron nada aparecen con 0.
 
-Si alguna escuela quedó con sobrantes de alguna cosa (por ejemplo, 5 kg de fideos que no se usaron la semana pasada), el gestor los carga en la casilla correspondiente. El sistema va a descontar ese stock del cálculo.
+El gestor puede revisar y editar cualquier celda antes de confirmar. El sistema descuenta ese stock del cálculo.
 
-> El stock **no se guarda entre semanas** — cada semana arranca en cero. Es responsabilidad del gestor cargarlo manualmente cuando aplique.
+> El stock **no se guarda entre semanas** — al confirmar el pedido, el sistema resetea todos los valores a 0 automáticamente. El stock se ingresa en la misma unidad de medida definida para cada ingrediente (por ejemplo, si el ingrediente está en gramos, el stock se ingresa en gramos).
 
 ### Paso 5: Revisar y generar
 El sistema calcula todo y muestra en pantalla un resumen:
@@ -163,28 +192,39 @@ Todos los ingredientes, todas las escuelas, precios unitarios y **costo total es
 
 ## 6. Fórmula de cálculo (explicada)
 
-Para cada ingrediente de cada receta:
+Para cada ingrediente de cada receta, el sistema aplica los siguientes pasos en orden:
 
 ```
-Cantidad a pedir = (cantidad_por_porción × matrícula × días hábiles aplicables) - stock en la escuela
+1. Cantidad base     = cantidad_por_porción × matrícula × días hábiles aplicables
+2. Corrección        = cantidad_base × índice_corrección  (1.0 si no tiene índice)
+3. Descuento stock   = max(0, corrección - stock disponible)
+4. Si es por unidad  = ceil(paso 3 / capacidad_por_unidad)  → siempre entero hacia arriba
 ```
 
-Y si el resultado es negativo (la escuela tiene más stock del que necesita), se pide **cero** — nunca un número negativo.
-
-**Ejemplo concreto:**
+**Ejemplo 1 — ingrediente con índice de corrección (pollo):**
 
 - Escuela **EP 14** tiene 164 alumnos, ofrece almuerzo.
 - La semana hay **4 días hábiles** (el viernes es feriado).
 - Las recetas de Lunes a Jueves llevan en total **240 g de pollo por porción**.
-- La escuela reporta **3 kg de stock** de pollo.
+- El pollo tiene índice de corrección **1.68** (contempla desperdicios por hueso).
+- La escuela tiene **3 kg de stock** de pollo.
 
-Cálculo:
 ```
-240 g × 164 alumnos = 39.360 g = 39,36 kg
-39,36 kg - 3 kg = 36,36 kg de pollo a pedir
+Cantidad base:   240 g × 164 alumnos = 39.360 g
+Con corrección:  39.360 g × 1.68     = 66.124 g ≈ 66,12 kg
+Menos stock:     66,12 kg - 3 kg     = 63,12 kg de pollo a pedir
 ```
 
-Ese pedido va dirigido al proveedor de pollo asignado a la localidad de EP 14.
+**Ejemplo 2 — ingrediente por unidad (aceite en botella de 900 ml):**
+
+- La semana se calculan **1.800 ml** de aceite para una escuela.
+- El aceite se vende en botellas de 900 ml.
+
+```
+ceil(1.800 / 900) = 2 botellas
+```
+
+Si hubiera **1.801 ml**, también serían 2 botellas. Si hubieran **1.801 ml**, serían 3 botellas. Siempre se redondea hacia arriba para garantizar que no falte.
 
 ---
 
@@ -197,7 +237,7 @@ El sistema guarda un registro de cada pedido generado:
 - Qué opción de menú se usó.
 - Qué días hábiles se aplicaron.
 
-Cualquier pedido anterior se puede volver a descargar en PDF o Excel en cualquier momento.
+Cualquier pedido anterior se puede volver a descargar en PDF o Excel en cualquier momento, y el documento resultante será idéntico al original — el sistema guarda un snapshot de los precios y cantidades al momento de la generación, por lo que cambios posteriores en proveedores o matrícula no afectan a los pedidos ya generados.
 
 ---
 
@@ -211,6 +251,7 @@ Para evitar malentendidos, dejamos claro lo que **queda fuera** del alcance inic
 - ❌ **No distingue porciones por grupo etario**: usa una única porción estándar por receta.
 - ❌ **No calcula información nutricional** (calorías, macros, etc.).
 - ❌ **No envía emails automáticos a proveedores**: los documentos se descargan y el envío es manual.
+- ❌ **El usuario Escuela no puede editar datos de la escuela**: solo carga stock y consulta pedidos.
 
 > **📋 Validar**: ¿Alguna de estas exclusiones debería estar incluida? ¿Falta algún otro aclaración de alcance?
 
@@ -220,12 +261,12 @@ Para evitar malentendidos, dejamos claro lo que **queda fuera** del alcance inic
 
 Resumen de las preguntas que quedan abiertas para conversar con el Concejo:
 
-1. ¿Los dos roles (Administrador y Gestor) cubren bien las necesidades operativas?
+1. ¿Los tres roles (Administrador, Gestor y Escuela) cubren bien las necesidades operativas? ¿Va a haber un usuario Escuela por cada escuela, o solo para algunas?
 2. ¿Es correcto que cada ingrediente + localidad tenga un único proveedor activo a la vez?
 3. ¿Está bien usar una única porción estándar (9-11 años) para todas las recetas?
 4. ¿Siempre son exactamente 2 opciones de menú por temporada?
 5. ¿Cómo se elige qué opción aplica cada semana? ¿Alternancia fija o elección del gestor?
-6. ¿Necesitamos guardar historial de matrícula o solo el valor actual alcanza?
+6. ¿Los índices de corrección por desperdicios ya están definidos para cada ingrediente, o hay que relevarlos?
 7. ¿Hay alguna funcionalidad dentro de "lo que no hace" que debería incluirse?
 8. ¿Hay algún reporte adicional que el Concejo necesite más allá de las órdenes por proveedor y el resumen global?
 9. ¿Cuántas localidades y escuelas aproximadamente va a manejar el sistema?
