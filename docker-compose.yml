@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000" # localhost:8000 → contenedor:8000
     volumes:
-      - ./backend:/app/app # hot reload: cambios en tu PC se reflejan al instante
+      - ./backend:/app # hot reload: cambios en tu PC se reflejan al instante
       - /app/.venv # evita que el volumen pise el .venv del contenedor
 
   frontend:
