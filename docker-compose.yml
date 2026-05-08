@@ -12,7 +12,7 @@ services:
     ports:
       - "3005:3001" # localhost:3001 → contenedor:3001
     volumes:
-      - ./frontend:/app # hot reload
+      - ./frontend:/app/app # hot reload
       - /app/node_modules # evita que el volumen pise los node_modules del contenedor
     depends_on:
       - backend # el frontend espera a que el backend arranque primero
