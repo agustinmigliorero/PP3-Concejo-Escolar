@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 function Page() {
   const [nombre, setNombre] = useState("");
   const fetchNombre = async () => {
-    const response = await fetch("http://127.0.0.1:8000");
+    const response = await fetch("http://92.113.39.212:8000");
     if (!response.ok) {
       throw new Error("Failed to fetch nombre");
     }
