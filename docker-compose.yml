@@ -2,17 +2,17 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"       # localhost:8000 → contenedor:8000
+      - "8000:8000" # localhost:8000 → contenedor:8000
     volumes:
-      - ./backend:/app    # hot reload: cambios en tu PC se reflejan al instante
-      - /app/.venv        # evita que el volumen pise el .venv del contenedor
+      - ./backend:/app # hot reload: cambios en tu PC se reflejan al instante
+      - /app/.venv # evita que el volumen pise el .venv del contenedor
 
   frontend:
     build: ./frontend
     ports:
-      - "3001:3001"       # localhost:3001 → contenedor:3001
+      - "3005:3001" # localhost:3001 → contenedor:3001
     volumes:
-      - ./frontend:/app   # hot reload
+      - ./frontend:/app # hot reload
       - /app/node_modules # evita que el volumen pise los node_modules del contenedor
     depends_on:
-      - backend           # el frontend espera a que el backend arranque primero
+      - backend # el frontend espera a que el backend arranque primero
