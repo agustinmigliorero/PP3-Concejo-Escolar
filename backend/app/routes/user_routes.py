@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
-from app.controllers.user_controller import CreateUserRequest, UserResponse
+from app.controllers.user_controller import CreateUserRequest, UpdateUserRequest, UserResponse
 from app.middlewares.auth_middleware import require_admin
 from app.services import user_service
 
@@ -26,6 +26,18 @@ def list_users(db: Session = Depends(get_db), _=Depends(require_admin)):
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
     return user_service.get_user_by_id(db, user_id)
+
+
+@router.put("/{user_id}", response_model=UserResponse)
+def update_user(
+    user_id: int,
+    body: UpdateUserRequest,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    return user_service.update_user(
+        db, user_id, body.username, body.password, body.role, body.school_id
+    )
 
 
 @router.patch("/{user_id}/toggle-active", response_model=UserResponse)

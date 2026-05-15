@@ -40,6 +40,30 @@ def get_user_by_id(db: Session, user_id: int) -> User:
     return user
 
 
+def update_user(
+    db: Session,
+    user_id: int,
+    username: str | None = None,
+    password: str | None = None,
+    role: UserRole | None = None,
+    school_id: int | None = None,
+) -> User:
+    user = get_user_by_id(db, user_id)
+    if username and username != user.username:
+        if db.query(User).filter(User.username == username, User.id != user_id).first():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El nombre de usuario ya existe")
+        user.username = username
+    if password:
+        user.password = hash_password(password)
+    if role:
+        user.role = role
+    if school_id is not None:
+        user.school_id = school_id
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def toggle_active(db: Session, user_id: int) -> User:
     user = get_user_by_id(db, user_id)
     user.active = not user.active

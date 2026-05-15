@@ -78,3 +78,59 @@ export async function apiGetMe(): Promise<UserInfo> {
   if (!res.ok) throw new Error("No autenticado");
   return res.json();
 }
+
+// ── Users CRUD (admin only) ──────────────────────────────────────────────────
+
+export interface UserRecord {
+  id: number;
+  username: string;
+  role: "admin" | "gestor" | "escuela";
+  school_id: number | null;
+  active: boolean;
+}
+
+export async function apiGetUsers(): Promise<UserRecord[]> {
+  const res = await apiFetch("/users");
+  if (!res.ok) throw new Error("Error al obtener usuarios");
+  return res.json();
+}
+
+export async function apiCreateUser(data: {
+  username: string;
+  password: string;
+  role: string;
+  school_id?: number | null;
+}): Promise<UserRecord> {
+  const res = await apiFetch("/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Error al crear usuario");
+  }
+  return res.json();
+}
+
+export async function apiUpdateUser(
+  id: number,
+  data: { username?: string; password?: string; role?: string; school_id?: number | null }
+): Promise<UserRecord> {
+  const res = await apiFetch(`/users/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Error al actualizar usuario");
+  }
+  return res.json();
+}
+
+export async function apiToggleUserActive(id: number): Promise<UserRecord> {
+  const res = await apiFetch(`/users/${id}/toggle-active`, { method: "PATCH" });
+  if (!res.ok) throw new Error("Error al cambiar estado del usuario");
+  return res.json();
+}

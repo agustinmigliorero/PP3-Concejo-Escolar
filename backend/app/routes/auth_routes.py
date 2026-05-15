@@ -21,7 +21,7 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         httponly=True,
         samesite="lax",
         max_age=_COOKIE_MAX_AGE,
-        path="/auth/refresh",
+        path="/",
     )
 
 
@@ -56,7 +56,7 @@ def logout(
 ):
     if refresh_token:
         auth_service.logout(db, refresh_token)
-    response.delete_cookie("refresh_token", path="/auth/refresh")
+    response.delete_cookie("refresh_token", path="/")
     return {"message": "Sesión cerrada correctamente"}
 
 

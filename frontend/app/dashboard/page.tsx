@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { apiGetMe, apiLogout, tryRefresh, type UserInfo } from "@/lib/api";
+import { apiGetMe, type UserInfo } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -12,87 +11,41 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const router = useRouter();
   const [user, setUser] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function init() {
-      // If no access token in memory (e.g. page refresh), try to recover via cookie
-      if (!getAccessToken()) {
-        const ok = await tryRefresh();
-        if (!ok) {
-          router.replace("/login");
-          return;
-        }
-      }
-      try {
-        const me = await apiGetMe();
-        setUser(me);
-      } catch {
-        router.replace("/login");
-      } finally {
-        setLoading(false);
-      }
+    if (getAccessToken()) {
+      apiGetMe().then(setUser).catch(() => {});
     }
-    init();
-  }, [router]);
-
-  async function handleLogout() {
-    await apiLogout();
-    router.replace("/login");
-  }
-
-  if (loading) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500">Cargando...</p>
-      </main>
-    );
-  }
+  }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-md p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-gray-800">Panel principal</h1>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-500 hover:text-red-600 transition-colors"
-            >
-              Cerrar sesión
-            </button>
-          </div>
+    <div className="max-w-2xl mx-auto">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        {user ? (
+          <>
+            <h1 className="text-2xl font-bold text-gray-800 mb-1">
+              Bienvenido, {user.username}
+            </h1>
+            <p className="text-gray-500 mb-6">
+              Rol: <span className="font-medium text-gray-700">{ROLE_LABEL[user.role] ?? user.role}</span>
+            </p>
 
-          {user && (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3 bg-blue-50 rounded-xl p-4">
-                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold">
-                  {user.username[0].toUpperCase()}
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-800">{user.username}</p>
-                  <p className="text-sm text-blue-600">{ROLE_LABEL[user.role] ?? user.role}</p>
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-blue-50 rounded-xl p-5">
+                <p className="text-xs text-blue-500 uppercase tracking-wide font-medium mb-1">Usuario</p>
+                <p className="text-lg font-semibold text-gray-800">{user.username}</p>
               </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Rol</p>
-                  <p className="font-medium text-gray-800 mt-1">
-                    {ROLE_LABEL[user.role] ?? user.role}
-                  </p>
-                </div>
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">ID</p>
-                  <p className="font-medium text-gray-800 mt-1">{user.id}</p>
-                </div>
+              <div className="bg-gray-50 rounded-xl p-5">
+                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Rol</p>
+                <p className="text-lg font-semibold text-gray-800">{ROLE_LABEL[user.role] ?? user.role}</p>
               </div>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <p className="text-gray-400">Cargando...</p>
+        )}
       </div>
-    </main>
+    </div>
   );
 }
