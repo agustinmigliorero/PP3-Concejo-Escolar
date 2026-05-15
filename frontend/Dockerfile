@@ -1,18 +1,25 @@
-# Imagen base de Node.js
-FROM node:20-alpine
-
-# Directorio de trabajo dentro del contenedor
+# ── Etapa 1: build ──────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# Copiar e instalar dependencias primero (para aprovechar el cache de Docker)
 COPY package*.json ./
-RUN npm install
-
-# Copiar el resto del código
+RUN npm ci
 COPY . .
+ENV NODE_ENV=production
+RUN npm run build
 
-# Puerto que expone el frontend
+# ── Etapa 2: runtime ─────────────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Solo las dependencias de producción
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Artefactos del build
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/next.config.ts ./
+
 EXPOSE 3001
-
-# Comando para arrancar en modo desarrollo
-CMD ["npm", "run", "dev", "--", "-p", "3001", "-H", "0.0.0.0"]
+CMD ["npx", "next", "start", "-p", "3001", "-H", "0.0.0.0"]

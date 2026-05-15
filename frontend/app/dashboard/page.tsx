@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiGetMe, apiLogout, tryRefresh, type UserInfo } from "../../lib/api";
-import { getAccessToken } from "../../lib/auth";
+import { apiGetMe, apiLogout, tryRefresh, type UserInfo } from "@/lib/api";
+import { getAccessToken } from "@/lib/auth";
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrador",

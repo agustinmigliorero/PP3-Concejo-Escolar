@@ -2,8 +2,8 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiLogin } from "../../lib/api";
-import { setAccessToken as storeToken } from "../../lib/auth";
+import { apiLogin } from "@/lib/api";
+import { setAccessToken as storeToken } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
