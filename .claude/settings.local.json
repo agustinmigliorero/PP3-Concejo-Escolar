@@ -5,7 +5,9 @@
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(grep -E \"\\\\.\\(tsx?|jsx?|json\\)$\")",
       "Bash(git -C /c/Users/AGUSTIN/Documents/GitHub/PP3-Concejo-Escolar log --oneline)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git check-ignore *)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }
