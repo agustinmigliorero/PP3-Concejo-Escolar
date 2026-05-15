@@ -31,7 +31,7 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-8">
         <h1 className="text-2xl font-bold text-center text-gray-800 mb-2">
-          Concejo Escolar
+          Consejo Escolar
         </h1>
         <p className="text-center text-gray-500 text-sm mb-8">
           Ingresá con tu cuenta
@@ -39,7 +39,10 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label htmlFor="username" className="text-sm font-medium text-gray-700">
+            <label
+              htmlFor="username"
+              className="text-sm font-medium text-gray-700"
+            >
               Usuario
             </label>
             <input
@@ -55,7 +58,10 @@ export default function LoginPage() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="password" className="text-sm font-medium text-gray-700">
+            <label
+              htmlFor="password"
+              className="text-sm font-medium text-gray-700"
+            >
               Contraseña
             </label>
             <input

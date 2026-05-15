@@ -1,6 +1,6 @@
-# Concejo Escolar — Guía de desarrollo
+# Consejo Escolar — Guía de desarrollo
 
-Sistema de gestión de pedidos de comida escolar para el Concejo Escolar de Azul.
+Sistema de gestión de pedidos de comida escolar para el Consejo Escolar de Azul.
 
 ---
 
@@ -21,14 +21,14 @@ Sistema de gestión de pedidos de comida escolar para el Concejo Escolar de Azul
 
 ## Stack tecnológico
 
-| Capa | Tecnología |
-|---|---|
-| Backend | Python 3.12 + FastAPI + SQLAlchemy |
-| Base de datos | SQLite (archivo local) |
+| Capa          | Tecnología                                                            |
+| ------------- | --------------------------------------------------------------------- |
+| Backend       | Python 3.12 + FastAPI + SQLAlchemy                                    |
+| Base de datos | SQLite (archivo local)                                                |
 | Autenticación | JWT (access token 15 min + refresh token 7 días como cookie httpOnly) |
-| Frontend | Next.js 16 + React 19 + Tailwind CSS 4 |
-| Contenedores | Docker + Docker Compose |
-| Deploy | Dokploy (auto-deploy desde `main` en GitHub) |
+| Frontend      | Next.js 16 + React 19 + Tailwind CSS 4                                |
+| Contenedores  | Docker + Docker Compose                                               |
+| Deploy        | Dokploy (auto-deploy desde `main` en GitHub)                          |
 
 ---
 
@@ -105,10 +105,10 @@ docker compose up --build
 
 Esto construye las imágenes y levanta backend y frontend. La primera vez tarda unos minutos.
 
-| Servicio | URL local |
-|---|---|
-| Frontend | http://localhost:3005 |
-| Backend (API) | http://localhost:8000 |
+| Servicio                    | URL local                  |
+| --------------------------- | -------------------------- |
+| Frontend                    | http://localhost:3005      |
+| Backend (API)               | http://localhost:8000      |
 | Docs interactivos (Swagger) | http://localhost:8000/docs |
 
 ### 4. Crear el usuario admin inicial
@@ -120,6 +120,7 @@ docker compose exec backend python seed.py
 ```
 
 Salida esperada:
+
 ```
 [seed] Admin creado — usuario: 'admin' | contraseña: 'admin1234'
 [seed] Cambiá la contraseña en producción.
@@ -207,6 +208,7 @@ El frontend queda en **http://localhost:3000**.
 ### Agregar nuevas dependencias
 
 **Backend:**
+
 ```bash
 # Con el venv activado
 pip install nombre-paquete
@@ -216,11 +218,13 @@ pip freeze > requirements.txt
 ```
 
 > **Importante en Windows**: `pip freeze >` puede guardar el archivo en UTF-16. Verificá que sea UTF-8 antes de commitear, o usá:
+>
 > ```powershell
 > pip freeze | Out-File -Encoding utf8 requirements.txt
 > ```
 
 **Frontend:**
+
 ```bash
 npm install nombre-paquete
 ```
@@ -283,6 +287,7 @@ El script es idempotente: si el usuario ya existe, no hace nada.
 Opción 1 — desde la interfaz: loguearse como admin → Usuarios → Editar.
 
 Opción 2 — variables de entorno antes de correr el seed:
+
 ```bash
 ADMIN_USERNAME=miusuario ADMIN_PASSWORD=mipassword python seed.py
 ```
@@ -293,8 +298,8 @@ ADMIN_USERNAME=miusuario ADMIN_PASSWORD=mipassword python seed.py
 
 ### Ramas
 
-| Rama | Propósito |
-|---|---|
+| Rama   | Propósito                                                |
+| ------ | -------------------------------------------------------- |
 | `main` | Producción. Todo push aquí dispara un deploy automático. |
 
 > El proyecto actualmente trabaja directo sobre `main`. Si el equipo crece, se recomienda usar ramas de feature y Pull Requests.
@@ -335,6 +340,7 @@ Tipos comunes:
 ```
 
 Ejemplos:
+
 ```
 feat: CRUD de ingredientes con validación
 fix: corregir cookie path del refresh token
@@ -374,6 +380,7 @@ python seed.py
 Configurarlas en Dokploy → tu aplicación → **Environment** (no en archivos `.env` en el repo).
 
 Variables recomendadas para el backend:
+
 ```
 SECRET_KEY=<clave larga y aleatoria>
 ADMIN_PASSWORD=<contraseña segura>
@@ -394,23 +401,23 @@ La documentación interactiva completa está en `http://localhost:8000/docs` (Sw
 
 ### Autenticación
 
-| Método | Endpoint | Descripción | Auth requerida |
-|---|---|---|---|
-| POST | `/auth/login` | Login con usuario y contraseña | No |
-| POST | `/auth/refresh` | Renovar access token (usa cookie) | No |
-| POST | `/auth/logout` | Cerrar sesión | No |
-| GET | `/auth/me` | Datos del usuario logueado | Sí |
+| Método | Endpoint        | Descripción                       | Auth requerida |
+| ------ | --------------- | --------------------------------- | -------------- |
+| POST   | `/auth/login`   | Login con usuario y contraseña    | No             |
+| POST   | `/auth/refresh` | Renovar access token (usa cookie) | No             |
+| POST   | `/auth/logout`  | Cerrar sesión                     | No             |
+| GET    | `/auth/me`      | Datos del usuario logueado        | Sí             |
 
 ### Usuarios
 
-| Método | Endpoint | Descripción | Rol requerido |
-|---|---|---|---|
-| GET | `/users` | Listar todos los usuarios | admin |
-| POST | `/users` | Crear usuario | admin |
-| GET | `/users/{id}` | Ver un usuario | admin |
-| PUT | `/users/{id}` | Editar usuario | admin |
-| PATCH | `/users/{id}/toggle-active` | Activar / desactivar | admin |
-| DELETE | `/users/{id}` | Eliminar permanentemente (solo inactivos) | admin |
+| Método | Endpoint                    | Descripción                               | Rol requerido |
+| ------ | --------------------------- | ----------------------------------------- | ------------- |
+| GET    | `/users`                    | Listar todos los usuarios                 | admin         |
+| POST   | `/users`                    | Crear usuario                             | admin         |
+| GET    | `/users/{id}`               | Ver un usuario                            | admin         |
+| PUT    | `/users/{id}`               | Editar usuario                            | admin         |
+| PATCH  | `/users/{id}/toggle-active` | Activar / desactivar                      | admin         |
+| DELETE | `/users/{id}`               | Eliminar permanentemente (solo inactivos) | admin         |
 
 ### Cómo autenticarse en Swagger
 

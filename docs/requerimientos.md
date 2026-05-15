@@ -1,4 +1,5 @@
-# Sistema de Gestión de Pedidos — Concejo Escolar de Azul
+# Sistema de Gestión de Pedidos — Consejo Escolar de Azul
+
 ## Documento de Requerimientos y Análisis
 
 ---
@@ -8,6 +9,7 @@
 Aplicación web para la gestión de pedidos de ingredientes del Servicio Alimentario Escolar (SAE) del partido de Azul. El sistema permite administrar recetas, menús estacionales, escuelas, proveedores e ingredientes, y genera automáticamente las órdenes de compra semanales por proveedor y un resumen interno global.
 
 **Stack tecnológico:**
+
 - Frontend: Next.js
 - Backend: FastAPI (Python)
 - Base de datos: SQLite con backups automáticos periódicos
@@ -17,28 +19,29 @@ Aplicación web para la gestión de pedidos de ingredientes del Servicio Aliment
 
 ## 2. Roles y Permisos
 
-| Funcionalidad | Administrador | Gestor | Escuela |
-|---|---|---|---|
-| Crear/editar/desactivar usuarios | ✅ | ❌ | ❌ |
-| CRUD Localidades | ✅ | ❌ | ❌ |
-| CRUD Ingredientes | ✅ | ❌ | ❌ |
-| CRUD Proveedores | ✅ | ❌ | ❌ |
-| Asignar proveedor a ingrediente por localidad | ✅ | ❌ | ❌ |
-| CRUD Recetas (con ingredientes) | ✅ | ❌ | ❌ |
-| CRUD Temporadas y opciones de menú | ✅ | ❌ | ❌ |
-| Asignar recetas a días del menú | ✅ | ❌ | ❌ |
-| CRUD Escuelas | ✅ | ✅ | ❌ |
-| Actualizar matrícula de escuelas | ✅ | ✅ | ❌ |
-| Generar órdenes de compra | ✅ | ✅ | ❌ |
-| Ver historial de pedidos generados (todos) | ✅ | ✅ | ❌ |
-| Cargar stock previo de su escuela | ❌ | ❌ | ✅ |
-| Ver pedidos generados de su escuela | ❌ | ❌ | ✅ |
+| Funcionalidad                                 | Administrador | Gestor | Escuela |
+| --------------------------------------------- | ------------- | ------ | ------- |
+| Crear/editar/desactivar usuarios              | ✅            | ❌     | ❌      |
+| CRUD Localidades                              | ✅            | ❌     | ❌      |
+| CRUD Ingredientes                             | ✅            | ❌     | ❌      |
+| CRUD Proveedores                              | ✅            | ❌     | ❌      |
+| Asignar proveedor a ingrediente por localidad | ✅            | ❌     | ❌      |
+| CRUD Recetas (con ingredientes)               | ✅            | ❌     | ❌      |
+| CRUD Temporadas y opciones de menú            | ✅            | ❌     | ❌      |
+| Asignar recetas a días del menú               | ✅            | ❌     | ❌      |
+| CRUD Escuelas                                 | ✅            | ✅     | ❌      |
+| Actualizar matrícula de escuelas              | ✅            | ✅     | ❌      |
+| Generar órdenes de compra                     | ✅            | ✅     | ❌      |
+| Ver historial de pedidos generados (todos)    | ✅            | ✅     | ❌      |
+| Cargar stock previo de su escuela             | ❌            | ❌     | ✅      |
+| Ver pedidos generados de su escuela           | ❌            | ❌     | ✅      |
 
 ---
 
 ## 3. Entidades y Modelo de Datos
 
 ### 3.1 Usuario
+
 ```
 Usuario
   - id
@@ -52,7 +55,9 @@ Usuario
 ```
 
 ### 3.2 Localidad
+
 Localidades del partido de Azul (Azul, Cacharí, Chillar, etc.)
+
 ```
 Localidad
   - id
@@ -60,6 +65,7 @@ Localidad
 ```
 
 ### 3.3 Escuela
+
 ```
 Escuela
   - id
@@ -76,6 +82,7 @@ Escuela
 **Regla**: La matrícula completa de la escuela recibe todas las comidas que esa escuela ofrece. No hay subdivisiones internas por tipo de comida.
 
 ### 3.4 Ingrediente
+
 ```
 Ingrediente
   - id
@@ -88,6 +95,7 @@ Ingrediente
 ```
 
 ### 3.5 Proveedor
+
 ```
 Proveedor
   - id
@@ -97,6 +105,7 @@ Proveedor
 ```
 
 ### 3.6 AsignacionProveedor
+
 Asocia un ingrediente a un proveedor para una localidad específica. Cambia cada ~2 meses con nuevas licitaciones. Se mantiene historial (no se sobreescribe).
 
 ```
@@ -113,6 +122,7 @@ AsignacionProveedor
 **Regla**: Para una combinación (ingrediente, localidad) solo puede haber UNA asignación activa (fecha_hasta = null) en un momento dado. Al crear una nueva, se cierra la anterior automáticamente.
 
 ### 3.7 Temporada
+
 ```
 Temporada
   - id
@@ -124,7 +134,9 @@ Temporada
 **Regla**: Solo puede haber una temporada activa a la vez. Al activar una nueva temporada, el sistema desactiva la anterior automáticamente. La temporada activa es la que aparece preseleccionada al generar un pedido.
 
 ### 3.8 OpcionMenu
+
 Cada temporada tiene 2 opciones de menú (semana A y semana B).
+
 ```
 OpcionMenu
   - id
@@ -134,6 +146,7 @@ OpcionMenu
 ```
 
 ### 3.9 Receta
+
 Una receta es una preparación para un tipo de comida específico. La cantidad de cada ingrediente es una sola porción estándar (equivalente al promedio de un alumno de primaria 9-11 años).
 
 ```
@@ -145,6 +158,7 @@ Receta
 ```
 
 ### 3.10 RecetaIngrediente
+
 ```
 RecetaIngrediente
   - id
@@ -154,6 +168,7 @@ RecetaIngrediente
 ```
 
 ### 3.11 DiaMenu
+
 Asignación de recetas a días dentro de una opción de menú. Cada combinación (opcion, dia, tipo_comida) es única.
 
 ```
@@ -168,10 +183,12 @@ DiaMenu
 **Constraint**: UNIQUE (opcion_menu_id, dia_semana, tipo_comida)
 
 ### 3.12 GeneracionPedido
+
 Registro histórico de cada orden de compra generada.
+
 ```
 GeneracionPedido
-  - id 
+  - id
   - semana_inicio: date  (lunes de la semana)
   - opcion_menu_id → OpcionMenu
   - dias_habiles: str  (JSON array, ej: [1,2,3,4] para Lun-Jue; [1,2,3,4,5] = semana completa)
@@ -184,7 +201,9 @@ GeneracionPedido
 **Regla**: El snapshot se guarda al confirmar el pedido y nunca se modifica. Contiene, por escuela y por ingrediente: cantidad calculada, stock descontado, cantidad final pedida, y precio unitario del proveedor asignado en esa fecha. Esto garantiza que re-descargar un pedido anterior siempre produce el mismo documento original.
 
 ### 3.13 StockPrevio
+
 Stock cargado por las escuelas (o manualmente por el gestor) antes de la generación del pedido semanal.
+
 ```
 StockPrevio
   - id
@@ -236,6 +255,7 @@ StockPrevio
 ## 5. Funcionalidades Principales
 
 ### 5.1 Autenticación
+
 - Login con email + contraseña
 - JWT access token (corta duración) + refresh token (larga duración, rotativo)
 - Logout invalida el refresh token
@@ -244,6 +264,7 @@ StockPrevio
 - Solo HTTPS en producción
 
 ### 5.2 Gestión de Usuarios (Admin)
+
 - Crear usuario con rol (Admin/Gestor/Escuela)
 - Para usuarios con rol Escuela, seleccionar la escuela asociada (1:1)
 - Editar nombre, email, rol
@@ -251,43 +272,51 @@ StockPrevio
 - Reset de contraseña por el administrador
 
 ### 5.3 CRUD Localidades (Admin)
+
 - Crear, editar, listar localidades del partido de Azul
 
 ### 5.4 CRUD Ingredientes (Admin)
+
 - Crear, editar, desactivar ingredientes
 - Definir nombre y unidad de medida
 - Si la unidad es "unidades": definir `contenido_por_unidad` y `unidad_contenido` (ej: 900 ml por botella)
 - Definir índice de corrección por desperdicios (opcional; default 1.0)
 
 ### 5.5 CRUD Proveedores (Admin)
+
 - Crear, editar, desactivar proveedores
 - Datos de contacto
 - Vista de asignaciones activas e historial por proveedor
 
 ### 5.6 Asignaciones Proveedor-Ingrediente-Localidad (Admin)
+
 - Listar asignaciones vigentes
 - Crear nueva asignación (cierra la anterior automáticamente)
 - Ver historial de cambios por ingrediente+localidad
 - Editar precio de asignación vigente
 
 ### 5.7 CRUD Recetas (Admin)
+
 - Crear receta con nombre y tipo de comida
 - Agregar/editar/eliminar ingredientes de la receta con sus cantidades
 - Ver listado de recetas por tipo de comida
 
 ### 5.8 Gestión de Temporadas y Menús (Admin)
+
 - Crear temporada (Verano/Invierno + año)
 - Para cada temporada, crear las 2 opciones de menú
 - Para cada opción, asignar una receta a cada combinación (día 1-5, comida: D/A/M)
 - Vista tipo grilla semanal (filas=días, columnas=comidas) para armar el menú
 
 ### 5.9 CRUD Escuelas (Admin + Gestor)
+
 - Crear escuela con código, nombre, localidad, matrícula y comidas que ofrece
 - Editar matrícula
 - Activar/desactivar escuela
 - Ver listado por localidad
 
 ### 5.10 Generación de Órdenes de Compra (Admin + Gestor)
+
 1. Seleccionar semana (fecha de inicio = lunes)
 2. Seleccionar opción de menú (temporada + opción 1 ó 2)
 3. **Seleccionar días hábiles**: 5 botones toggle (Lun/Mar/Mié/Jue/Vie), todos activados por defecto. El usuario desactiva los días sin clases (feriados, paros, etc.)
@@ -306,10 +335,12 @@ StockPrevio
 9. Ambos formatos disponibles en **PDF** y **Excel (.xlsx)**
 
 ### 5.11 Historial de Pedidos
+
 - Listado de pedidos generados (fecha, semana, menú usado, usuario)
 - Re-descarga de documentos de pedidos anteriores (snapshot al momento de generación)
 
 ### 5.12 Funcionalidades del usuario Escuela
+
 - **Cargar stock previo**: tabla con los ingredientes relevantes para su escuela (los que aparecen en el menú activo). El usuario ingresa las cantidades disponibles en cada ingrediente. Solo se muestran ingredientes de la temporada activa.
 - **Ver historial de pedidos**: listado de pedidos generados que incluyen a su escuela, con los documentos descargables correspondientes (solo las filas de su escuela).
 - No tiene acceso a datos de otras escuelas, proveedores, recetas, ni a la función de generación.
@@ -319,6 +350,7 @@ StockPrevio
 ## 6. Estructura de Documentos de Output
 
 ### Documento por Proveedor
+
 ```
 ORDEN DE COMPRA — SEMANA: [fecha inicio] al [fecha fin]
 Proveedor: [nombre] | Localidad: [localidad]
@@ -334,6 +366,7 @@ Costo estimado total: $XX.XXX
 ```
 
 ### Resumen Global Interno
+
 ```
 RESUMEN SEMANAL SAE — SEMANA: [fecha inicio] al [fecha fin]
 Menú: [Temporada] - Opción [N]
@@ -356,6 +389,7 @@ Cada fila del resumen global corresponde a una combinación (ingrediente, locali
 ## 7. Plan de Implementación por Fases
 
 ### Fase 1 — Infraestructura base
+
 - Setup del proyecto: Next.js + FastAPI + SQLite
 - Sistema de autenticación JWT completo
 - CRUD de usuarios con roles (Admin, Gestor, Escuela)
@@ -363,23 +397,27 @@ Cada fila del resumen global corresponde a una combinación (ingrediente, locali
 - Layout base del frontend con navegación por rol (cada rol ve su propia sección)
 
 ### Fase 2 — Datos maestros (Admin)
+
 - CRUD Localidades
 - CRUD Ingredientes
 - CRUD Proveedores
 - Gestión de asignaciones proveedor-ingrediente-localidad con historial
 
 ### Fase 3 — Recetas y Menús (Admin)
+
 - CRUD Recetas con ingredientes y cantidades
 - CRUD Temporadas
 - Gestión de opciones de menú (grilla semanal)
 
 ### Fase 4 — Escuelas (Admin + Gestor)
+
 - CRUD Escuelas
 - Actualización de matrícula
 - Gestión de StockPrevio (carga por usuario Escuela y edición por gestor)
 - Vista de historial de pedidos para usuario Escuela (filtrado a su propia escuela)
 
 ### Fase 5 — Generación de Pedidos
+
 - Motor de cálculo de cantidades con soporte de días hábiles, índice de corrección, redondeo por unidad y descuento de stock
 - UI con toggles de días y tabla de stock editable pre-completada con carga de escuelas
 - Agrupación por proveedor y localidad
@@ -388,6 +426,7 @@ Cada fila del resumen global corresponde a una combinación (ingrediente, locali
 - Historial de pedidos generados con snapshot completo
 
 ### Fase 6 — Backups y producción
+
 - Backup automático de SQLite (diario, con retención configurable)
 - Manejo de errores global y logging
 - Validaciones y mensajes de advertencia en UI
