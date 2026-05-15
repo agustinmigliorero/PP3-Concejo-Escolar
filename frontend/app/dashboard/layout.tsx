@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiGetMe, apiLogout, tryRefresh, type UserInfo } from "@/lib/api";
-import { getAccessToken, setAccessToken } from "@/lib/auth";
+import { getAccessToken } from "@/lib/auth";
+import { UserContext } from "./user-context";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -37,6 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   return (
+    <UserContext.Provider value={{ user }}>
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
@@ -76,5 +78,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Content */}
       <main className="flex-1 p-6">{children}</main>
     </div>
+    </UserContext.Provider>
   );
 }
