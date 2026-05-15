@@ -64,17 +64,6 @@ def update_user(
     return user
 
 
-def delete_user(db: Session, user_id: int) -> None:
-    user = get_user_by_id(db, user_id)
-    if user.active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solo se pueden eliminar usuarios inactivos",
-        )
-    db.delete(user)
-    db.commit()
-
-
 def toggle_active(db: Session, user_id: int) -> User:
     user = get_user_by_id(db, user_id)
     user.active = not user.active

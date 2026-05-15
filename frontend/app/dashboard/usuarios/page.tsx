@@ -6,9 +6,9 @@ import {
   apiCreateUser,
   apiUpdateUser,
   apiToggleUserActive,
-  apiDeleteUser,
   type UserRecord,
 } from "@/lib/api";
+import { useUser } from "@/app/dashboard/user-context";
 
 const ROLES = ["admin", "gestor", "escuela"] as const;
 const ROLE_LABEL: Record<string, string> = {
@@ -18,6 +18,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 type ModalMode = "create" | "edit";
+type Tab = "activos" | "inactivos";
 
 interface FormState {
   username: string;
@@ -28,13 +29,13 @@ interface FormState {
 const EMPTY_FORM: FormState = { username: "", password: "", role: "gestor" };
 
 export default function UsuariosPage() {
+  const { user: currentUser } = useUser();
+  const isAdmin = currentUser?.role === "admin";
+
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Confirm delete modal
-  const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [tab, setTab] = useState<Tab>("activos");
 
   // Create/edit modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -94,21 +95,6 @@ export default function UsuariosPage() {
     }
   }
 
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      await apiDeleteUser(deleteTarget.id);
-      setUsers((prev) => prev.filter((x) => x.id !== deleteTarget.id));
-      setDeleteTarget(null);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al eliminar usuario");
-      setDeleteTarget(null);
-    } finally {
-      setDeleting(false);
-    }
-  }
-
   async function handleToggle(u: UserRecord) {
     try {
       const updated = await apiToggleUserActive(u.id);
@@ -118,17 +104,23 @@ export default function UsuariosPage() {
     }
   }
 
+  const visibleUsers = users.filter((u) =>
+    tab === "activos" ? u.active : !u.active
+  );
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Usuarios</h1>
-        <button
-          onClick={openCreate}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          + Nuevo usuario
-        </button>
+        {isAdmin && (
+          <button
+            onClick={openCreate}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            + Nuevo usuario
+          </button>
+        )}
       </div>
 
       {error && (
@@ -136,6 +128,42 @@ export default function UsuariosPage() {
           {error}
         </p>
       )}
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-4 border-b border-gray-200">
+        <button
+          onClick={() => setTab("activos")}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            tab === "activos"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Activos
+          <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+            tab === "activos" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"
+          }`}>
+            {users.filter((u) => u.active).length}
+          </span>
+        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setTab("inactivos")}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === "inactivos"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Inactivos
+            <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+              tab === "inactivos" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"
+            }`}>
+              {users.filter((u) => !u.active).length}
+            </span>
+          </button>
+        )}
+      </div>
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -149,11 +177,13 @@ export default function UsuariosPage() {
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Usuario</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Rol</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
-                <th className="text-right px-5 py-3 font-medium text-gray-500">Acciones</th>
+                {isAdmin && (
+                  <th className="text-right px-5 py-3 font-medium text-gray-500">Acciones</th>
+                )}
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {visibleUsers.map((u) => (
                 <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-3 text-gray-400">{u.id}</td>
                   <td className="px-5 py-3 font-medium text-gray-800">{u.username}</td>
@@ -172,40 +202,34 @@ export default function UsuariosPage() {
                     <span className={`inline-block w-2 h-2 rounded-full mr-2 ${u.active ? "bg-green-500" : "bg-gray-300"}`} />
                     {u.active ? "Activo" : "Inactivo"}
                   </td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEdit(u)}
-                        className="text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleToggle(u)}
-                        className={`font-medium px-2 py-1 rounded transition-colors ${
-                          u.active
-                            ? "text-red-500 hover:text-red-700 hover:bg-red-50"
-                            : "text-green-600 hover:text-green-800 hover:bg-green-50"
-                        }`}
-                      >
-                        {u.active ? "Desactivar" : "Activar"}
-                      </button>
-                      {!u.active && (
+                  {isAdmin && (
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => setDeleteTarget(u)}
-                          className="font-medium px-2 py-1 rounded text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
+                          onClick={() => openEdit(u)}
+                          className="text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
                         >
-                          Eliminar
+                          Editar
                         </button>
-                      )}
-                    </div>
-                  </td>
+                        <button
+                          onClick={() => handleToggle(u)}
+                          className={`font-medium px-2 py-1 rounded transition-colors ${
+                            u.active
+                              ? "text-red-500 hover:text-red-700 hover:bg-red-50"
+                              : "text-green-600 hover:text-green-800 hover:bg-green-50"
+                          }`}
+                        >
+                          {u.active ? "Desactivar" : "Activar"}
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
-              {users.length === 0 && (
+              {visibleUsers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
-                    No hay usuarios registrados.
+                  <td colSpan={isAdmin ? 5 : 4} className="px-5 py-8 text-center text-gray-400">
+                    {tab === "activos" ? "No hay usuarios activos." : "No hay usuarios inactivos."}
                   </td>
                 </tr>
               )}
@@ -213,36 +237,6 @@ export default function UsuariosPage() {
           </table>
         )}
       </div>
-
-      {/* Confirm delete modal */}
-      {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-2">Eliminar usuario</h2>
-            <p className="text-sm text-gray-600 mb-1">
-              ¿Estás seguro de que querés eliminar permanentemente al usuario{" "}
-              <span className="font-semibold text-gray-800">{deleteTarget.username}</span>?
-            </p>
-            <p className="text-sm text-red-600 mb-6">Esta acción no se puede deshacer.</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleting}
-                className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium py-2 rounded-lg text-sm transition-colors"
-              >
-                {deleting ? "Eliminando..." : "Eliminar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Create/edit modal */}
       {modalOpen && (

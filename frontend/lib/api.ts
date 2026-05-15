@@ -135,10 +135,3 @@ export async function apiToggleUserActive(id: number): Promise<UserRecord> {
   return res.json();
 }
 
-export async function apiDeleteUser(id: number): Promise<void> {
-  const res = await apiFetch(`/users/${id}`, { method: "DELETE" });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? "Error al eliminar usuario");
-  }
-}

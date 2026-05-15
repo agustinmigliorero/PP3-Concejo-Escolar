@@ -7,7 +7,8 @@
       "Bash(git -C /c/Users/AGUSTIN/Documents/GitHub/PP3-Concejo-Escolar log --oneline)",
       "WebSearch",
       "Bash(git check-ignore *)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\agust\\\\OneDrive\\\\Documentos\\\\GitHub\\\\PP3-Concejo-Escolar\" -Force)"
     ]
   }
 }
