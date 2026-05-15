@@ -8,7 +8,9 @@
       "WebSearch",
       "Bash(git check-ignore *)",
       "Bash(echo \"exit: $?\")",
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\agust\\\\OneDrive\\\\Documentos\\\\GitHub\\\\PP3-Concejo-Escolar\" -Force)"
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\agust\\\\OneDrive\\\\Documentos\\\\GitHub\\\\PP3-Concejo-Escolar\" -Force)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('exports keys:', list\\(d.get\\('exports',{}\\).keys\\(\\)\\)[:20]\\); print\\('has ./package.json:', './package.json' in d.get\\('exports',{}\\)\\)\")",
+      "PowerShell($pkg = Get-Content \"frontend/node_modules/next/package.json\" | ConvertFrom-Json; $exports = $pkg.exports; if \\($exports\\) { $keys = $exports.PSObject.Properties.Name; Write-Host \"Exports keys \\(first 20\\):\"; $keys | Select-Object -First 20; Write-Host \"Has './package.json':\"; $keys -contains \"./package.json\" } else { Write-Host \"No exports field\" })"
     ]
   }
 }
