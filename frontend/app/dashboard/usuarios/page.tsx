@@ -6,6 +6,7 @@ import {
   apiCreateUser,
   apiUpdateUser,
   apiToggleUserActive,
+  apiDeleteUser,
   type UserRecord,
 } from "@/lib/api";
 
@@ -31,7 +32,11 @@ export default function UsuariosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Modal
+  // Confirm delete modal
+  const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Create/edit modal
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>("create");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -86,6 +91,21 @@ export default function UsuariosPage() {
       setFormError(e instanceof Error ? e.message : "Error al guardar");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await apiDeleteUser(deleteTarget.id);
+      setUsers((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error al eliminar usuario");
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -170,6 +190,14 @@ export default function UsuariosPage() {
                       >
                         {u.active ? "Desactivar" : "Activar"}
                       </button>
+                      {!u.active && (
+                        <button
+                          onClick={() => setDeleteTarget(u)}
+                          className="font-medium px-2 py-1 rounded text-red-600 hover:text-red-800 hover:bg-red-50 transition-colors"
+                        >
+                          Eliminar
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -186,7 +214,37 @@ export default function UsuariosPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Confirm delete modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-2">Eliminar usuario</h2>
+            <p className="text-sm text-gray-600 mb-1">
+              ¿Estás seguro de que querés eliminar permanentemente al usuario{" "}
+              <span className="font-semibold text-gray-800">{deleteTarget.username}</span>?
+            </p>
+            <p className="text-sm text-red-600 mb-6">Esta acción no se puede deshacer.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium py-2 rounded-lg text-sm transition-colors"
+              >
+                {deleting ? "Eliminando..." : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create/edit modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">

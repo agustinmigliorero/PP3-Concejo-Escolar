@@ -40,6 +40,11 @@ def update_user(
     )
 
 
+@router.delete("/{user_id}", status_code=204)
+def delete_user(user_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
+    user_service.delete_user(db, user_id)
+
+
 @router.patch("/{user_id}/toggle-active", response_model=UserResponse)
 def toggle_active(user_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
     return user_service.toggle_active(db, user_id)
