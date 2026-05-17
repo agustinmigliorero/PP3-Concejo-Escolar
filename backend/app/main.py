@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.database import Base, engine
+from app.config.settings import settings
 from app.routes import auth_routes, localidad_routes, user_routes
 
 # Register models so SQLAlchemy creates their tables
@@ -12,13 +13,7 @@ import app.models.user_model  # noqa: F401
 
 app = FastAPI(title="Concejo Escolar API")
 
-origins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3005",
-    "http://92.113.39.212:3005",
-    "http://92.113.39.212:3001",
-]
+origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
