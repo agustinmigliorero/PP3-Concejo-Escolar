@@ -287,9 +287,16 @@ backend:
     - CORS_ORIGINS=http://TU_IP:3005,http://TU_IP:3001
 
 frontend:
-  environment:
-    - NEXT_PUBLIC_API_URL=http://TU_IP:8000
+  build:
+    context: ./frontend
+    args:
+      - NEXT_PUBLIC_API_URL=http://TU_IP:8000
 ```
+
+> **¿Por qué `args` y no `environment` en el frontend?**
+> `NEXT_PUBLIC_API_URL` se embebe en el bundle de Next.js durante el `npm run build`.
+> Las variables en `environment` llegan en runtime (cuando el contenedor ya arrancó), demasiado tarde.
+> Pasarla como build arg garantiza que esté disponible al momento de compilar.
 
 ---
 
@@ -408,7 +415,7 @@ python seed.py
 
 Configurarlas en Dokploy → tu aplicación → **Environment** (no en archivos `.env` en el repo).
 
-Variables recomendadas para el backend:
+Variables recomendadas para el **backend** (van en Environment de Dokploy):
 
 ```
 SECRET_KEY=<clave larga y aleatoria>
@@ -417,11 +424,7 @@ DATABASE_URL=sqlite:////app/data/concejo_escolar.db
 CORS_ORIGINS=http://<TU_IP>:3005,http://<TU_IP>:3001
 ```
 
-Y para el frontend:
-
-```
-NEXT_PUBLIC_API_URL=http://<TU_IP>:8000
-```
+`NEXT_PUBLIC_API_URL` del frontend **no va en Environment** — se embebe en el build. Tiene que estar en el `docker-compose.yml` bajo `build.args` antes de que Dokploy construya la imagen.
 
 ### ⚠️ Cosas a tener en cuenta
 

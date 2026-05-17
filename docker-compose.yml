@@ -10,13 +10,14 @@ services:
       - CORS_ORIGINS=http://92.113.39.212:3005,http://92.113.39.212:3001
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - NEXT_PUBLIC_API_URL=http://92.113.39.212:8000
     ports:
       - "3005:3001"
     depends_on:
       - backend
-    environment:
-      - NEXT_PUBLIC_API_URL=http://92.113.39.212:8000
 
 volumes:
   sqlite_data:
