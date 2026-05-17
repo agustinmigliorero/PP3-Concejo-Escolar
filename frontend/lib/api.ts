@@ -1,7 +1,7 @@
 import { clearAccessToken, getAccessToken, setAccessToken } from "./auth";
 
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://92.113.39.212:8000";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export interface UserInfo {
   id: number;
@@ -13,12 +13,16 @@ export interface UserInfo {
 // Wraps fetch: attaches Bearer token, retries once after a transparent refresh.
 export async function apiFetch(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<Response> {
   const doRequest = (token: string | null) => {
     const headers = new Headers(options.headers);
     if (token) headers.set("Authorization", `Bearer ${token}`);
-    return fetch(`${API_URL}${path}`, { ...options, headers, credentials: "include" });
+    return fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
   };
 
   let res = await doRequest(getAccessToken());
@@ -50,7 +54,7 @@ export async function tryRefresh(): Promise<boolean> {
 
 export async function apiLogin(
   username: string,
-  password: string
+  password: string,
 ): Promise<{ access_token: string; user: UserInfo }> {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
@@ -115,7 +119,12 @@ export async function apiCreateUser(data: {
 
 export async function apiUpdateUser(
   id: number,
-  data: { username?: string; password?: string; role?: string; school_id?: number | null }
+  data: {
+    username?: string;
+    password?: string;
+    role?: string;
+    school_id?: number | null;
+  },
 ): Promise<UserRecord> {
   const res = await apiFetch(`/users/${id}`, {
     method: "PUT",
@@ -135,3 +144,57 @@ export async function apiToggleUserActive(id: number): Promise<UserRecord> {
   return res.json();
 }
 
+// ── Localidades CRUD (admin write, admin+gestor read) ────────────────────────
+
+export interface LocalidadRecord {
+  id: number;
+  nombre: string;
+  activo: boolean;
+}
+
+export async function apiGetLocalidades(): Promise<LocalidadRecord[]> {
+  const res = await apiFetch("/localidades");
+  if (!res.ok) throw new Error("Error al obtener localidades");
+  return res.json();
+}
+
+export async function apiCreateLocalidad(
+  nombre: string,
+): Promise<LocalidadRecord> {
+  const res = await apiFetch("/localidades", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nombre }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Error al crear localidad");
+  }
+  return res.json();
+}
+
+export async function apiUpdateLocalidad(
+  id: number,
+  nombre: string,
+): Promise<LocalidadRecord> {
+  const res = await apiFetch(`/localidades/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nombre }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Error al actualizar localidad");
+  }
+  return res.json();
+}
+
+export async function apiToggleLocalidadActive(
+  id: number,
+): Promise<LocalidadRecord> {
+  const res = await apiFetch(`/localidades/${id}/toggle-active`, {
+    method: "PATCH",
+  });
+  if (!res.ok) throw new Error("Error al cambiar estado de la localidad");
+  return res.json();
+}
