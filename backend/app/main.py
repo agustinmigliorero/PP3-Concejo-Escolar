@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import OperationalError
 
 from app.config.database import Base, engine
-from app.routes import auth_routes, localidad_routes, user_routes
+from app.routes import auth_routes, localidad_routes, school_routes, user_routes
 
 # Register models so SQLAlchemy creates their tables
 import app.models.location_model  # noqa: F401
@@ -31,12 +32,16 @@ app.add_middleware(
 
 @app.on_event("startup")
 def create_tables() -> None:
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except OperationalError:
+        pass
 
 
 app.include_router(auth_routes.router)
 app.include_router(user_routes.router)
 app.include_router(localidad_routes.router)
+app.include_router(school_routes.router)
 
 
 @app.get("/")

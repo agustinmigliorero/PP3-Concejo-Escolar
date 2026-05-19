@@ -13,6 +13,7 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.config.database import Base, SessionLocal, engine
+import app.models.location_model  # noqa: F401
 import app.models.school_model  # noqa: F401
 import app.models.user_model  # noqa: F401
 import app.models.refresh_token_model  # noqa: F401
