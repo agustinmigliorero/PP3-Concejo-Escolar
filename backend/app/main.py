@@ -3,9 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.database import Base, engine
 from app.config.settings import settings
-from app.routes import auth_routes, localidad_routes, user_routes
+from app.routes import auth_routes, ingrediente_routes, localidad_routes, user_routes
 
 # Register models so SQLAlchemy creates their tables
+import app.models.ingrediente_model  # noqa: F401
 import app.models.location_model  # noqa: F401
 import app.models.refresh_token_model  # noqa: F401
 import app.models.school_model  # noqa: F401
@@ -32,6 +33,7 @@ def create_tables() -> None:
 app.include_router(auth_routes.router)
 app.include_router(user_routes.router)
 app.include_router(localidad_routes.router)
+app.include_router(ingrediente_routes.router)
 
 
 @app.get("/")

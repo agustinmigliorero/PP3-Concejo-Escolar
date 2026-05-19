@@ -198,3 +198,75 @@ export async function apiToggleLocalidadActive(
   if (!res.ok) throw new Error("Error al cambiar estado de la localidad");
   return res.json();
 }
+
+// ── Ingredientes CRUD (admin write, admin+gestor read) ───────────────────────
+
+export interface IngredienteRecord {
+  id: number;
+  nombre: string;
+  unidad_medida: string;
+  contenido_por_unidad: number | null;
+  unidad_contenido: string | null;
+  indice_correccion: number;
+  activo: boolean;
+}
+
+export async function apiGetIngredientes(
+  includeInactive = false,
+): Promise<IngredienteRecord[]> {
+  const query = includeInactive ? "?include_inactive=true" : "";
+  const res = await apiFetch(`/ingredientes${query}`);
+  if (!res.ok) throw new Error("Error al obtener ingredientes");
+  return res.json();
+}
+
+export async function apiCreateIngrediente(data: {
+  nombre: string;
+  unidad_medida: string;
+  contenido_por_unidad?: number | null;
+  unidad_contenido?: string | null;
+  indice_correccion?: number;
+}): Promise<IngredienteRecord> {
+  const res = await apiFetch("/ingredientes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Error al crear ingrediente");
+  }
+  return res.json();
+}
+
+export async function apiUpdateIngrediente(
+  id: number,
+  data: {
+    nombre: string;
+    unidad_medida: string;
+    contenido_por_unidad?: number | null;
+    unidad_contenido?: string | null;
+    indice_correccion?: number;
+  },
+): Promise<IngredienteRecord> {
+  const res = await apiFetch(`/ingredientes/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Error al actualizar ingrediente");
+  }
+  return res.json();
+}
+
+export async function apiToggleIngredienteActive(
+  id: number,
+): Promise<IngredienteRecord> {
+  const res = await apiFetch(`/ingredientes/${id}/toggle-active`, {
+    method: "PATCH",
+  });
+  if (!res.ok) throw new Error("Error al cambiar estado del ingrediente");
+  return res.json();
+}
