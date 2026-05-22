@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./concejo_escolar.db"
     admin_username: str = "admin"
     admin_password: str = "admin1234"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:3005"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

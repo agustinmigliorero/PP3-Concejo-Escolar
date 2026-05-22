@@ -45,10 +45,11 @@ export default function DashboardLayout({
       ? [{ href: "/dashboard/usuarios", label: "Usuarios" }]
       : []),
     ...(user?.role === "admin" || user?.role === "gestor"
-      ? [{ href: "/dashboard/localidades", label: "Localidades" },]
-      : []),
-    ...(user?.role === "admin" || user?.role === "gestor"
-      ? [{ href: "/dashboard/escuelas", label: "Escuelas" }]
+      ? [
+          { href: "/dashboard/localidades", label: "Localidades" },
+          { href: "/dashboard/ingredientes", label: "Ingredientes" },
+          { href: "/dashboard/escuelas", label: "Escuelas" },
+        ]
       : []),
   ];
 

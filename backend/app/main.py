@@ -3,9 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import OperationalError
 
 from app.config.database import Base, engine
-from app.routes import auth_routes, localidad_routes, school_routes, user_routes
+from app.routes import auth_routes, ingrediente_routes, localidad_routes, user_routes, school_routes
 
 # Register models so SQLAlchemy creates their tables
+import app.models.ingrediente_model  # noqa: F401
 import app.models.location_model  # noqa: F401
 import app.models.refresh_token_model  # noqa: F401
 import app.models.school_model  # noqa: F401
@@ -13,13 +14,7 @@ import app.models.user_model  # noqa: F401
 
 app = FastAPI(title="Concejo Escolar API")
 
-origins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3005",
-    "http://92.113.39.212:3005",
-    "http://92.113.39.212:3001",
-]
+origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,6 +37,7 @@ app.include_router(auth_routes.router)
 app.include_router(user_routes.router)
 app.include_router(localidad_routes.router)
 app.include_router(school_routes.router)
+app.include_router(ingrediente_routes.router)
 
 
 @app.get("/")

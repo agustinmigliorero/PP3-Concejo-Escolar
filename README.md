@@ -89,13 +89,14 @@ git clone https://github.com/agustinmigliorero/PP3-Concejo-Escolar.git
 cd PP3-Concejo-Escolar
 ```
 
-### 2. Crear el archivo de variables de entorno del backend
+### 2. Crear los archivos de variables de entorno
 
 ```bash
 cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
 ```
 
-> Si no existe `.env.example`, creá `backend/.env` con el contenido de la sección [Variables de entorno](#variables-de-entorno).
+Editá los valores según tu entorno. Ver la sección [Variables de entorno](#variables-de-entorno) para el detalle de cada variable.
 
 ### 3. Levantar los contenedores
 
@@ -173,8 +174,13 @@ pip install -r requirements.txt
 cp .env.example .env   # o crearlo manualmente
 
 # Levantar el servidor en modo desarrollo (con hot reload)
-fastapi dev app/main.py
+uvicorn app.main:app --reload
 ```
+
+> **¿Por qué `uvicorn` y no `fastapi dev`?**
+> `fastapi dev app/main.py` agrega la carpeta `app/` al `sys.path` en lugar de `backend/`,
+> por lo que los imports del estilo `from app.config.X import ...` fallan con `No module named 'app'`.
+> `uvicorn` toma el directorio actual (`backend/`) como raíz, resolviendo los imports correctamente.
 
 El backend queda en **http://localhost:8000**.
 
@@ -195,7 +201,7 @@ cd frontend
 npm install
 
 # Crear archivo de entorno
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+cp .env.example .env.local
 
 # Levantar el servidor en modo desarrollo
 npm run dev
@@ -233,34 +239,64 @@ npm install nombre-paquete
 
 ## Variables de entorno
 
-### Backend (`backend/.env`)
+Cada parte del proyecto tiene un `.env.example` con todas las variables documentadas. Copiálo y editá los valores:
 
-```env
-# Clave secreta para firmar los JWT (generá una en producción)
-SECRET_KEY=cambia_esto_por_una_clave_segura
-
-# Duración de los tokens (opcional, ya tienen defaults)
-ACCESS_TOKEN_EXPIRE_MINUTES=15
-REFRESH_TOKEN_EXPIRE_DAYS=7
-
-# URL de la base de datos SQLite
-DATABASE_URL=sqlite:///./concejo_escolar.db
-
-# Usuario admin para el seed (opcional)
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=admin1234
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
 ```
 
-> En producción, `DATABASE_URL` apunta a `/app/data/concejo_escolar.db` (volumen Docker persistente). Ver `docker-compose.yml`.
+Estos archivos están en `.gitignore` y **nunca se commitean**.
+
+### Backend (`backend/.env`)
+
+| Variable | Descripción | Default |
+|---|---|---|
+| `SECRET_KEY` | Clave para firmar JWT. **Cambiala en producción.** | *(valor inseguro)* |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Vida útil del access token | `15` |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Vida útil del refresh token | `7` |
+| `DATABASE_URL` | URL de conexión SQLAlchemy | `sqlite:///./concejo_escolar.db` |
+| `ADMIN_USERNAME` | Usuario admin del seed inicial | `admin` |
+| `ADMIN_PASSWORD` | Contraseña admin del seed inicial | `admin1234` |
+| `CORS_ORIGINS` | Orígenes CORS permitidos (separados por coma) | `http://localhost:3000,...` |
+
+> Para generar una `SECRET_KEY` segura:
+> ```bash
+> python -c "import secrets; print(secrets.token_urlsafe(32))"
+> ```
+
+> En producción, `DATABASE_URL` apunta a `sqlite:////app/data/concejo_escolar.db` (volumen Docker persistente).
 
 ### Frontend (`frontend/.env.local`)
 
-```env
-# URL del backend accesible desde el navegador del usuario
-NEXT_PUBLIC_API_URL=http://localhost:8000
+| Variable | Descripción | Default |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | URL pública del backend | `http://localhost:8000` |
+
+> **Importante (Next.js):** `NEXT_PUBLIC_API_URL` se embebe en el bundle durante el `build`. Si cambiás la URL en producción, necesitás rebuildar la imagen Docker del frontend.
+
+### Producción con Docker Compose
+
+En producción las variables se pasan directamente en `docker-compose.yml`, sin necesidad de archivos `.env` en el servidor:
+
+```yaml
+backend:
+  environment:
+    - DATABASE_URL=sqlite:////app/data/concejo_escolar.db
+    - SECRET_KEY=tu_clave_segura
+    - CORS_ORIGINS=http://TU_IP:3005,http://TU_IP:3001
+
+frontend:
+  build:
+    context: ./frontend
+    args:
+      - NEXT_PUBLIC_API_URL=http://TU_IP:8000
 ```
 
-> En producción esta variable no es necesaria porque el valor por defecto en `lib/api.ts` ya apunta al servidor correcto.
+> **¿Por qué `args` y no `environment` en el frontend?**
+> `NEXT_PUBLIC_API_URL` se embebe en el bundle de Next.js durante el `npm run build`.
+> Las variables en `environment` llegan en runtime (cuando el contenedor ya arrancó), demasiado tarde.
+> Pasarla como build arg garantiza que esté disponible al momento de compilar.
 
 ---
 
@@ -379,13 +415,16 @@ python seed.py
 
 Configurarlas en Dokploy → tu aplicación → **Environment** (no en archivos `.env` en el repo).
 
-Variables recomendadas para el backend:
+Variables recomendadas para el **backend** (van en Environment de Dokploy):
 
 ```
 SECRET_KEY=<clave larga y aleatoria>
 ADMIN_PASSWORD=<contraseña segura>
 DATABASE_URL=sqlite:////app/data/concejo_escolar.db
+CORS_ORIGINS=http://<TU_IP>:3005,http://<TU_IP>:3001
 ```
+
+`NEXT_PUBLIC_API_URL` del frontend **no va en Environment** — se embebe en el build. Tiene que estar en el `docker-compose.yml` bajo `build.args` antes de que Dokploy construya la imagen.
 
 ### ⚠️ Cosas a tener en cuenta
 
