@@ -48,6 +48,7 @@ export default function DashboardLayout({
       ? [
           { href: "/dashboard/localidades", label: "Localidades" },
           { href: "/dashboard/ingredientes", label: "Ingredientes" },
+          { href: "/dashboard/escuelas", label: "Escuelas" },
         ]
       : []),
   ];

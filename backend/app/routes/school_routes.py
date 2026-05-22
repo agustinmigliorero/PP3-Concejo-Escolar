@@ -1,0 +1,80 @@
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
+from app.config.database import get_db
+from app.controllers.school_controller import (
+    CreateSchoolRequest,
+    UpdateSchoolRequest,
+)
+from app.middlewares.auth_middleware import require_gestor_or_admin
+from app.services import school_service
+
+router = APIRouter(prefix="/schools", tags=["schools"])
+
+
+@router.get("")
+def list_schools(
+    locality_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    _=Depends(require_gestor_or_admin),
+):
+    return school_service.get_all_schools(db, locality_id)
+
+
+@router.get("/{school_id}")
+def get_school(
+    school_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_gestor_or_admin),
+):
+    return school_service.get_school_by_id(db, school_id)
+
+
+@router.post("", status_code=201)
+def create_school(
+    body: CreateSchoolRequest,
+    db: Session = Depends(get_db),
+    _=Depends(require_gestor_or_admin),
+):
+    return school_service.create_school(
+        db,
+        name=body.name,
+        code=body.code,
+        locality_id=body.locality_id,
+        matriculation=body.matriculation,
+        offers_breakfast=body.offers_breakfast,
+        offers_lunch=body.offers_lunch,
+        offers_snack=body.offers_snack,
+    )
+
+
+@router.put("/{school_id}")
+def update_school(
+    school_id: int,
+    body: UpdateSchoolRequest,
+    db: Session = Depends(get_db),
+    _=Depends(require_gestor_or_admin),
+):
+    return school_service.update_school(
+        db,
+        school_id=school_id,
+        name=body.name,
+        code=body.code,
+        locality_id=body.locality_id,
+        matriculation=body.matriculation,
+        offers_breakfast=body.offers_breakfast,
+        offers_lunch=body.offers_lunch,
+        offers_snack=body.offers_snack,
+        active=body.active,
+    )
+
+
+@router.patch("/{school_id}/toggle-active")
+def toggle_active(
+    school_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_gestor_or_admin),
+):
+    return school_service.toggle_active(db, school_id)
