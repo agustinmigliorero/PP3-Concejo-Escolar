@@ -247,6 +247,52 @@ export async function apiCreateSchool(data: {
   offers_snack?: boolean;
 }): Promise<SchoolRecord> {
   const res = await apiFetch("/schools", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Error al crear escuela");
+  }
+  return res.json();
+}
+
+export async function apiUpdateSchool(
+  id: number,
+  data: {
+    name?: string;
+    code?: string;
+    locality_id?: number;
+    matriculation?: number;
+    offers_breakfast?: boolean;
+    offers_lunch?: boolean;
+    offers_snack?: boolean;
+    active?: boolean;
+  },
+): Promise<SchoolRecord> {
+  const res = await apiFetch(`/schools/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Error al actualizar escuela");
+  }
+  return res.json();
+}
+
+export async function apiToggleSchoolActive(
+  id: number,
+): Promise<SchoolRecord> {
+  const res = await apiFetch(`/schools/${id}/toggle-active`, {
+    method: "PATCH",
+  });
+  if (!res.ok) throw new Error("Error al cambiar estado de la escuela");
+  return res.json();
+}
+
 // ── Ingredientes CRUD (admin write, admin+gestor read) ───────────────────────
 
 export interface IngredienteRecord {
@@ -282,26 +328,11 @@ export async function apiCreateIngrediente(data: {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? "Error al crear escuela");
     throw new Error(err.detail ?? "Error al crear ingrediente");
   }
   return res.json();
 }
 
-export async function apiUpdateSchool(
-  id: number,
-  data: {
-    name?: string;
-    code?: string;
-    locality_id?: number;
-    matriculation?: number;
-    offers_breakfast?: boolean;
-    offers_lunch?: boolean;
-    offers_snack?: boolean;
-    active?: boolean;
-  },
-): Promise<SchoolRecord> {
-  const res = await apiFetch(`/schools/${id}`, {
 export async function apiUpdateIngrediente(
   id: number,
   data: {
@@ -319,19 +350,11 @@ export async function apiUpdateIngrediente(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? "Error al actualizar escuela");
     throw new Error(err.detail ?? "Error al actualizar ingrediente");
   }
   return res.json();
 }
 
-export async function apiToggleSchoolActive(
-  id: number,
-): Promise<SchoolRecord> {
-  const res = await apiFetch(`/schools/${id}/toggle-active`, {
-    method: "PATCH",
-  });
-  if (!res.ok) throw new Error("Error al cambiar estado de la escuela");
 export async function apiToggleIngredienteActive(
   id: number,
 ): Promise<IngredienteRecord> {
