@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import OperationalError
 
 from app.config.database import Base, engine
+from app.config.settings import settings
 from app.routes import auth_routes, ingrediente_routes, localidad_routes, user_routes, school_routes
 
 # Register models so SQLAlchemy creates their tables
