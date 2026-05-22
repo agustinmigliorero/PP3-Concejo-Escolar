@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.exc import OperationalError
 
 from app.config.database import Base, engine
 from app.config.settings import settings
@@ -26,12 +25,36 @@ app.add_middleware(
 )
 
 
+def _migrate_sqlite(conn) -> None:
+    """Add any columns present in the ORM models but missing from existing tables."""
+    for table in Base.metadata.sorted_tables:
+        rows = conn.execute(
+            __import__("sqlalchemy").text(f"PRAGMA table_info({table.name})")
+        ).fetchall()
+        if not rows:
+            continue
+        existing = {row[1] for row in rows}
+        for col in table.columns:
+            if col.name not in existing:
+                col_type = col.type.compile(engine.dialect)
+                nullable = "" if col.nullable else " NOT NULL"
+                default = ""
+                if col.default is not None and col.default.is_scalar:
+                    val = col.default.arg
+                    default = f" DEFAULT {int(val) if isinstance(val, bool) else repr(val)}"
+                conn.execute(
+                    __import__("sqlalchemy").text(
+                        f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col_type}{nullable}{default}"
+                    )
+                )
+
+
 @app.on_event("startup")
 def create_tables() -> None:
-    try:
+    with engine.connect() as conn:
         Base.metadata.create_all(bind=engine)
-    except OperationalError:
-        pass
+        _migrate_sqlite(conn)
+        conn.commit()
 
 
 app.include_router(auth_routes.router)
