@@ -7,6 +7,8 @@ class CreateSchoolRequest(BaseModel):
     name: str
     code: str
     locality_id: int
+    address: str
+    phone: str
     matriculation: int = 0
     offers_breakfast: bool = False
     offers_lunch: bool = False
@@ -35,11 +37,29 @@ class CreateSchoolRequest(BaseModel):
             raise ValueError("La matrícula no puede ser negativa")
         return v
 
+    @field_validator("address")
+    @classmethod
+    def address_valid(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError("La dirección debe tener al menos 3 caracteres")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def phone_valid(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 6:
+            raise ValueError("El teléfono debe tener al menos 6 caracteres")
+        return v
+
 
 class UpdateSchoolRequest(BaseModel):
     name: Optional[str] = None
     code: Optional[str] = None
     locality_id: Optional[int] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
     matriculation: Optional[int] = None
     offers_breakfast: Optional[bool] = None
     offers_lunch: Optional[bool] = None
@@ -71,6 +91,24 @@ class UpdateSchoolRequest(BaseModel):
             raise ValueError("La matrícula no puede ser negativa")
         return v
 
+    @field_validator("address")
+    @classmethod
+    def address_valid(cls, v: str | None) -> str | None:
+        if v is not None:
+            v = v.strip()
+            if len(v) < 3:
+                raise ValueError("La dirección debe tener al menos 3 caracteres")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def phone_valid(cls, v: str | None) -> str | None:
+        if v is not None:
+            v = v.strip()
+            if len(v) < 6:
+                raise ValueError("El teléfono debe tener al menos 6 caracteres")
+        return v
+
 
 class SchoolResponse(BaseModel):
     id: int
@@ -78,6 +116,8 @@ class SchoolResponse(BaseModel):
     code: str
     locality_id: int
     locality_name: str = ""
+    address: str
+    phone: str
     matriculation: int
     offers_breakfast: bool
     offers_lunch: bool

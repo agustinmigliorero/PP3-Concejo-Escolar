@@ -26,6 +26,8 @@ interface FormState {
   name: string;
   code: string;
   locality_id: number | null;
+  address: string;
+  phone: string;
   matriculation: number;
   offers_breakfast: boolean;
   offers_lunch: boolean;
@@ -36,6 +38,8 @@ const EMPTY_FORM: FormState = {
   name: "",
   code: "",
   locality_id: null,
+  address: "",
+  phone: "",
   matriculation: 0,
   offers_breakfast: false,
   offers_lunch: false,
@@ -97,6 +101,8 @@ export default function EscuelasPage() {
       name: s.name,
       code: s.code,
       locality_id: s.locality_id,
+      address: s.address,
+      phone: s.phone,
       matriculation: s.matriculation,
       offers_breakfast: s.offers_breakfast,
       offers_lunch: s.offers_lunch,
@@ -122,6 +128,14 @@ export default function EscuelasPage() {
       setFormError("Debe seleccionar una localidad");
       return;
     }
+    if (!form.address.trim()) {
+      setFormError("La dirección es obligatoria");
+      return;
+    }
+    if (!form.phone.trim()) {
+      setFormError("El teléfono es obligatorio");
+      return;
+    }
     setSaving(true);
     try {
       if (modalMode === "create") {
@@ -129,6 +143,8 @@ export default function EscuelasPage() {
           name: form.name,
           code: form.code,
           locality_id: form.locality_id,
+          address: form.address,
+          phone: form.phone,
           matriculation: form.matriculation,
           offers_breakfast: form.offers_breakfast,
           offers_lunch: form.offers_lunch,
@@ -139,6 +155,8 @@ export default function EscuelasPage() {
           name: form.name,
           code: form.code,
           locality_id: form.locality_id,
+          address: form.address,
+          phone: form.phone,
           matriculation: form.matriculation,
           offers_breakfast: form.offers_breakfast,
           offers_lunch: form.offers_lunch,
@@ -395,6 +413,37 @@ export default function EscuelasPage() {
                       </option>
                     ))}
                 </select>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Dirección
+                  </label>
+                  <input
+                    type="text"
+                    value={form.address}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, address: e.target.value }))
+                    }
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: Av. San Martín 123"
+                  />
+                </div>
+                <div className="w-44">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Teléfono
+                  </label>
+                  <input
+                    type="text"
+                    value={form.phone}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, phone: e.target.value }))
+                    }
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: 2284-123456"
+                  />
+                </div>
               </div>
 
               <div>
