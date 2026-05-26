@@ -12,6 +12,8 @@ class School(Base):
     name = Column(String(200), nullable=False)
     code = Column(String(50), unique=True, nullable=False)
     locality_id = Column(Integer, ForeignKey("localidades.id"), nullable=False)
+    address = Column(String(65), nullable=False)
+    phone = Column(String(45), nullable=False)
     matriculation = Column(Integer, nullable=False, default=0)
     offers_breakfast = Column(Boolean, default=False)
     offers_lunch = Column(Boolean, default=False)

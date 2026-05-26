@@ -14,6 +14,8 @@ def _school_to_response(school: School) -> dict:
         "code": school.code,
         "locality_id": school.locality_id,
         "locality_name": school.locality.nombre if school.locality else "",
+        "address": school.address,
+        "phone": school.phone,
         "matriculation": school.matriculation,
         "offers_breakfast": school.offers_breakfast,
         "offers_lunch": school.offers_lunch,
@@ -55,6 +57,8 @@ def create_school(
     name: str,
     code: str,
     locality_id: int,
+    address: str,
+    phone: str,
     matriculation: int = 0,
     offers_breakfast: bool = False,
     offers_lunch: bool = False,
@@ -72,6 +76,8 @@ def create_school(
         name=name,
         code=code,
         locality_id=locality_id,
+        address=address,
+        phone=phone,
         matriculation=matriculation,
         offers_breakfast=offers_breakfast,
         offers_lunch=offers_lunch,
@@ -89,6 +95,8 @@ def update_school(
     name: Optional[str] = None,
     code: Optional[str] = None,
     locality_id: Optional[int] = None,
+    address: Optional[str] = None,
+    phone: Optional[str] = None,
     matriculation: Optional[int] = None,
     offers_breakfast: Optional[bool] = None,
     offers_lunch: Optional[bool] = None,
@@ -119,6 +127,10 @@ def update_school(
         school.code = code
     if locality_id is not None:
         school.locality_id = locality_id
+    if address is not None:
+        school.address = address
+    if phone is not None:
+        school.phone = phone
     if matriculation is not None:
         school.matriculation = matriculation
     if offers_breakfast is not None:

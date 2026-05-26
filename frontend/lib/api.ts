@@ -215,6 +215,8 @@ export interface SchoolRecord {
   code: string;
   locality_id: number;
   locality_name: string;
+  address: string;
+  phone: string;
   matriculation: number;
   offers_breakfast: boolean;
   offers_lunch: boolean;
@@ -241,6 +243,8 @@ export async function apiCreateSchool(data: {
   name: string;
   code: string;
   locality_id: number;
+  address: string;
+  phone: string;
   matriculation?: number;
   offers_breakfast?: boolean;
   offers_lunch?: boolean;
@@ -264,6 +268,8 @@ export async function apiUpdateSchool(
     name?: string;
     code?: string;
     locality_id?: number;
+    address?: string;
+    phone?: string;
     matriculation?: number;
     offers_breakfast?: boolean;
     offers_lunch?: boolean;
