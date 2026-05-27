@@ -5,7 +5,13 @@ services:
       - "8000:8000"
     volumes:
       - sqlite_data:/app/data
+    env_file:
+      # Opcional: solo se usa en dev local. En Dokploy las env vars
+      # (SECRET_KEY, etc.) se inyectan directamente al contenedor.
+      - path: ./backend/.env
+        required: false
     environment:
+      # Estas sobrescriben a las del .env si hace falta (paths/red de Docker).
       - DATABASE_URL=sqlite:////app/data/concejo_escolar.db
       - CORS_ORIGINS=http://localhost:3005,http://localhost:3001,http://92.113.39.212:3005,http://92.113.39.212:3001
 
@@ -13,8 +19,8 @@ services:
     build:
       context: ./frontend
       args:
-        - NEXT_PUBLIC_API_URL=http://92.113.39.212:8000
-        # - NEXT_PUBLIC_API_URL=http://localhost:8000
+        # - NEXT_PUBLIC_API_URL=http://92.113.39.212:8000
+        - NEXT_PUBLIC_API_URL=http://localhost:8000
     ports:
       - "3005:3001"
     depends_on:
