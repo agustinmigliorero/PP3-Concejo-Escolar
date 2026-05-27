@@ -72,10 +72,8 @@ export default function EscuelasPage() {
     setLoading(true);
     setError(null);
     try {
-      const [schoolsData, localidadesData] = await Promise.all([
-        apiGetSchools(),
-        apiGetLocalidades(),
-      ]);
+      const localidadesData = await apiGetLocalidades();
+      const schoolsData = await apiGetSchools();
       setSchools(schoolsData);
       setLocalidades(localidadesData.filter((l) => l.activo));
     } catch (e: unknown) {
