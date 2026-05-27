@@ -42,6 +42,7 @@ export default function IngredientesPage() {
 
   async function loadIngredientes() {
     setLoading(true);
+    setError(null);
     try {
       setIngredientes(await apiGetIngredientes(true));
     } catch (e: unknown) {
@@ -96,6 +97,7 @@ export default function IngredientesPage() {
         await apiUpdateIngrediente(editingId, data);
       }
       setModalOpen(false);
+      setError(null);
       await loadIngredientes();
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : "Error al guardar");

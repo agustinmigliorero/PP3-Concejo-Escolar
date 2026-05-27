@@ -70,6 +70,7 @@ export default function EscuelasPage() {
 
   async function loadData() {
     setLoading(true);
+    setError(null);
     try {
       const [schoolsData, localidadesData] = await Promise.all([
         apiGetSchools(),
@@ -164,6 +165,7 @@ export default function EscuelasPage() {
         });
       }
       setModalOpen(false);
+      setError(null);
       await loadData();
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : "Error al guardar");

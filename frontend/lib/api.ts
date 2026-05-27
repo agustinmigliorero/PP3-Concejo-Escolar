@@ -1,7 +1,20 @@
-import { clearAccessToken, getAccessToken, setAccessToken } from "./auth";
+﻿import { clearAccessToken, getAccessToken, setAccessToken } from "./auth";
 
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+async function buildApiError(res: Response, fallback: string): Promise<Error> {
+  if (res.status === 401) {
+    return new Error("Sesion expirada o no autorizada. Volve a iniciar sesion.");
+  }
+
+  const data = await res.json().catch(() => null);
+  const detail =
+    data && typeof data === "object" && "detail" in data
+      ? String((data as { detail: unknown }).detail)
+      : null;
+  return new Error(detail || fallback);
+}
 
 export interface UserInfo {
   id: number;
@@ -72,7 +85,7 @@ export async function apiLogin(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? "Error al iniciar sesión");
+    throw new Error(err.detail ?? "Error al iniciar sesiÃ³n");
   }
   return res.json();
 }
@@ -87,11 +100,11 @@ export async function apiLogout(): Promise<void> {
 
 export async function apiGetMe(): Promise<UserInfo> {
   const res = await apiFetch("/auth/me");
-  if (!res.ok) throw new Error("No autenticado");
+  if (!res.ok) throw await buildApiError(res, "No autenticado");
   return res.json();
 }
 
-// ── Users CRUD (admin only) ──────────────────────────────────────────────────
+// â”€â”€ Users CRUD (admin only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface UserRecord {
   id: number;
@@ -152,7 +165,7 @@ export async function apiToggleUserActive(id: number): Promise<UserRecord> {
   return res.json();
 }
 
-// ── Localidades CRUD (admin write, admin+gestor read) ────────────────────────
+// â”€â”€ Localidades CRUD (admin write, admin+gestor read) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface LocalidadRecord {
   id: number;
@@ -162,7 +175,7 @@ export interface LocalidadRecord {
 
 export async function apiGetLocalidades(): Promise<LocalidadRecord[]> {
   const res = await apiFetch("/localidades");
-  if (!res.ok) throw new Error("Error al obtener localidades");
+  if (!res.ok) throw await buildApiError(res, "Error al obtener localidades");
   return res.json();
 }
 
@@ -175,8 +188,7 @@ export async function apiCreateLocalidad(
     body: JSON.stringify({ nombre }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? "Error al crear localidad");
+    throw await buildApiError(res, "Error al crear localidad");
   }
   return res.json();
 }
@@ -191,8 +203,7 @@ export async function apiUpdateLocalidad(
     body: JSON.stringify({ nombre }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? "Error al actualizar localidad");
+    throw await buildApiError(res, "Error al actualizar localidad");
   }
   return res.json();
 }
@@ -203,11 +214,68 @@ export async function apiToggleLocalidadActive(
   const res = await apiFetch(`/localidades/${id}/toggle-active`, {
     method: "PATCH",
   });
-  if (!res.ok) throw new Error("Error al cambiar estado de la localidad");
+  if (!res.ok) throw await buildApiError(res, "Error al cambiar estado de la localidad");
   return res.json();
 }
 
-// ── Schools CRUD (admin + gestor) ────────────────────────────────────────────
+// â”€â”€ Schools CRUD (admin + gestor) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+// Proveedores CRUD (admin only)
+export interface ProveedorRecord {
+  id: number;
+  nombre: string;
+  contacto: string;
+  activo: boolean;
+}
+
+export async function apiGetProveedores(): Promise<ProveedorRecord[]> {
+  const res = await apiFetch("/proveedores");
+  if (!res.ok) throw await buildApiError(res, "Error al obtener proveedores");
+  return res.json();
+}
+
+export async function apiCreateProveedor(data: {
+  nombre: string;
+  contacto: string;
+}): Promise<ProveedorRecord> {
+  const res = await apiFetch("/proveedores", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw await buildApiError(res, "Error al crear proveedor");
+  }
+  return res.json();
+}
+
+export async function apiUpdateProveedor(
+  id: number,
+  data: {
+    nombre: string;
+    contacto: string;
+  },
+): Promise<ProveedorRecord> {
+  const res = await apiFetch(`/proveedores/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw await buildApiError(res, "Error al actualizar proveedor");
+  }
+  return res.json();
+}
+
+export async function apiToggleProveedorActive(
+  id: number,
+): Promise<ProveedorRecord> {
+  const res = await apiFetch(`/proveedores/${id}/toggle-active`, {
+    method: "PATCH",
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al cambiar estado del proveedor");
+  return res.json();
+}
 
 export interface SchoolRecord {
   id: number;
@@ -299,7 +367,7 @@ export async function apiToggleSchoolActive(
   return res.json();
 }
 
-// ── Ingredientes CRUD (admin write, admin+gestor read) ───────────────────────
+// â”€â”€ Ingredientes CRUD (admin write, admin+gestor read) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IngredienteRecord {
   id: number;
@@ -370,3 +438,4 @@ export async function apiToggleIngredienteActive(
   if (!res.ok) throw new Error("Error al cambiar estado del ingrediente");
   return res.json();
 }
+

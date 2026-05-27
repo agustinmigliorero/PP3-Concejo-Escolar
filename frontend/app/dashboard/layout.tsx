@@ -42,7 +42,10 @@ export default function DashboardLayout({
   const navLinks = [
     { href: "/dashboard", label: "Inicio" },
     ...(user?.role === "admin"
-      ? [{ href: "/dashboard/usuarios", label: "Usuarios" }]
+      ? [
+          { href: "/dashboard/usuarios", label: "Usuarios" },
+          { href: "/dashboard/proveedores", label: "Proveedores" },
+        ]
       : []),
     ...(user?.role === "admin" || user?.role === "gestor"
       ? [
