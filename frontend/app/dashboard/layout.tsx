@@ -45,6 +45,7 @@ export default function DashboardLayout({
       ? [
           { href: "/dashboard/usuarios", label: "Usuarios" },
           { href: "/dashboard/proveedores", label: "Proveedores" },
+          { href: "/dashboard/asignaciones", label: "Asignaciones" },
         ]
       : []),
     ...(user?.role === "admin" || user?.role === "gestor"

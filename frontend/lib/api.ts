@@ -439,3 +439,81 @@ export async function apiToggleIngredienteActive(
   return res.json();
 }
 
+// ── Asignaciones proveedor-ingrediente-localidad (admin only) ────────────────
+
+export interface AsignacionRecord {
+  id: number;
+  proveedor_id: number;
+  ingrediente_id: number;
+  localidad_id: number;
+  precio_unitario: string;
+  fecha_desde: string;
+  fecha_hasta: string | null;
+  vigente: boolean;
+  proveedor_nombre: string | null;
+  ingrediente_nombre: string | null;
+  localidad_nombre: string | null;
+  unidad_medida: string | null;
+}
+
+export async function apiGetAsignaciones(filters?: {
+  ingrediente_id?: number;
+  localidad_id?: number;
+  proveedor_id?: number;
+  solo_vigentes?: boolean;
+}): Promise<AsignacionRecord[]> {
+  const params = new URLSearchParams();
+  if (filters?.ingrediente_id != null)
+    params.set("ingrediente_id", String(filters.ingrediente_id));
+  if (filters?.localidad_id != null)
+    params.set("localidad_id", String(filters.localidad_id));
+  if (filters?.proveedor_id != null)
+    params.set("proveedor_id", String(filters.proveedor_id));
+  if (filters?.solo_vigentes != null)
+    params.set("solo_vigentes", String(filters.solo_vigentes));
+  const qs = params.toString();
+  const res = await apiFetch(`/asignaciones${qs ? `?${qs}` : ""}`);
+  if (!res.ok) throw await buildApiError(res, "Error al obtener asignaciones");
+  return res.json();
+}
+
+export async function apiGetAsignacionHistorial(
+  ingrediente_id: number,
+  localidad_id: number,
+): Promise<AsignacionRecord[]> {
+  const res = await apiFetch(
+    `/asignaciones/historial?ingrediente_id=${ingrediente_id}&localidad_id=${localidad_id}`,
+  );
+  if (!res.ok) throw await buildApiError(res, "Error al obtener el historial");
+  return res.json();
+}
+
+export async function apiCreateAsignacion(data: {
+  proveedor_id: number;
+  ingrediente_id: number;
+  localidad_id: number;
+  precio_unitario: number;
+  fecha_desde?: string | null;
+}): Promise<AsignacionRecord> {
+  const res = await apiFetch("/asignaciones", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al crear la asignación");
+  return res.json();
+}
+
+export async function apiUpdateAsignacionPrecio(
+  id: number,
+  precio_unitario: number,
+): Promise<AsignacionRecord> {
+  const res = await apiFetch(`/asignaciones/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ precio_unitario }),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar el precio");
+  return res.json();
+}
+
