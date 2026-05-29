@@ -45,8 +45,7 @@ Aplicación web para la gestión de pedidos de ingredientes del Servicio Aliment
 ```
 Usuario
   - id
-  - nombre
-  - email (único)
+  - username (único)  (login por nombre de usuario, no por email)
   - password_hash
   - rol: ADMIN | GESTOR | ESCUELA
   - escuela_id → Escuela  (null para ADMIN y GESTOR; obligatorio para ESCUELA)
@@ -256,7 +255,7 @@ StockPrevio
 
 ### 5.1 Autenticación
 
-- Login con email + contraseña
+- Login con username + contraseña
 - JWT access token (corta duración) + refresh token (larga duración, rotativo)
 - Logout invalida el refresh token
 - Passwords hasheadas con bcrypt
@@ -267,7 +266,7 @@ StockPrevio
 
 - Crear usuario con rol (Admin/Gestor/Escuela)
 - Para usuarios con rol Escuela, seleccionar la escuela asociada (1:1)
-- Editar nombre, email, rol
+- Editar username, rol
 - Activar/desactivar usuario (no se eliminan)
 - Reset de contraseña por el administrador
 

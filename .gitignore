@@ -62,6 +62,15 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# SQLite databases (la BD se persiste en un volumen Docker, no se versiona)
+*.db
+*.db-journal
+*.sqlite
+
+# Archivos temporales de pruebas manuales (pueden contener tokens/credenciales)
+tmp_*.txt
+tmp_*.json
+
 # Flask stuff:
 instance/
 .webassets-cache
