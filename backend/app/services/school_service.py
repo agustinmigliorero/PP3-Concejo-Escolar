@@ -20,6 +20,7 @@ def _school_to_response(school: School) -> dict:
         "offers_breakfast": school.offers_breakfast,
         "offers_lunch": school.offers_lunch,
         "offers_snack": school.offers_snack,
+        "offers_dinner": school.offers_dinner,
         "active": school.active,
     }
 
@@ -63,6 +64,7 @@ def create_school(
     offers_breakfast: bool = False,
     offers_lunch: bool = False,
     offers_snack: bool = False,
+    offers_dinner: bool = False,
 ) -> dict:
     _validate_locality(db, locality_id)
 
@@ -82,6 +84,7 @@ def create_school(
         offers_breakfast=offers_breakfast,
         offers_lunch=offers_lunch,
         offers_snack=offers_snack,
+        offers_dinner=offers_dinner,
     )
     db.add(school)
     db.commit()
@@ -101,6 +104,7 @@ def update_school(
     offers_breakfast: Optional[bool] = None,
     offers_lunch: Optional[bool] = None,
     offers_snack: Optional[bool] = None,
+    offers_dinner: Optional[bool] = None,
     active: Optional[bool] = None,
 ) -> dict:
     school = db.query(School).filter(School.id == school_id).first()
@@ -139,6 +143,8 @@ def update_school(
         school.offers_lunch = offers_lunch
     if offers_snack is not None:
         school.offers_snack = offers_snack
+    if offers_dinner is not None:
+        school.offers_dinner = offers_dinner
     if active is not None:
         school.active = active
 

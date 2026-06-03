@@ -49,6 +49,7 @@ def create_school(
         offers_breakfast=body.offers_breakfast,
         offers_lunch=body.offers_lunch,
         offers_snack=body.offers_snack,
+        offers_dinner=body.offers_dinner,
     )
 
 
@@ -71,6 +72,7 @@ def update_school(
         offers_breakfast=body.offers_breakfast,
         offers_lunch=body.offers_lunch,
         offers_snack=body.offers_snack,
+        offers_dinner=body.offers_dinner,
         active=body.active,
     )
 
