@@ -37,18 +37,24 @@ interface FormState {
   ingredientes: FormIngredient[];
 }
 
-const EMPTY_FORM: FormState = {
-  nombre: "",
-  tipo_comida: "ALMUERZO",
-  temporada_id: "",
-  ingredientes: [{ tempId: crypto.randomUUID(), ingrediente_id: "", cantidad_por_porcion: "" }],
-};
+function createTempId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 function createIngredientRow(): FormIngredient {
   return {
-    tempId: crypto.randomUUID(),
+    tempId: createTempId(),
     ingrediente_id: "",
     cantidad_por_porcion: "",
+  };
+}
+
+function createEmptyForm(): FormState {
+  return {
+    nombre: "",
+    tipo_comida: "ALMUERZO",
+    temporada_id: "",
+    ingredientes: [createIngredientRow()],
   };
 }
 
@@ -66,7 +72,7 @@ export default function RecetasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>("create");
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = useState<FormState>(createEmptyForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -130,12 +136,7 @@ export default function RecetasPage() {
   }
 
   function resetForm() {
-    setForm({
-      nombre: "",
-      tipo_comida: "ALMUERZO",
-      temporada_id: "",
-      ingredientes: [createIngredientRow()],
-    });
+    setForm(createEmptyForm());
   }
 
   function openCreate() {
@@ -152,7 +153,7 @@ export default function RecetasPage() {
       tipo_comida: receta.tipo_comida,
       temporada_id: receta.temporada_id ? String(receta.temporada_id) : "",
       ingredientes: receta.ingredientes.map((item) => ({
-        tempId: crypto.randomUUID(),
+        tempId: createTempId(),
         ingrediente_id: String(item.ingrediente_id),
         cantidad_por_porcion: String(item.cantidad_por_porcion),
       })),
