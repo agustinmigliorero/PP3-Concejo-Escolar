@@ -379,6 +379,24 @@ export async function apiToggleSchoolActive(
   return res.json();
 }
 
+export async function apiGetMySchool(): Promise<SchoolRecord> {
+  const res = await apiFetch("/schools/me");
+  if (!res.ok) throw await buildApiError(res, "Error al obtener la escuela asociada");
+  return res.json();
+}
+
+export async function apiUpdateMySchoolMatriculation(
+  matriculation: number,
+): Promise<SchoolRecord> {
+  const res = await apiFetch("/schools/me/matriculation", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ matriculation }),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar la matricula");
+  return res.json();
+}
+
 // â”€â”€ Ingredientes CRUD (admin write, admin+gestor read) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IngredienteRecord {

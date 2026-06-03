@@ -61,6 +61,9 @@ export default function DashboardLayout({
           { href: "/dashboard/escuelas", label: "Escuelas" },
         ]
       : []),
+    ...(user?.role === "escuela"
+      ? [{ href: "/dashboard/mi-escuela", label: "Escuela" }]
+      : []),
   ];
 
   return (
