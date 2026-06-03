@@ -35,9 +35,7 @@ def update_user(
     db: Session = Depends(get_db),
     _=Depends(require_admin),
 ):
-    return user_service.update_user(
-        db, user_id, body.username, body.password, body.role, body.school_id
-    )
+    return user_service.update_user(db, user_id, body)
 
 
 @router.patch("/{user_id}/toggle-active", response_model=UserResponse)

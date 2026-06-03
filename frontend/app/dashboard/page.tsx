@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { apiGetMySchool, type SchoolRecord } from "@/lib/api";
 import { useUser } from "./user-context";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -10,6 +12,24 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default function DashboardPage() {
   const { user } = useUser();
+  const [school, setSchool] = useState<SchoolRecord | null>(null);
+  const [schoolError, setSchoolError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.role !== "escuela") return;
+
+    apiGetMySchool()
+      .then((data) => {
+        setSchool(data);
+        setSchoolError(null);
+      })
+      .catch((e: unknown) => {
+        setSchool(null);
+        setSchoolError(
+          e instanceof Error ? e.message : "Error al cargar la escuela asociada",
+        );
+      });
+  }, [user?.role]);
 
   if (!user) {
     return (
@@ -50,6 +70,29 @@ export default function DashboardPage() {
             </p>
           </div>
         </div>
+
+        {user.role === "escuela" && (
+          <div className="mt-4 bg-green-50 rounded-xl p-5">
+            <p className="text-xs text-green-600 uppercase tracking-wide font-medium mb-1">
+              Escuela asociada
+            </p>
+            {school ? (
+              <div>
+                <p className="text-lg font-semibold text-gray-800">
+                  {school.code} - {school.name}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {school.locality_name} - Matricula:{" "}
+                  {school.matriculation.toLocaleString()}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">
+                {schoolError ?? "Cargando escuela..."}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

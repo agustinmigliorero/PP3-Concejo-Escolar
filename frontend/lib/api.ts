@@ -1,5 +1,7 @@
 ﻿import { clearAccessToken, getAccessToken, setAccessToken } from "./auth";
 
+import { notifyAuthExpired } from "./auth";
+
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -47,6 +49,10 @@ export async function apiFetch(
     }
   }
 
+  if (res.status === 401) {
+    notifyAuthExpired();
+  }
+
   return res;
 }
 
@@ -58,17 +64,23 @@ export async function tryRefresh(): Promise<boolean> {
   _refreshPromise = fetch(`${API_URL}/auth/refresh`, {
     method: "POST",
     credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        notifyAuthExpired();
+        return false;
+      }
+      const data = await res.json();
+      setAccessToken(data.access_token);
+      return true;
+    })
+    .catch(() => {
       clearAccessToken();
       return false;
-    }
-    const data = await res.json();
-    setAccessToken(data.access_token);
-    return true;
-  }).finally(() => {
-    _refreshPromise = null;
-  });
+    })
+    .finally(() => {
+      _refreshPromise = null;
+    });
 
   return _refreshPromise;
 }
@@ -364,6 +376,24 @@ export async function apiToggleSchoolActive(
     method: "PATCH",
   });
   if (!res.ok) throw new Error("Error al cambiar estado de la escuela");
+  return res.json();
+}
+
+export async function apiGetMySchool(): Promise<SchoolRecord> {
+  const res = await apiFetch("/schools/me");
+  if (!res.ok) throw await buildApiError(res, "Error al obtener la escuela asociada");
+  return res.json();
+}
+
+export async function apiUpdateMySchoolMatriculation(
+  matriculation: number,
+): Promise<SchoolRecord> {
+  const res = await apiFetch("/schools/me/matriculation", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ matriculation }),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar la matricula");
   return res.json();
 }
 

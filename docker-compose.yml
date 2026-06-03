@@ -12,15 +12,17 @@ services:
         required: false
     environment:
       # Estas sobrescriben a las del .env si hace falta (paths/red de Docker).
-      - DATABASE_URL=sqlite:////app/data/concejo_escolar.db
-      - CORS_ORIGINS=http://localhost:3005,http://localhost:3001,http://92.113.39.212:3005,http://92.113.39.212:3001
+      DATABASE_URL: sqlite:////app/data/concejo_escolar.db
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3005,http://localhost:3001}
 
   frontend:
     build:
       context: ./frontend
+      target: runner
       args:
-        # - NEXT_PUBLIC_API_URL=http://92.113.39.212:8000
-        - NEXT_PUBLIC_API_URL=http://localhost:8000
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     ports:
       - "3005:3001"
     depends_on:
