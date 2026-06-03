@@ -302,6 +302,7 @@ export interface SchoolRecord {
   offers_breakfast: boolean;
   offers_lunch: boolean;
   offers_snack: boolean;
+  offers_dinner: boolean;
   active: boolean;
 }
 
@@ -330,6 +331,7 @@ export async function apiCreateSchool(data: {
   offers_breakfast?: boolean;
   offers_lunch?: boolean;
   offers_snack?: boolean;
+  offers_dinner?: boolean;
 }): Promise<SchoolRecord> {
   const res = await apiFetch("/schools", {
     method: "POST",
@@ -355,6 +357,7 @@ export async function apiUpdateSchool(
     offers_breakfast?: boolean;
     offers_lunch?: boolean;
     offers_snack?: boolean;
+    offers_dinner?:boolean;
     active?: boolean;
   },
 ): Promise<SchoolRecord> {
@@ -588,6 +591,79 @@ export async function apiUpdateTemporadaOpciones(
   if (!res.ok) {
     throw await buildApiError(res, "Error al guardar los menús de la temporada");
   }
+  return res.json();
+}
+
+// ── Recetas (admin only) ─────────────────────────────────────────────────────
+
+export type TipoComida = "DESAYUNO" | "ALMUERZO" | "MERIENDA";
+
+export interface RecetaIngredienteRecord {
+  id: number;
+  ingrediente_id: number;
+  ingrediente_nombre: string;
+  unidad_medida: string;
+  cantidad_por_porcion: number;
+}
+
+export interface RecetaRecord {
+  id: number;
+  nombre: string;
+  tipo_comida: TipoComida;
+  temporada_id: number | null;
+  temporada_nombre: "VERANO" | "INVIERNO" | null;
+  temporada_anio: number | null;
+  activo: boolean;
+  ingredientes: RecetaIngredienteRecord[];
+}
+
+export async function apiGetRecetas(
+  includeInactive = false,
+): Promise<RecetaRecord[]> {
+  const query = includeInactive ? "?include_inactive=true" : "";
+  const res = await apiFetch(`/recetas${query}`);
+  if (!res.ok) throw await buildApiError(res, "Error al obtener recetas");
+  return res.json();
+}
+
+export async function apiCreateReceta(data: {
+  nombre: string;
+  tipo_comida: TipoComida;
+  temporada_id: number;
+  ingredientes: Array<{ ingrediente_id: number; cantidad_por_porcion: number }>;
+}): Promise<RecetaRecord> {
+  const res = await apiFetch("/recetas", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al crear receta");
+  return res.json();
+}
+
+export async function apiUpdateReceta(
+  id: number,
+  data: {
+    nombre: string;
+    tipo_comida: TipoComida;
+    temporada_id: number;
+    ingredientes: Array<{ ingrediente_id: number; cantidad_por_porcion: number }>;
+  },
+): Promise<RecetaRecord> {
+  const res = await apiFetch(`/recetas/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar receta");
+  return res.json();
+}
+
+export async function apiToggleRecetaActive(id: number): Promise<RecetaRecord> {
+  const res = await apiFetch(`/recetas/${id}/toggle-active`, {
+    method: "PATCH",
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al cambiar estado de la receta");
   return res.json();
 }
 

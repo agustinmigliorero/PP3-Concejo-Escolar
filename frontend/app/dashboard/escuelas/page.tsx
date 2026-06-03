@@ -15,12 +15,13 @@ import { showSuccessToast } from "@/components/toast";
 
 type Tab = "activas" | "inactivas";
 type ModalMode = "create" | "edit";
-type MealKey = "offers_breakfast" | "offers_lunch" | "offers_snack";
+type MealKey = "offers_breakfast" | "offers_lunch" | "offers_snack" | "offers_dinner";
 
 const MEALS: { key: MealKey; label: string }[] = [
   { key: "offers_breakfast", label: "Desayuno" },
   { key: "offers_lunch", label: "Almuerzo" },
   { key: "offers_snack", label: "Merienda" },
+  { key: "offers_dinner", label: "Cena" },
 ];
 
 interface FormState {
@@ -33,6 +34,7 @@ interface FormState {
   offers_breakfast: boolean;
   offers_lunch: boolean;
   offers_snack: boolean;
+  offers_dinner: boolean;
 }
 
 const EMPTY_FORM: FormState = {
@@ -45,6 +47,7 @@ const EMPTY_FORM: FormState = {
   offers_breakfast: false,
   offers_lunch: false,
   offers_snack: false,
+  offers_dinner: false,
 };
 
 export default function EscuelasPage() {
@@ -107,6 +110,7 @@ export default function EscuelasPage() {
       offers_breakfast: s.offers_breakfast,
       offers_lunch: s.offers_lunch,
       offers_snack: s.offers_snack,
+      offers_dinner: s.offers_dinner,
     });
     setFormError(null);
     setModalMode("edit");
@@ -149,6 +153,7 @@ export default function EscuelasPage() {
           offers_breakfast: form.offers_breakfast,
           offers_lunch: form.offers_lunch,
           offers_snack: form.offers_snack,
+          offers_dinner: form.offers_dinner
         });
         showSuccessToast("Escuela creada correctamente");
       } else if (editingId !== null) {
@@ -162,6 +167,7 @@ export default function EscuelasPage() {
           offers_breakfast: form.offers_breakfast,
           offers_lunch: form.offers_lunch,
           offers_snack: form.offers_snack,
+          offers_dinner: form.offers_dinner,
         });
         showSuccessToast("Escuela actualizada correctamente");
       }
@@ -202,6 +208,7 @@ export default function EscuelasPage() {
     if (s.offers_breakfast) active.push("D");
     if (s.offers_lunch) active.push("A");
     if (s.offers_snack) active.push("M");
+    if (s.offers_dinner) active.push("C");
     return active.length === 0
       ? <span className="text-gray-400 text-xs">—</span>
       : active.map((m) => (
