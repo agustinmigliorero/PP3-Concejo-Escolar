@@ -1,5 +1,7 @@
 ﻿import { clearAccessToken, getAccessToken, setAccessToken } from "./auth";
 
+import { notifyAuthExpired } from "./auth";
+
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -47,6 +49,10 @@ export async function apiFetch(
     }
   }
 
+  if (res.status === 401) {
+    notifyAuthExpired();
+  }
+
   return res;
 }
 
@@ -58,17 +64,23 @@ export async function tryRefresh(): Promise<boolean> {
   _refreshPromise = fetch(`${API_URL}/auth/refresh`, {
     method: "POST",
     credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        notifyAuthExpired();
+        return false;
+      }
+      const data = await res.json();
+      setAccessToken(data.access_token);
+      return true;
+    })
+    .catch(() => {
       clearAccessToken();
       return false;
-    }
-    const data = await res.json();
-    setAccessToken(data.access_token);
-    return true;
-  }).finally(() => {
-    _refreshPromise = null;
-  });
+    })
+    .finally(() => {
+      _refreshPromise = null;
+    });
 
   return _refreshPromise;
 }

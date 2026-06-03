@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiGetMe, apiLogout, tryRefresh, type UserInfo } from "@/lib/api";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, onAuthExpired } from "@/lib/auth";
 import { UserContext } from "./user-context";
 
 export default function DashboardLayout({
@@ -17,22 +17,28 @@ export default function DashboardLayout({
   const [user, setUser] = useState<UserInfo | null>(null);
 
   useEffect(() => {
+    const redirectToLogin = () => {
+      router.replace(`/login?from=${encodeURIComponent(pathname || "/dashboard")}`);
+    };
+    const unsubscribe = onAuthExpired(redirectToLogin);
+
     async function init() {
       if (!getAccessToken()) {
         const ok = await tryRefresh();
         if (!ok) {
-          router.replace("/login");
+          redirectToLogin();
           return;
         }
       }
       try {
         setUser(await apiGetMe());
       } catch {
-        router.replace("/login");
+        redirectToLogin();
       }
     }
     init();
-  }, [router]);
+    return unsubscribe;
+  }, [pathname, router]);
 
   async function handleLogout() {
     await apiLogout();
