@@ -578,6 +578,9 @@ export interface RecetaRecord {
   id: number;
   nombre: string;
   tipo_comida: TipoComida;
+  temporada_id: number | null;
+  temporada_nombre: "VERANO" | "INVIERNO" | null;
+  temporada_anio: number | null;
   activo: boolean;
   ingredientes: RecetaIngredienteRecord[];
 }
@@ -594,6 +597,7 @@ export async function apiGetRecetas(
 export async function apiCreateReceta(data: {
   nombre: string;
   tipo_comida: TipoComida;
+  temporada_id: number;
   ingredientes: Array<{ ingrediente_id: number; cantidad_por_porcion: number }>;
 }): Promise<RecetaRecord> {
   const res = await apiFetch("/recetas", {
@@ -610,6 +614,7 @@ export async function apiUpdateReceta(
   data: {
     nombre: string;
     tipo_comida: TipoComida;
+    temporada_id: number;
     ingredientes: Array<{ ingrediente_id: number; cantidad_por_porcion: number }>;
   },
 ): Promise<RecetaRecord> {

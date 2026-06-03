@@ -6,10 +6,12 @@ import {
   apiCreateReceta,
   apiGetIngredientes,
   apiGetRecetas,
+  apiGetTemporadas,
   apiToggleRecetaActive,
   apiUpdateReceta,
   type IngredienteRecord,
   type RecetaRecord,
+  type TemporadaRecord,
   type TipoComida,
 } from "@/lib/api";
 
@@ -31,12 +33,14 @@ interface FormIngredient {
 interface FormState {
   nombre: string;
   tipo_comida: TipoComida;
+  temporada_id: string;
   ingredientes: FormIngredient[];
 }
 
 const EMPTY_FORM: FormState = {
   nombre: "",
   tipo_comida: "ALMUERZO",
+  temporada_id: "",
   ingredientes: [{ tempId: crypto.randomUUID(), ingrediente_id: "", cantidad_por_porcion: "" }],
 };
 
@@ -54,6 +58,7 @@ export default function RecetasPage() {
 
   const [recetas, setRecetas] = useState<RecetaRecord[]>([]);
   const [ingredientes, setIngredientes] = useState<IngredienteRecord[]>([]);
+  const [temporadas, setTemporadas] = useState<TemporadaRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("activas");
@@ -73,12 +78,14 @@ export default function RecetasPage() {
     setError(null);
 
     try {
-      const [recetasData, ingredientesData] = await Promise.all([
+      const [recetasData, ingredientesData, temporadasData] = await Promise.all([
         apiGetRecetas(true),
         apiGetIngredientes(),
+        apiGetTemporadas(true),
       ]);
       setRecetas(recetasData);
       setIngredientes(ingredientesData);
+      setTemporadas(temporadasData);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error al cargar recetas");
     } finally {
@@ -126,6 +133,7 @@ export default function RecetasPage() {
     setForm({
       nombre: "",
       tipo_comida: "ALMUERZO",
+      temporada_id: "",
       ingredientes: [createIngredientRow()],
     });
   }
@@ -142,6 +150,7 @@ export default function RecetasPage() {
     setForm({
       nombre: receta.nombre,
       tipo_comida: receta.tipo_comida,
+      temporada_id: receta.temporada_id ? String(receta.temporada_id) : "",
       ingredientes: receta.ingredientes.map((item) => ({
         tempId: crypto.randomUUID(),
         ingrediente_id: String(item.ingrediente_id),
@@ -191,6 +200,12 @@ export default function RecetasPage() {
       return;
     }
 
+    const temporadaId = Number(form.temporada_id);
+    if (!temporadaId) {
+      setFormError("Seleccioná una temporada");
+      return;
+    }
+
     const cleanedIngredients = form.ingredientes.map((item) => ({
       ingrediente_id: Number(item.ingrediente_id),
       cantidad_por_porcion: Number(item.cantidad_por_porcion),
@@ -216,6 +231,7 @@ export default function RecetasPage() {
       const payload = {
         nombre: form.nombre.trim(),
         tipo_comida: form.tipo_comida,
+        temporada_id: temporadaId,
         ingredientes: cleanedIngredients,
       };
 
@@ -315,6 +331,7 @@ export default function RecetasPage() {
                   <th className="text-left px-5 py-3 font-medium text-gray-500">ID</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Tipo de comida</th>
+                  <th className="text-left px-5 py-3 font-medium text-gray-500">Temporada</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Ingredientes</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
                   <th className="text-right px-5 py-3 font-medium text-gray-500">Acciones</th>
@@ -332,6 +349,11 @@ export default function RecetasPage() {
                       <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1">
                         {TIPO_COMIDA_LABEL[receta.tipo_comida]}
                       </span>
+                    </td>
+                    <td className="px-5 py-3 text-gray-600">
+                      {receta.temporada_nombre && receta.temporada_anio
+                        ? `${receta.temporada_nombre === "VERANO" ? "Verano" : "Invierno"} ${receta.temporada_anio}`
+                        : "Sin temporada"}
                     </td>
                     <td className="px-5 py-3 text-gray-600">
                       <div className="max-w-md">
@@ -383,7 +405,7 @@ export default function RecetasPage() {
 
                 {visibleRecetas.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                    <td colSpan={7} className="px-5 py-8 text-center text-gray-400">
                       {tab === "activas"
                         ? "No hay recetas activas."
                         : "No hay recetas inactivas."}
@@ -404,7 +426,7 @@ export default function RecetasPage() {
             </h2>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nombre
@@ -438,6 +460,29 @@ export default function RecetasPage() {
                     {Object.entries(TIPO_COMIDA_LABEL).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Temporada
+                  </label>
+                  <select
+                    value={form.temporada_id}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        temporada_id: event.target.value,
+                      }))
+                    }
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Seleccionar temporada</option>
+                    {temporadas.map((temporada) => (
+                      <option key={temporada.id} value={temporada.id}>
+                        {(temporada.nombre === "VERANO" ? "Verano" : "Invierno")} {temporada.anio}
                       </option>
                     ))}
                   </select>
