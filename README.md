@@ -73,7 +73,8 @@ PP3-Concejo-Escolar/
 │   └── db-script.sql            # Schema de referencia (MySQL histórico)
 ├── docs/
 │   └── requerimientos.md        # Requerimientos funcionales del cliente
-└── docker-compose.yml           # Orquestación para producción
+├── docker-compose.yml           # Orquestación para producción / Dokploy
+└── docker-compose.dev.yml       # Overrides para desarrollo local
 ```
 
 ---
@@ -98,13 +99,16 @@ cp frontend/.env.example frontend/.env.local
 
 Editá los valores según tu entorno. Ver la sección [Variables de entorno](#variables-de-entorno) para el detalle de cada variable.
 
-### 3. Levantar los contenedores
+### 3. Levantar los contenedores en desarrollo
 
 ```bash
-docker compose up --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
 Esto construye las imágenes y levanta backend y frontend. La primera vez tarda unos minutos.
+En desarrollo, `docker-compose.dev.yml` cambia el frontend a `npm run dev`, monta el código local como volumen y usa `http://localhost:8000` como API por defecto.
+
+> Regla del equipo: local usa `docker-compose.yml + docker-compose.dev.yml`; Dokploy usa solo `docker-compose.yml`.
 
 | Servicio                    | URL local                  |
 | --------------------------- | -------------------------- |
@@ -117,7 +121,7 @@ Esto construye las imágenes y levanta backend y frontend. La primera vez tarda 
 En otra terminal, mientras los contenedores están corriendo:
 
 ```bash
-docker compose exec backend python seed.py
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend python seed.py
 ```
 
 Salida esperada:
@@ -134,7 +138,7 @@ Abrí http://localhost:3005, iniciá sesión con `admin` / `admin1234`.
 ### Detener los contenedores
 
 ```bash
-docker compose down
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 ```
 
 > La base de datos SQLite en dev vive dentro del contenedor. Si necesitás persistirla localmente, montá un volumen en `docker-compose.yml`.
@@ -275,28 +279,39 @@ Estos archivos están en `.gitignore` y **nunca se commitean**.
 
 > **Importante (Next.js):** `NEXT_PUBLIC_API_URL` se embebe en el bundle durante el `build`. Si cambiás la URL en producción, necesitás rebuildar la imagen Docker del frontend.
 
-### Producción con Docker Compose
+### Producción con Docker Compose / Dokploy
 
-En producción las variables se pasan directamente en `docker-compose.yml`, sin necesidad de archivos `.env` en el servidor:
+En producción las variables se cargan desde el panel **Environment** de Dokploy. Dokploy las usa para interpolar `${VARIABLE}` dentro de `docker-compose.yml`, sin necesidad de subir archivos `.env` al repo.
+
+Variables mínimas:
+
+```env
+NEXT_PUBLIC_API_URL=http://TU_IP:8000
+CORS_ORIGINS=http://TU_IP:3005
+SECRET_KEY=tu_clave_segura
+ADMIN_PASSWORD=tu_password_seguro
+```
+
+El `docker-compose.yml` referencia esas variables así:
 
 ```yaml
 backend:
   environment:
-    - DATABASE_URL=sqlite:////app/data/concejo_escolar.db
-    - SECRET_KEY=tu_clave_segura
-    - CORS_ORIGINS=http://TU_IP:3005,http://TU_IP:3001
+    DATABASE_URL: sqlite:////app/data/concejo_escolar.db
+    CORS_ORIGINS: ${CORS_ORIGINS}
 
 frontend:
   build:
     context: ./frontend
+    target: runner
     args:
-      - NEXT_PUBLIC_API_URL=http://TU_IP:8000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
 ```
 
 > **¿Por qué `args` y no `environment` en el frontend?**
 > `NEXT_PUBLIC_API_URL` se embebe en el bundle de Next.js durante el `npm run build`.
 > Las variables en `environment` llegan en runtime (cuando el contenedor ya arrancó), demasiado tarde.
-> Pasarla como build arg garantiza que esté disponible al momento de compilar.
+> Pasarla como build arg garantiza que esté disponible al momento de compilar. El `frontend/Dockerfile` falla el build si `NEXT_PUBLIC_API_URL` llega vacío.
 
 ---
 
@@ -393,7 +408,7 @@ El deploy es **automático**: cada push a `main` en GitHub dispara un redeploy e
 ### Qué hace Dokploy al detectar un push
 
 1. Clona el repositorio desde GitHub
-2. Ejecuta `docker compose up -d --build --remove-orphans`
+2. Ejecuta Docker Compose usando solo `docker-compose.yml`
 3. Construye las imágenes en modo producción:
    - **Backend**: instala deps + copia código (sin `--reload`)
    - **Frontend**: `npm run build` → `next start` (sin Turbopack)
@@ -415,16 +430,17 @@ python seed.py
 
 Configurarlas en Dokploy → tu aplicación → **Environment** (no en archivos `.env` en el repo).
 
-Variables recomendadas para el **backend** (van en Environment de Dokploy):
+Variables recomendadas en Environment de Dokploy:
 
 ```
 SECRET_KEY=<clave larga y aleatoria>
 ADMIN_PASSWORD=<contraseña segura>
 DATABASE_URL=sqlite:////app/data/concejo_escolar.db
-CORS_ORIGINS=http://<TU_IP>:3005,http://<TU_IP>:3001
+CORS_ORIGINS=http://<TU_IP>:3005
+NEXT_PUBLIC_API_URL=http://<TU_IP>:8000
 ```
 
-`NEXT_PUBLIC_API_URL` del frontend **no va en Environment** — se embebe en el build. Tiene que estar en el `docker-compose.yml` bajo `build.args` antes de que Dokploy construya la imagen.
+`NEXT_PUBLIC_API_URL` se carga en Environment de Dokploy, pero el punto importante es que `docker-compose.yml` la pasa como `build.args` al frontend. Next.js la embebe durante `npm run build`, por eso hay que redeployar/rebuildar si cambia.
 
 ### ⚠️ Cosas a tener en cuenta
 
@@ -472,25 +488,28 @@ La documentación interactiva completa está en `http://localhost:8000/docs` (Sw
 ### Docker
 
 ```bash
-# Levantar (con rebuild de imágenes)
-docker compose up --build
+# Levantar en desarrollo local (con rebuild de imágenes)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
-# Levantar en background
-docker compose up -d --build
+# Levantar en desarrollo local en background
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 # Ver logs de un servicio
-docker compose logs -f backend
-docker compose logs -f frontend
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f backend
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f frontend
 
 # Abrir una terminal dentro del contenedor
-docker compose exec backend bash
-docker compose exec frontend sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec frontend sh
 
 # Detener todo
-docker compose down
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 
-# Detener y eliminar volúmenes (⚠️ borra la DB)
-docker compose down -v
+# Detener y eliminar volúmenes (borra la DB)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
+
+# Producción / Dokploy usa solo docker-compose.yml
+docker compose -f docker-compose.yml up -d --build
 ```
 
 ### Backend (con venv activado)

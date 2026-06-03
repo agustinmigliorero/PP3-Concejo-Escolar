@@ -13,6 +13,7 @@ class CreateSchoolRequest(BaseModel):
     offers_breakfast: bool = False
     offers_lunch: bool = False
     offers_snack: bool = False
+    offers_dinner: bool = False
 
     @field_validator("name")
     @classmethod
@@ -63,6 +64,7 @@ class UpdateSchoolRequest(BaseModel):
     offers_breakfast: Optional[bool] = None
     offers_lunch: Optional[bool] = None
     offers_snack: Optional[bool] = None
+    offers_dinner: Optional[bool] = None
     active: Optional[bool] = None
 
     @field_validator("name")
@@ -108,6 +110,17 @@ class UpdateSchoolRequest(BaseModel):
                 raise ValueError("El teléfono debe tener al menos 6 caracteres")
         return v
 
+class UpdateMySchoolMatriculationRequest(BaseModel):
+    matriculation: int
+
+    @field_validator("matriculation")
+    @classmethod
+    def matriculation_valid(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("La matricula no puede ser negativa")
+        return v
+
+
 class SchoolResponse(BaseModel):
     id: int
     name: str
@@ -120,6 +133,7 @@ class SchoolResponse(BaseModel):
     offers_breakfast: bool
     offers_lunch: bool
     offers_snack: bool
+    offers_dinner: bool
     active: bool
 
     model_config = {"from_attributes": True}

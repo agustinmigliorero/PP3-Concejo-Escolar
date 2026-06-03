@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    REFRESH_COOKIE_SECURE: bool = False
     DATABASE_URL: str = "sqlite:///./concejo_escolar.db"
     admin_username: str = "admin"
     admin_password: str = "admin1234"

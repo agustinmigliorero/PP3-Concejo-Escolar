@@ -18,6 +18,7 @@ class School(Base):
     offers_breakfast = Column(Boolean, default=False)
     offers_lunch = Column(Boolean, default=False)
     offers_snack = Column(Boolean, default=False)
+    offers_dinner = Column(Boolean, default=False)
     active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.location_model import Localidad
 from app.models.school_model import School
+from app.models.user_model import User, UserRole
 
 
 def _school_to_response(school: School) -> dict:
@@ -20,6 +21,7 @@ def _school_to_response(school: School) -> dict:
         "offers_breakfast": school.offers_breakfast,
         "offers_lunch": school.offers_lunch,
         "offers_snack": school.offers_snack,
+        "offers_dinner": school.offers_dinner,
         "active": school.active,
     }
 
@@ -43,6 +45,54 @@ def get_school_by_id(db: Session, school_id: int) -> dict:
     return _school_to_response(school)
 
 
+def get_school_for_user(db: Session, user: User) -> dict:
+    if user.role != UserRole.escuela:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo los usuarios escuela pueden acceder a esta vista",
+        )
+    if user.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El usuario no tiene una escuela asociada",
+        )
+    return get_school_by_id(db, user.school_id)
+
+
+def update_school_matriculation_for_user(
+    db: Session,
+    user: User,
+    matriculation: int,
+) -> dict:
+    if user.role != UserRole.escuela:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo los usuarios escuela pueden actualizar su matricula",
+        )
+    if user.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El usuario no tiene una escuela asociada",
+        )
+
+    school = db.query(School).filter(School.id == user.school_id).first()
+    if not school:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Escuela no encontrada",
+        )
+    if not school.active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede actualizar una escuela inactiva",
+        )
+
+    school.matriculation = matriculation
+    db.commit()
+    db.refresh(school)
+    return _school_to_response(school)
+
+
 def _validate_locality(db: Session, locality_id: int) -> None:
     locality = db.query(Localidad).filter(Localidad.id == locality_id).first()
     if not locality:
@@ -63,6 +113,7 @@ def create_school(
     offers_breakfast: bool = False,
     offers_lunch: bool = False,
     offers_snack: bool = False,
+    offers_dinner: bool = False,
 ) -> dict:
     _validate_locality(db, locality_id)
 
@@ -82,6 +133,7 @@ def create_school(
         offers_breakfast=offers_breakfast,
         offers_lunch=offers_lunch,
         offers_snack=offers_snack,
+        offers_dinner=offers_dinner,
     )
     db.add(school)
     db.commit()
@@ -101,6 +153,7 @@ def update_school(
     offers_breakfast: Optional[bool] = None,
     offers_lunch: Optional[bool] = None,
     offers_snack: Optional[bool] = None,
+    offers_dinner: Optional[bool] = None,
     active: Optional[bool] = None,
 ) -> dict:
     school = db.query(School).filter(School.id == school_id).first()
@@ -139,6 +192,8 @@ def update_school(
         school.offers_lunch = offers_lunch
     if offers_snack is not None:
         school.offers_snack = offers_snack
+    if offers_dinner is not None:
+        school.offers_dinner = offers_dinner
     if active is not None:
         school.active = active
 

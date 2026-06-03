@@ -6,6 +6,8 @@ import {
   apiCreateUser,
   apiUpdateUser,
   apiToggleUserActive,
+  apiGetSchools,
+  type SchoolRecord,
   type UserRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
@@ -24,15 +26,22 @@ interface FormState {
   username: string;
   password: string;
   role: string;
+  school_id: string;
 }
 
-const EMPTY_FORM: FormState = { username: "", password: "", role: "gestor" };
+const EMPTY_FORM: FormState = {
+  username: "",
+  password: "",
+  role: "gestor",
+  school_id: "",
+};
 
 export default function UsuariosPage() {
   const { user: currentUser } = useUser();
   const isAdmin = currentUser?.role === "admin";
 
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [schools, setSchools] = useState<SchoolRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("activos");
@@ -48,7 +57,12 @@ export default function UsuariosPage() {
   async function loadUsers() {
     setLoading(true);
     try {
-      setUsers(await apiGetUsers());
+      const [usersData, schoolsData] = await Promise.all([
+        apiGetUsers(),
+        apiGetSchools(),
+      ]);
+      setUsers(usersData);
+      setSchools(schoolsData);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error al cargar usuarios");
     } finally {
@@ -67,7 +81,12 @@ export default function UsuariosPage() {
   }
 
   function openEdit(u: UserRecord) {
-    setForm({ username: u.username, password: "", role: u.role });
+    setForm({
+      username: u.username,
+      password: "",
+      role: u.role,
+      school_id: u.school_id ? String(u.school_id) : "",
+    });
     setFormError(null);
     setModalMode("edit");
     setEditingId(u.id);
@@ -78,11 +97,31 @@ export default function UsuariosPage() {
     setFormError(null);
     setSaving(true);
     try {
+      const schoolId = form.role === "escuela" ? Number(form.school_id) : null;
+      if (form.role === "escuela" && !schoolId) {
+        setFormError("Selecciona la escuela asociada");
+        return;
+      }
+
       if (modalMode === "create") {
         if (!form.password) { setFormError("La contraseña es obligatoria"); return; }
-        await apiCreateUser({ username: form.username, password: form.password, role: form.role });
+        await apiCreateUser({
+          username: form.username,
+          password: form.password,
+          role: form.role,
+          school_id: schoolId,
+        });
       } else if (editingId !== null) {
-        const payload: Record<string, string> = { username: form.username, role: form.role };
+        const payload: {
+          username: string;
+          role: string;
+          school_id: number | null;
+          password?: string;
+        } = {
+          username: form.username,
+          role: form.role,
+          school_id: schoolId,
+        };
         if (form.password) payload.password = form.password;
         await apiUpdateUser(editingId, payload);
       }
@@ -107,9 +146,16 @@ export default function UsuariosPage() {
   const visibleUsers = users.filter((u) =>
     tab === "activos" ? u.active : !u.active
   );
+  const schoolNameById = new Map(
+    schools.map((school) => [
+      school.id,
+      `${school.code} - ${school.name}`,
+    ]),
+  );
+  const activeSchools = schools.filter((school) => school.active);
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Usuarios</h1>
@@ -176,6 +222,7 @@ export default function UsuariosPage() {
                 <th className="text-left px-5 py-3 font-medium text-gray-500">ID</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Usuario</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Rol</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500">Escuela</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
                 {isAdmin && (
                   <th className="text-right px-5 py-3 font-medium text-gray-500">Acciones</th>
@@ -197,6 +244,11 @@ export default function UsuariosPage() {
                     }`}>
                       {ROLE_LABEL[u.role] ?? u.role}
                     </span>
+                  </td>
+                  <td className="px-5 py-3 text-gray-600">
+                    {u.role === "escuela" && u.school_id
+                      ? schoolNameById.get(u.school_id) ?? `Escuela #${u.school_id}`
+                      : "No aplica"}
                   </td>
                   <td className="px-5 py-3">
                     <span className={`inline-block w-2 h-2 rounded-full mr-2 ${u.active ? "bg-green-500" : "bg-gray-300"}`} />
@@ -228,7 +280,7 @@ export default function UsuariosPage() {
               ))}
               {visibleUsers.length === 0 && (
                 <tr>
-                  <td colSpan={isAdmin ? 5 : 4} className="px-5 py-8 text-center text-gray-400">
+                  <td colSpan={isAdmin ? 6 : 5} className="px-5 py-8 text-center text-gray-400">
                     {tab === "activos" ? "No hay usuarios activos." : "No hay usuarios inactivos."}
                   </td>
                 </tr>
@@ -285,6 +337,26 @@ export default function UsuariosPage() {
                   ))}
                 </select>
               </div>
+
+              {form.role === "escuela" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Escuela asociada
+                  </label>
+                  <select
+                    value={form.school_id}
+                    onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Seleccionar escuela...</option>
+                    {activeSchools.map((school) => (
+                      <option key={school.id} value={school.id}>
+                        {school.code} - {school.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {formError && (
