@@ -11,6 +11,7 @@ import {
   type UserRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
+import { showSuccessToast } from "@/components/toast";
 
 const ROLES = ["admin", "gestor", "escuela"] as const;
 const ROLE_LABEL: Record<string, string> = {
@@ -53,6 +54,9 @@ export default function UsuariosPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [editingProtectedAdmin, setEditingProtectedAdmin] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<UserRecord | null>(null);
+  const [toggling, setToggling] = useState(false);
 
   async function loadUsers() {
     setLoading(true);
@@ -77,6 +81,7 @@ export default function UsuariosPage() {
     setFormError(null);
     setModalMode("create");
     setEditingId(null);
+    setEditingProtectedAdmin(false);
     setModalOpen(true);
   }
 
@@ -90,6 +95,7 @@ export default function UsuariosPage() {
     setFormError(null);
     setModalMode("edit");
     setEditingId(u.id);
+    setEditingProtectedAdmin(u.is_protected_admin);
     setModalOpen(true);
   }
 
@@ -111,6 +117,7 @@ export default function UsuariosPage() {
           role: form.role,
           school_id: schoolId,
         });
+        showSuccessToast("Usuario creado correctamente");
       } else if (editingId !== null) {
         const payload: {
           username: string;
@@ -124,6 +131,7 @@ export default function UsuariosPage() {
         };
         if (form.password) payload.password = form.password;
         await apiUpdateUser(editingId, payload);
+        showSuccessToast("Usuario actualizado correctamente");
       }
       setModalOpen(false);
       await loadUsers();
@@ -134,12 +142,23 @@ export default function UsuariosPage() {
     }
   }
 
-  async function handleToggle(u: UserRecord) {
+  async function handleConfirmToggle() {
+    if (!confirmTarget) return;
+    setToggling(true);
     try {
-      const updated = await apiToggleUserActive(u.id);
+      const updated = await apiToggleUserActive(confirmTarget.id);
       setUsers((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
-    } catch {
-      setError("Error al cambiar el estado del usuario");
+      setConfirmTarget(null);
+      showSuccessToast(
+        updated.active
+          ? "Usuario activado correctamente"
+          : "Usuario desactivado correctamente",
+      );
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error al cambiar el estado del usuario");
+      setConfirmTarget(null);
+    } finally {
+      setToggling(false);
     }
   }
 
@@ -253,6 +272,11 @@ export default function UsuariosPage() {
                   <td className="px-5 py-3">
                     <span className={`inline-block w-2 h-2 rounded-full mr-2 ${u.active ? "bg-green-500" : "bg-gray-300"}`} />
                     {u.active ? "Activo" : "Inactivo"}
+                    {u.is_protected_admin && (
+                      <span className="ml-2 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                        Protegido
+                      </span>
+                    )}
                   </td>
                   {isAdmin && (
                     <td className="px-5 py-3 text-right">
@@ -264,9 +288,17 @@ export default function UsuariosPage() {
                           Editar
                         </button>
                         <button
-                          onClick={() => handleToggle(u)}
+                          onClick={() => setConfirmTarget(u)}
+                          disabled={u.is_protected_admin && u.active}
+                          title={
+                            u.is_protected_admin && u.active
+                              ? "El administrador principal no se puede desactivar"
+                              : undefined
+                          }
                           className={`font-medium px-2 py-1 rounded transition-colors ${
-                            u.active
+                            u.is_protected_admin && u.active
+                              ? "text-gray-300 cursor-not-allowed"
+                              : u.active
                               ? "text-red-500 hover:text-red-700 hover:bg-red-50"
                               : "text-green-600 hover:text-green-800 hover:bg-green-50"
                           }`}
@@ -330,12 +362,18 @@ export default function UsuariosPage() {
                 <select
                   value={form.role}
                   onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  disabled={editingProtectedAdmin}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:text-gray-500"
                 >
                   {ROLES.map((r) => (
                     <option key={r} value={r}>{ROLE_LABEL[r]}</option>
                   ))}
                 </select>
+                {editingProtectedAdmin && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    El administrador principal debe conservar el rol administrador.
+                  </p>
+                )}
               </div>
 
               {form.role === "escuela" && (
@@ -378,6 +416,52 @@ export default function UsuariosPage() {
                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 rounded-lg text-sm transition-colors"
               >
                 {saving ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm toggle modal */}
+      {confirmTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-2">
+              {confirmTarget.active ? "Desactivar usuario" : "Activar usuario"}
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Confirmas que queres{" "}
+              <span className="font-medium">
+                {confirmTarget.active ? "desactivar" : "activar"}
+              </span>{" "}
+              el usuario{" "}
+              <span className="font-semibold text-gray-800">
+                {confirmTarget.username}
+              </span>
+              ?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmTarget(null)}
+                disabled={toggling}
+                className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmToggle}
+                disabled={toggling}
+                className={`flex-1 font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50 text-white ${
+                  confirmTarget.active
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {toggling
+                  ? "Guardando..."
+                  : confirmTarget.active
+                    ? "Desactivar"
+                    : "Activar"}
               </button>
             </div>
           </div>

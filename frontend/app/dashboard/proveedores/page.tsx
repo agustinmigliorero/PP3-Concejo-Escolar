@@ -9,6 +9,7 @@ import {
   type ProveedorRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
+import { showSuccessToast } from "@/components/toast";
 
 type Tab = "activos" | "inactivos";
 type ModalMode = "create" | "edit";
@@ -82,8 +83,10 @@ export default function ProveedoresPage() {
     try {
       if (modalMode === "create") {
         await apiCreateProveedor({ nombre, contacto });
+        showSuccessToast("Proveedor creado correctamente");
       } else if (editingId !== null) {
         await apiUpdateProveedor(editingId, { nombre, contacto });
+        showSuccessToast("Proveedor actualizado correctamente");
       }
       setModalOpen(false);
       setError(null);
@@ -102,6 +105,11 @@ export default function ProveedoresPage() {
       const updated = await apiToggleProveedorActive(confirmTarget.id);
       setProveedores((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       setConfirmTarget(null);
+      showSuccessToast(
+        updated.activo
+          ? "Proveedor activado correctamente"
+          : "Proveedor desactivado correctamente",
+      );
     } catch {
       setError("Error al cambiar el estado del proveedor");
       setConfirmTarget(null);

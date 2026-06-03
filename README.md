@@ -106,7 +106,9 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
 Esto construye las imágenes y levanta backend y frontend. La primera vez tarda unos minutos.
-En desarrollo, `docker-compose.dev.yml` cambia el frontend a `npm run dev`, monta el código local como volumen y usa `http://localhost:8000` como API por defecto.
+En desarrollo, `docker-compose.dev.yml` cambia el frontend a `npm run dev -- --webpack`, monta el código local como volumen, activa polling para hot reload dentro de Docker Desktop y usa `http://localhost:8000` como API por defecto. También monta el backend local y lo ejecuta con `uvicorn --reload`.
+
+> Después del primer `up --build`, no deberías apagar ni recrear los contenedores para ver cambios de código en local. Si cambiás dependencias (`package.json`, `package-lock.json` o `requirements.txt`), ahí sí corresponde reconstruir.
 
 > Regla del equipo: local usa `docker-compose.yml + docker-compose.dev.yml`; Dokploy usa solo `docker-compose.yml`.
 

@@ -7,6 +7,7 @@ import {
   type SchoolRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
+import { showSuccessToast } from "@/components/toast";
 
 const MEALS: { key: keyof SchoolRecord; label: string }[] = [
   { key: "offers_breakfast", label: "Desayuno" },
@@ -78,6 +79,7 @@ export default function MiEscuelaPage() {
       setSchool(updated);
       setMatriculation(String(updated.matriculation));
       setSuccess("Matricula actualizada correctamente");
+      showSuccessToast("Matricula actualizada correctamente");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error al guardar la matricula");
     } finally {

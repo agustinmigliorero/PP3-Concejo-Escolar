@@ -11,6 +11,7 @@ import {
   type LocalidadRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
+import { showSuccessToast } from "@/components/toast";
 
 type Tab = "activas" | "inactivas";
 type ModalMode = "create" | "edit";
@@ -154,6 +155,7 @@ export default function EscuelasPage() {
           offers_snack: form.offers_snack,
           offers_dinner: form.offers_dinner
         });
+        showSuccessToast("Escuela creada correctamente");
       } else if (editingId !== null) {
         await apiUpdateSchool(editingId, {
           name: form.name,
@@ -167,6 +169,7 @@ export default function EscuelasPage() {
           offers_snack: form.offers_snack,
           offers_dinner: form.offers_dinner,
         });
+        showSuccessToast("Escuela actualizada correctamente");
       }
       setModalOpen(false);
       setError(null);
@@ -187,6 +190,11 @@ export default function EscuelasPage() {
         prev.map((s) => (s.id === updated.id ? updated : s)),
       );
       setConfirmTarget(null);
+      showSuccessToast(
+        updated.active
+          ? "Escuela activada correctamente"
+          : "Escuela desactivada correctamente",
+      );
     } catch {
       setError("Error al cambiar el estado de la escuela");
       setConfirmTarget(null);
