@@ -124,6 +124,7 @@ export interface UserRecord {
   role: "admin" | "gestor" | "escuela";
   school_id: number | null;
   active: boolean;
+  is_protected_admin: boolean;
 }
 
 export async function apiGetUsers(): Promise<UserRecord[]> {
@@ -173,7 +174,7 @@ export async function apiUpdateUser(
 
 export async function apiToggleUserActive(id: number): Promise<UserRecord> {
   const res = await apiFetch(`/users/${id}/toggle-active`, { method: "PATCH" });
-  if (!res.ok) throw new Error("Error al cambiar estado del usuario");
+  if (!res.ok) throw await buildApiError(res, "Error al cambiar estado del usuario");
   return res.json();
 }
 

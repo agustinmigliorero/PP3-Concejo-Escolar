@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiGetMe, apiLogout, tryRefresh, type UserInfo } from "@/lib/api";
 import { getAccessToken, onAuthExpired } from "@/lib/auth";
+import { ToastViewport } from "@/components/toast";
 import { UserContext } from "./user-context";
 
 export default function DashboardLayout({
@@ -106,6 +107,7 @@ export default function DashboardLayout({
 
         {/* Content */}
         <main className="flex-1 p-6">{children}</main>
+        <ToastViewport />
       </div>
     </UserContext.Provider>
   );

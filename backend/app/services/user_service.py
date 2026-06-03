@@ -7,6 +7,28 @@ from app.models.school_model import School
 from app.models.user_model import User, UserRole
 
 
+def _get_protected_admin_id(db: Session) -> int | None:
+    protected_admin = (
+        db.query(User)
+        .filter(User.role == UserRole.admin)
+        .order_by(User.id.asc())
+        .first()
+    )
+    return protected_admin.id if protected_admin else None
+
+
+def _mark_protected_admin(db: Session, user: User) -> User:
+    user.is_protected_admin = user.id == _get_protected_admin_id(db)
+    return user
+
+
+def _mark_protected_admins(db: Session, users: list[User]) -> list[User]:
+    protected_admin_id = _get_protected_admin_id(db)
+    for user in users:
+        user.is_protected_admin = user.id == protected_admin_id
+    return users
+
+
 def _normalize_school_assignment(
     db: Session,
     role: UserRole,
@@ -71,18 +93,18 @@ def create_user(
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+    return _mark_protected_admin(db, user)
 
 
 def get_all_users(db: Session) -> list[User]:
-    return db.query(User).all()
+    return _mark_protected_admins(db, db.query(User).all())
 
 
 def get_user_by_id(db: Session, user_id: int) -> User:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
-    return user
+    return _mark_protected_admin(db, user)
 
 
 def update_user(
@@ -104,6 +126,12 @@ def update_user(
         user.password = hash_password(password)
 
     next_role = update_data.get("role", user.role)
+    if user.is_protected_admin and next_role != UserRole.admin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede cambiar el rol del administrador principal",
+        )
+
     next_school_id = update_data.get("school_id", user.school_id)
     user.role = next_role
     user.school_id = _normalize_school_assignment(
@@ -115,12 +143,18 @@ def update_user(
 
     db.commit()
     db.refresh(user)
-    return user
+    return _mark_protected_admin(db, user)
 
 
 def toggle_active(db: Session, user_id: int) -> User:
     user = get_user_by_id(db, user_id)
+    if user.is_protected_admin and user.active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede desactivar el administrador principal",
+        )
+
     user.active = not user.active
     db.commit()
     db.refresh(user)
-    return user
+    return _mark_protected_admin(db, user)

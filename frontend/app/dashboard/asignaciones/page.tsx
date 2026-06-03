@@ -15,6 +15,7 @@ import {
   type ProveedorRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
+import { showSuccessToast } from "@/components/toast";
 
 function fmtPrecio(v: string): string {
   const n = Number(v);
@@ -75,7 +76,9 @@ export default function AsignacionesPage() {
     setError(null);
     try {
       const data = await apiGetAsignaciones({
-        ingrediente_id: filterIngrediente ? Number(filterIngrediente) : undefined,
+        ingrediente_id: filterIngrediente
+          ? Number(filterIngrediente)
+          : undefined,
         localidad_id: filterLocalidad ? Number(filterLocalidad) : undefined,
         proveedor_id: filterProveedor ? Number(filterProveedor) : undefined,
         solo_vigentes: true,
@@ -144,8 +147,11 @@ export default function AsignacionesPage() {
       });
       setCreateOpen(false);
       await loadAsignaciones();
+      showSuccessToast("Asignacion creada correctamente");
     } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : "Error al crear la asignación");
+      setFormError(
+        e instanceof Error ? e.message : "Error al crear la asignación",
+      );
     } finally {
       setSaving(false);
     }
@@ -170,8 +176,11 @@ export default function AsignacionesPage() {
       await apiUpdateAsignacionPrecio(editTarget.id, precio);
       setEditTarget(null);
       await loadAsignaciones();
+      showSuccessToast("Precio actualizado correctamente");
     } catch (e: unknown) {
-      setEditError(e instanceof Error ? e.message : "Error al actualizar el precio");
+      setEditError(
+        e instanceof Error ? e.message : "Error al actualizar el precio",
+      );
     } finally {
       setEditSaving(false);
     }
@@ -182,7 +191,9 @@ export default function AsignacionesPage() {
     setHistorial([]);
     setHistLoading(true);
     try {
-      setHistorial(await apiGetAsignacionHistorial(a.ingrediente_id, a.localidad_id));
+      setHistorial(
+        await apiGetAsignacionHistorial(a.ingrediente_id, a.localidad_id),
+      );
     } catch {
       setHistorial([]);
     } finally {
@@ -288,12 +299,24 @@ export default function AsignacionesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Ingrediente</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Localidad</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Proveedor</th>
-                <th className="text-right px-5 py-3 font-medium text-gray-500">Precio unit.</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Desde</th>
-                <th className="text-right px-5 py-3 font-medium text-gray-500">Acciones</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500">
+                  Ingrediente
+                </th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500">
+                  Localidad
+                </th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500">
+                  Proveedor
+                </th>
+                <th className="text-right px-5 py-3 font-medium text-gray-500">
+                  Precio unit.
+                </th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500">
+                  Desde
+                </th>
+                <th className="text-right px-5 py-3 font-medium text-gray-500">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -311,12 +334,18 @@ export default function AsignacionesPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-gray-600">{a.localidad_nombre}</td>
-                  <td className="px-5 py-3 text-gray-600">{a.proveedor_nombre}</td>
+                  <td className="px-5 py-3 text-gray-600">
+                    {a.localidad_nombre}
+                  </td>
+                  <td className="px-5 py-3 text-gray-600">
+                    {a.proveedor_nombre}
+                  </td>
                   <td className="px-5 py-3 text-right text-gray-800">
                     {fmtPrecio(a.precio_unitario)}
                   </td>
-                  <td className="px-5 py-3 text-gray-600">{fmtFecha(a.fecha_desde)}</td>
+                  <td className="px-5 py-3 text-gray-600">
+                    {fmtFecha(a.fecha_desde)}
+                  </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -337,7 +366,10 @@ export default function AsignacionesPage() {
               ))}
               {asignaciones.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                  <td
+                    colSpan={6}
+                    className="px-5 py-8 text-center text-gray-400"
+                  >
                     No hay asignaciones vigentes con esos filtros.
                   </td>
                 </tr>
@@ -351,7 +383,9 @@ export default function AsignacionesPage() {
       {createOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-5">Nueva asignación</h2>
+            <h2 className="text-lg font-bold text-gray-800 mb-5">
+              Nueva asignación
+            </h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -436,9 +470,7 @@ export default function AsignacionesPage() {
                     onChange={(e) => setCFecha(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <p className="text-xs text-gray-400 mt-1">
-                    Vacío = hoy
-                  </p>
+                  <p className="text-xs text-gray-400 mt-1">Vacío = hoy</p>
                 </div>
               </div>
             </div>
@@ -472,7 +504,9 @@ export default function AsignacionesPage() {
       {editTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-1">Editar precio</h2>
+            <h2 className="text-lg font-bold text-gray-800 mb-1">
+              Editar precio
+            </h2>
             <p className="text-sm text-gray-500 mb-4">
               {editTarget.ingrediente_nombre} · {editTarget.localidad_nombre} ·{" "}
               {editTarget.proveedor_nombre}
@@ -551,12 +585,17 @@ export default function AsignacionesPage() {
                         <td className="py-2 pl-3 text-gray-600">
                           {fmtFecha(h.fecha_desde)}
                         </td>
-                        <td className="py-2 text-gray-600">{fmtFecha(h.fecha_hasta)}</td>
+                        <td className="py-2 text-gray-600">
+                          {fmtFecha(h.fecha_hasta)}
+                        </td>
                       </tr>
                     ))}
                     {historial.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="py-6 text-center text-gray-400">
+                        <td
+                          colSpan={4}
+                          className="py-6 text-center text-gray-400"
+                        >
                           Sin historial.
                         </td>
                       </tr>

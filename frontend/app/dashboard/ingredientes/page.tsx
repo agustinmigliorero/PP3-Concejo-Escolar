@@ -9,6 +9,7 @@ import {
   type IngredienteRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
+import { showSuccessToast } from "@/components/toast";
 
 type Tab = "activos" | "inactivos";
 type ModalMode = "create" | "edit";
@@ -93,8 +94,10 @@ export default function IngredientesPage() {
 
       if (modalMode === "create") {
         await apiCreateIngrediente(data);
+        showSuccessToast("Ingrediente creado correctamente");
       } else if (editingId !== null) {
         await apiUpdateIngrediente(editingId, data);
+        showSuccessToast("Ingrediente actualizado correctamente");
       }
       setModalOpen(false);
       setError(null);
@@ -113,6 +116,11 @@ export default function IngredientesPage() {
       const updated = await apiToggleIngredienteActive(confirmTarget.id);
       setIngredientes((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
       setConfirmTarget(null);
+      showSuccessToast(
+        updated.activo
+          ? "Ingrediente activado correctamente"
+          : "Ingrediente desactivado correctamente",
+      );
     } catch {
       setError("Error al cambiar el estado del ingrediente");
       setConfirmTarget(null);
