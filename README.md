@@ -476,6 +476,15 @@ La documentación interactiva completa está en `http://localhost:8000/docs` (Sw
 | PATCH  | `/users/{id}/toggle-active` | Activar / desactivar                      | admin         |
 | DELETE | `/users/{id}`               | Eliminar permanentemente (solo inactivos) | admin         |
 
+### Stock previo
+
+| Método | Endpoint                  | Descripción                                      | Rol requerido |
+| ------ | ------------------------- | ------------------------------------------------ | ------------- |
+| GET    | `/stock-previo/me`        | Ver stock sobrante de la escuela propia          | escuela       |
+| PUT    | `/stock-previo/me`        | Cargar/actualizar stock sobrante propio          | escuela       |
+| GET    | `/stock-previo/{school_id}` | Ver stock sobrante de una escuela              | admin/gestor  |
+| PUT    | `/stock-previo/{school_id}` | Cargar/actualizar stock sobrante de una escuela | admin/gestor  |
+
 ### Cómo autenticarse en Swagger
 
 1. Llamar a `POST /auth/login` con body `{ "username": "admin", "password": "..." }`

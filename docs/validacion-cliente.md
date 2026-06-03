@@ -47,6 +47,7 @@ Tiene acceso al día a día operativo:
 
 Usuario específico para cada escuela:
 
+- **Actualiza la matrícula** de su propia escuela cuando haya cambios de alumnos.
 - **Carga el stock previo** de su escuela antes de la generación del pedido semanal (ingredientes sobrantes de la semana anterior).
 - Consulta el **historial de pedidos** que incluyeron a su escuela, con los documentos descargables.
 
@@ -277,7 +278,7 @@ Para evitar malentendidos, dejamos claro lo que **queda fuera** del alcance inic
 - ❌ **No distingue porciones por grupo etario**: usa una única porción estándar por receta.
 - ❌ **No calcula información nutricional** (calorías, macros, etc.).
 - ❌ **No envía emails automáticos a proveedores**: los documentos se descargan y el envío es manual.
-- ❌ **El usuario Escuela no puede editar datos de la escuela**: solo carga stock y consulta pedidos.
+- ❌ **El usuario Escuela no puede editar datos generales de la escuela**: solo actualiza matrícula, carga stock y consulta pedidos.
 
 > **📋 Validar**: ¿Alguna de estas exclusiones debería estar incluida? ¿Falta algún otro aclaración de alcance?
 
