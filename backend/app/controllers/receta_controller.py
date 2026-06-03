@@ -14,6 +14,7 @@ class RecetaIngredienteItemRequest(BaseModel):
 class CreateRecetaRequest(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=200)
     tipo_comida: TipoComida
+    temporada_id: int = Field(..., gt=0)
     ingredientes: list[RecetaIngredienteItemRequest]
 
     @field_validator("nombre")
@@ -48,6 +49,9 @@ class RecetaResponse(BaseModel):
     id: int
     nombre: str
     tipo_comida: TipoComida
+    temporada_id: int | None
+    temporada_nombre: str | None
+    temporada_anio: int | None
     activo: bool
     ingredientes: list[RecetaIngredienteResponse]
 

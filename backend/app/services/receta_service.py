@@ -4,11 +4,13 @@ from sqlalchemy.orm import Session, selectinload
 from app.controllers.receta_controller import CreateRecetaRequest, UpdateRecetaRequest
 from app.models.ingrediente_model import Ingrediente
 from app.models.receta_model import Receta, RecetaIngrediente
+from app.models.temporada_model import Temporada
 
 
 def _receta_query(db: Session):
     return db.query(Receta).options(
-        selectinload(Receta.ingredientes).joinedload(RecetaIngrediente.ingrediente)
+        selectinload(Receta.ingredientes).joinedload(RecetaIngrediente.ingrediente),
+        selectinload(Receta.temporada),
     )
 
 
@@ -17,6 +19,9 @@ def _receta_to_response(receta: Receta) -> dict:
         "id": receta.id,
         "nombre": receta.nombre,
         "tipo_comida": receta.tipo_comida,
+        "temporada_id": receta.temporada_id,
+        "temporada_nombre": receta.temporada.nombre.value if receta.temporada else None,
+        "temporada_anio": receta.temporada.anio if receta.temporada else None,
         "activo": receta.activo,
         "ingredientes": [
             {
@@ -56,6 +61,16 @@ def _get_ingredientes_map(db: Session, ingrediente_ids: list[int]) -> dict[int, 
     return ingredientes_map
 
 
+def _get_temporada(db: Session, temporada_id: int) -> Temporada:
+    temporada = db.query(Temporada).filter(Temporada.id == temporada_id).first()
+    if not temporada:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Temporada no encontrada",
+        )
+    return temporada
+
+
 def get_all_recetas(db: Session, include_inactive: bool = False) -> list[dict]:
     query = _receta_query(db)
     if not include_inactive:
@@ -83,8 +98,13 @@ def create_receta(db: Session, data: CreateRecetaRequest) -> dict:
         db,
         [item.ingrediente_id for item in data.ingredientes],
     )
+    _get_temporada(db, data.temporada_id)
 
-    receta = Receta(nombre=data.nombre, tipo_comida=data.tipo_comida)
+    receta = Receta(
+        nombre=data.nombre,
+        tipo_comida=data.tipo_comida,
+        temporada_id=data.temporada_id,
+    )
     db.add(receta)
     db.flush()
 
@@ -118,9 +138,11 @@ def update_receta(db: Session, receta_id: int, data: UpdateRecetaRequest) -> dic
         )
 
     _get_ingredientes_map(db, [item.ingrediente_id for item in data.ingredientes])
+    _get_temporada(db, data.temporada_id)
 
     receta.nombre = data.nombre
     receta.tipo_comida = data.tipo_comida
+    receta.temporada_id = data.temporada_id
     receta.ingredientes.clear()
     db.flush()
 

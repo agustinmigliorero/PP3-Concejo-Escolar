@@ -18,8 +18,10 @@ class Receta(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(200), unique=True, nullable=False, index=True)
     tipo_comida = Column(Enum(TipoComida), nullable=False)
+    temporada_id = Column(Integer, ForeignKey("temporadas.id"), nullable=True, index=True)
     activo = Column(Boolean, default=True, nullable=False)
 
+    temporada = relationship("Temporada")
     ingredientes = relationship(
         "RecetaIngrediente",
         back_populates="receta",
