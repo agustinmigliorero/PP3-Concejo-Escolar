@@ -401,6 +401,38 @@ export async function apiUpdateMySchoolMatriculation(
   return res.json();
 }
 
+export interface StockPrevioItem {
+  ingrediente_id: number;
+  ingrediente_nombre: string;
+  unidad_medida: string;
+  cantidad: string;
+  cargado_at: string | null;
+}
+
+export interface StockPrevioSchoolRecord {
+  escuela_id: number;
+  escuela_nombre: string;
+  items: StockPrevioItem[];
+}
+
+export async function apiGetMyStock(): Promise<StockPrevioSchoolRecord> {
+  const res = await apiFetch("/stock-previo/me");
+  if (!res.ok) throw await buildApiError(res, "Error al obtener el stock sobrante");
+  return res.json();
+}
+
+export async function apiUpdateMyStock(
+  items: Array<{ ingrediente_id: number; cantidad: number }>,
+): Promise<StockPrevioSchoolRecord> {
+  const res = await apiFetch("/stock-previo/me", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar el stock sobrante");
+  return res.json();
+}
+
 // â”€â”€ Ingredientes CRUD (admin write, admin+gestor read) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IngredienteRecord {

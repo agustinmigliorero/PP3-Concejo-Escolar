@@ -11,6 +11,7 @@ from app.routes import (
     proveedor_routes,
     receta_routes,
     temporada_routes,
+    stock_previo_routes,
     user_routes,
     school_routes,
 )
@@ -23,6 +24,7 @@ import app.models.proveedor_model  # noqa: F401
 import app.models.receta_model  # noqa: F401
 import app.models.refresh_token_model  # noqa: F401
 import app.models.school_model  # noqa: F401
+import app.models.stock_previo_model  # noqa: F401
 import app.models.temporada_model  # noqa: F401
 import app.models.user_model  # noqa: F401
 
@@ -80,6 +82,7 @@ app.include_router(proveedor_routes.router)
 app.include_router(asignacion_proveedor_routes.router)
 app.include_router(receta_routes.router)
 app.include_router(temporada_routes.router)
+app.include_router(stock_previo_routes.router)
 
 
 @app.get("/")
