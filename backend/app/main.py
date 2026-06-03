@@ -9,6 +9,7 @@ from app.routes import (
     ingrediente_routes,
     localidad_routes,
     proveedor_routes,
+    receta_routes,
     temporada_routes,
     user_routes,
     school_routes,
@@ -19,6 +20,7 @@ import app.models.asignacion_proveedor_model  # noqa: F401
 import app.models.ingrediente_model  # noqa: F401
 import app.models.location_model  # noqa: F401
 import app.models.proveedor_model  # noqa: F401
+import app.models.receta_model  # noqa: F401
 import app.models.refresh_token_model  # noqa: F401
 import app.models.school_model  # noqa: F401
 import app.models.temporada_model  # noqa: F401
@@ -76,6 +78,7 @@ app.include_router(school_routes.router)
 app.include_router(ingrediente_routes.router)
 app.include_router(proveedor_routes.router)
 app.include_router(asignacion_proveedor_routes.router)
+app.include_router(receta_routes.router)
 app.include_router(temporada_routes.router)
 
 
