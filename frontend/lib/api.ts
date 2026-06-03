@@ -301,6 +301,7 @@ export interface SchoolRecord {
   offers_breakfast: boolean;
   offers_lunch: boolean;
   offers_snack: boolean;
+  offers_dinner: boolean;
   active: boolean;
 }
 
@@ -329,6 +330,7 @@ export async function apiCreateSchool(data: {
   offers_breakfast?: boolean;
   offers_lunch?: boolean;
   offers_snack?: boolean;
+  offers_dinner?: boolean;
 }): Promise<SchoolRecord> {
   const res = await apiFetch("/schools", {
     method: "POST",
@@ -354,6 +356,7 @@ export async function apiUpdateSchool(
     offers_breakfast?: boolean;
     offers_lunch?: boolean;
     offers_snack?: boolean;
+    offers_dinner?:boolean;
     active?: boolean;
   },
 ): Promise<SchoolRecord> {
