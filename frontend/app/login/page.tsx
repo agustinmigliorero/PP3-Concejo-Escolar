@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiLogin } from "@/lib/api";
-import { setAccessToken as storeToken } from "@/lib/auth";
+import { apiLogin, tryRefresh } from "@/lib/api";
+import { getAccessToken, setAccessToken as storeToken } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +11,25 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [from, setFrom] = useState("/dashboard");
+
+  useEffect(() => {
+    const nextFrom =
+      new URLSearchParams(window.location.search).get("from") || "/dashboard";
+    setFrom(nextFrom);
+
+    let active = true;
+    async function redirectIfSessionIsValid() {
+      if (getAccessToken() || (await tryRefresh())) {
+        if (active) router.replace(nextFrom);
+      }
+    }
+
+    redirectIfSessionIsValid();
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -19,7 +38,7 @@ export default function LoginPage() {
     try {
       const data = await apiLogin(username, password);
       storeToken(data.access_token);
-      router.push("/dashboard");
+      router.push(from);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
     } finally {

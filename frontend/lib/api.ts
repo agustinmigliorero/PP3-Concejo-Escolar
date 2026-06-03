@@ -1,5 +1,7 @@
 ﻿import { clearAccessToken, getAccessToken, setAccessToken } from "./auth";
 
+import { notifyAuthExpired } from "./auth";
+
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -47,6 +49,10 @@ export async function apiFetch(
     }
   }
 
+  if (res.status === 401) {
+    notifyAuthExpired();
+  }
+
   return res;
 }
 
@@ -58,17 +64,23 @@ export async function tryRefresh(): Promise<boolean> {
   _refreshPromise = fetch(`${API_URL}/auth/refresh`, {
     method: "POST",
     credentials: "include",
-  }).then(async (res) => {
-    if (!res.ok) {
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        notifyAuthExpired();
+        return false;
+      }
+      const data = await res.json();
+      setAccessToken(data.access_token);
+      return true;
+    })
+    .catch(() => {
       clearAccessToken();
       return false;
-    }
-    const data = await res.json();
-    setAccessToken(data.access_token);
-    return true;
-  }).finally(() => {
-    _refreshPromise = null;
-  });
+    })
+    .finally(() => {
+      _refreshPromise = null;
+    });
 
   return _refreshPromise;
 }
@@ -367,6 +379,24 @@ export async function apiToggleSchoolActive(
   return res.json();
 }
 
+export async function apiGetMySchool(): Promise<SchoolRecord> {
+  const res = await apiFetch("/schools/me");
+  if (!res.ok) throw await buildApiError(res, "Error al obtener la escuela asociada");
+  return res.json();
+}
+
+export async function apiUpdateMySchoolMatriculation(
+  matriculation: number,
+): Promise<SchoolRecord> {
+  const res = await apiFetch("/schools/me/matriculation", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ matriculation }),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar la matricula");
+  return res.json();
+}
+
 // â”€â”€ Ingredientes CRUD (admin write, admin+gestor read) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IngredienteRecord {
@@ -436,6 +466,95 @@ export async function apiToggleIngredienteActive(
     method: "PATCH",
   });
   if (!res.ok) throw new Error("Error al cambiar estado del ingrediente");
+  return res.json();
+}
+
+// ── Temporadas y opciones de menú (admin only) ───────────────────────────────
+
+export interface OpcionMenuRecord {
+  id: number;
+  numero_opcion: 1 | 2;
+  descripcion: string | null;
+}
+
+export interface TemporadaRecord {
+  id: number;
+  nombre: "VERANO" | "INVIERNO";
+  anio: number;
+  activo: boolean;
+  opciones_menu: OpcionMenuRecord[];
+}
+
+export async function apiGetTemporadas(
+  includeInactive = false,
+): Promise<TemporadaRecord[]> {
+  const query = includeInactive ? "?include_inactive=true" : "";
+  const res = await apiFetch(`/temporadas${query}`);
+  if (!res.ok) throw await buildApiError(res, "Error al obtener temporadas");
+  return res.json();
+}
+
+export async function apiGetTemporadaActiva(): Promise<TemporadaRecord> {
+  const res = await apiFetch("/temporadas/active");
+  if (!res.ok) throw await buildApiError(res, "Error al obtener la temporada activa");
+  return res.json();
+}
+
+export async function apiCreateTemporada(data: {
+  nombre: "VERANO" | "INVIERNO";
+  anio: number;
+  activo: boolean;
+}): Promise<TemporadaRecord> {
+  const res = await apiFetch("/temporadas", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al crear temporada");
+  return res.json();
+}
+
+export async function apiUpdateTemporada(
+  id: number,
+  data: {
+    nombre: "VERANO" | "INVIERNO";
+    anio: number;
+    activo: boolean;
+  },
+): Promise<TemporadaRecord> {
+  const res = await apiFetch(`/temporadas/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar temporada");
+  return res.json();
+}
+
+export async function apiToggleTemporadaActive(
+  id: number,
+): Promise<TemporadaRecord> {
+  const res = await apiFetch(`/temporadas/${id}/toggle-active`, {
+    method: "PATCH",
+  });
+  if (!res.ok) {
+    throw await buildApiError(res, "Error al cambiar el estado de la temporada");
+  }
+  return res.json();
+}
+
+export async function apiUpdateTemporadaOpciones(
+  id: number,
+  opciones: Array<{ numero_opcion: 1 | 2; descripcion: string | null }>,
+): Promise<TemporadaRecord> {
+  const res = await apiFetch(`/temporadas/${id}/opciones`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ opciones }),
+  });
+  if (!res.ok) {
+    throw await buildApiError(res, "Error al guardar los menús de la temporada");
+  }
   return res.json();
 }
 

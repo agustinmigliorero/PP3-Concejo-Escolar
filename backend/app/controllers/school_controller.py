@@ -110,6 +110,17 @@ class UpdateSchoolRequest(BaseModel):
                 raise ValueError("El teléfono debe tener al menos 6 caracteres")
         return v
 
+class UpdateMySchoolMatriculationRequest(BaseModel):
+    matriculation: int
+
+    @field_validator("matriculation")
+    @classmethod
+    def matriculation_valid(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("La matricula no puede ser negativa")
+        return v
+
+
 class SchoolResponse(BaseModel):
     id: int
     name: str

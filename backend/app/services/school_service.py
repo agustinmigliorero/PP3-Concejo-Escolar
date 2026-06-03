@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.location_model import Localidad
 from app.models.school_model import School
+from app.models.user_model import User, UserRole
 
 
 def _school_to_response(school: School) -> dict:
@@ -41,6 +42,54 @@ def get_school_by_id(db: Session, school_id: int) -> dict:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Escuela no encontrada"
         )
+    return _school_to_response(school)
+
+
+def get_school_for_user(db: Session, user: User) -> dict:
+    if user.role != UserRole.escuela:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo los usuarios escuela pueden acceder a esta vista",
+        )
+    if user.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El usuario no tiene una escuela asociada",
+        )
+    return get_school_by_id(db, user.school_id)
+
+
+def update_school_matriculation_for_user(
+    db: Session,
+    user: User,
+    matriculation: int,
+) -> dict:
+    if user.role != UserRole.escuela:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo los usuarios escuela pueden actualizar su matricula",
+        )
+    if user.school_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El usuario no tiene una escuela asociada",
+        )
+
+    school = db.query(School).filter(School.id == user.school_id).first()
+    if not school:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Escuela no encontrada",
+        )
+    if not school.active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede actualizar una escuela inactiva",
+        )
+
+    school.matriculation = matriculation
+    db.commit()
+    db.refresh(school)
     return _school_to_response(school)
 
 
