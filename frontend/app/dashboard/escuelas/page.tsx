@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   apiGetSchools,
@@ -306,7 +307,14 @@ export default function EscuelasPage() {
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-5 py-3 text-gray-400">{s.id}</td>
-                  <td className="px-5 py-3 font-medium text-gray-800">{s.name}</td>
+                  <td className="px-5 py-3 font-medium text-gray-800">
+                    <Link
+                      href={`/dashboard/escuelas/${s.id}`}
+                      className="text-blue-700 hover:text-blue-900 hover:underline"
+                    >
+                      {s.name}
+                    </Link>
+                  </td>
                   <td className="px-5 py-3 text-gray-600 font-mono">{s.code}</td>
                   <td className="px-5 py-3 text-gray-600">{s.locality_name}</td>
                   <td className="px-5 py-3 text-gray-800">
@@ -324,6 +332,12 @@ export default function EscuelasPage() {
                   {canManage && (
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/dashboard/escuelas/${s.id}`}
+                          className="text-slate-600 hover:text-slate-900 font-medium px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+                        >
+                          Ver detalle
+                        </Link>
                         {s.active && (
                           <button
                             onClick={() => openEdit(s)}

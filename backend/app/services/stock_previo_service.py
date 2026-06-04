@@ -9,8 +9,10 @@ from app.controllers.stock_previo_controller import (
     UpdateStockPrevioRequest,
 )
 from app.models.ingrediente_model import Ingrediente
+from app.models.receta_model import RecetaIngrediente
 from app.models.school_model import School
 from app.models.stock_previo_model import StockPrevio
+from app.models.temporada_model import DiaMenu, OpcionMenu, Temporada
 from app.models.user_model import User, UserRole
 
 
@@ -36,6 +38,24 @@ def _get_school_for_escuela_user(db: Session, user: User) -> School:
 
 
 def _get_active_ingredientes(db: Session) -> list[Ingrediente]:
+    active_temporada = db.query(Temporada).filter(Temporada.activo == True).first()
+    if active_temporada:
+        ingredientes = (
+            db.query(Ingrediente)
+            .join(RecetaIngrediente, RecetaIngrediente.ingrediente_id == Ingrediente.id)
+            .join(DiaMenu, DiaMenu.receta_id == RecetaIngrediente.receta_id)
+            .join(OpcionMenu, OpcionMenu.id == DiaMenu.opcion_menu_id)
+            .filter(
+                OpcionMenu.temporada_id == active_temporada.id,
+                Ingrediente.activo == True,
+            )
+            .distinct()
+            .order_by(Ingrediente.nombre)
+            .all()
+        )
+        if ingredientes:
+            return ingredientes
+
     return (
         db.query(Ingrediente)
         .filter(Ingrediente.activo == True)

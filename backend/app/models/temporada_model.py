@@ -40,3 +40,30 @@ class OpcionMenu(Base):
     descripcion = Column(String(255), nullable=True)
 
     temporada = relationship("Temporada", back_populates="opciones_menu")
+    dias_menu = relationship(
+        "DiaMenu",
+        back_populates="opcion_menu",
+        cascade="all, delete-orphan",
+        order_by="DiaMenu.dia_semana",
+    )
+
+
+class DiaMenu(Base):
+    __tablename__ = "dias_menu"
+    __table_args__ = (
+        UniqueConstraint(
+            "opcion_menu_id",
+            "dia_semana",
+            "tipo_comida",
+            name="uq_dia_menu_opcion_dia_tipo",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    opcion_menu_id = Column(Integer, ForeignKey("opciones_menu.id"), nullable=False, index=True)
+    dia_semana = Column(Integer, nullable=False)
+    tipo_comida = Column(String(20), nullable=False)
+    receta_id = Column(Integer, ForeignKey("recetas.id"), nullable=False, index=True)
+
+    opcion_menu = relationship("OpcionMenu", back_populates="dias_menu")
+    receta = relationship("Receta")

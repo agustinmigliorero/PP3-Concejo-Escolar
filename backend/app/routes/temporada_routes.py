@@ -8,7 +8,7 @@ from app.controllers.temporada_controller import (
     UpdateTemporadaOpcionesRequest,
     UpdateTemporadaRequest,
 )
-from app.middlewares.auth_middleware import require_admin
+from app.middlewares.auth_middleware import require_admin, require_gestor_or_admin
 from app.services import temporada_service
 
 router = APIRouter(prefix="/temporadas", tags=["temporadas"])
@@ -26,7 +26,7 @@ def list_temporadas(
 @router.get("/active", response_model=TemporadaResponse)
 def get_temporada_activa(
     db: Session = Depends(get_db),
-    _=Depends(require_admin),
+    _=Depends(require_gestor_or_admin),
 ):
     return temporada_service.get_temporada_activa(db)
 

@@ -9,6 +9,7 @@ import {
   apiUpdateTemporada,
   type TemporadaRecord,
 } from "@/lib/api";
+import { showErrorToast, showSuccessToast } from "@/components/toast";
 
 type Tab = "activas" | "inactivas";
 type ModalMode = "create" | "edit";
@@ -46,6 +47,8 @@ export default function TemporadasPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<TemporadaRecord | null>(null);
+  const [toggling, setToggling] = useState(false);
 
   const loadTemporadas = useCallback(async () => {
     setLoading(true);
@@ -122,12 +125,14 @@ export default function TemporadasPage() {
           anio,
           activo: form.activo,
         });
+        showSuccessToast("Temporada creada correctamente");
       } else if (editingId !== null) {
         await apiUpdateTemporada(editingId, {
           nombre: form.nombre,
           anio,
           activo: form.activo,
         });
+        showSuccessToast("Temporada actualizada correctamente");
       } else {
         return;
       }
@@ -141,9 +146,12 @@ export default function TemporadasPage() {
     }
   }
 
-  async function handleToggleSeason(temporada: TemporadaRecord) {
+  async function handleConfirmToggleSeason() {
+    if (!confirmTarget) return;
+
+    setToggling(true);
     try {
-      const updated = await apiToggleTemporadaActive(temporada.id);
+      const updated = await apiToggleTemporadaActive(confirmTarget.id);
 
       setTemporadas((prev) =>
         prev.map((item) => {
@@ -158,8 +166,21 @@ export default function TemporadasPage() {
           return item;
         }),
       );
+      setConfirmTarget(null);
+      setError(null);
+      showSuccessToast(
+        updated.activo
+          ? "Temporada activada correctamente"
+          : "Temporada desactivada correctamente",
+      );
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al cambiar el estado de la temporada");
+      const message =
+        e instanceof Error ? e.message : "Error al cambiar el estado de la temporada";
+      setError(message);
+      showErrorToast(message);
+      setConfirmTarget(null);
+    } finally {
+      setToggling(false);
     }
   }
 
@@ -279,7 +300,7 @@ export default function TemporadasPage() {
                           Editar
                         </button>
                         <button
-                          onClick={() => handleToggleSeason(temporada)}
+                          onClick={() => setConfirmTarget(temporada)}
                           className={`font-medium px-2 py-1 rounded transition-colors ${
                             temporada.activo
                               ? "text-red-500 hover:text-red-700 hover:bg-red-50"
@@ -384,6 +405,52 @@ export default function TemporadasPage() {
                   {saving ? "Guardando..." : "Guardar"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-3">
+              {confirmTarget.activo ? "Desactivar temporada" : "Activar temporada"}
+            </h2>
+            <p className="text-sm text-gray-600 mb-3">
+              ¿Querés {confirmTarget.activo ? "desactivar" : "activar"} la temporada{" "}
+              <span className="font-semibold text-gray-800">
+                {TEMPORADA_LABEL[confirmTarget.nombre]} {confirmTarget.anio}
+              </span>
+              ?
+            </p>
+            {!confirmTarget.activo && (
+              <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 mb-6">
+                Al activarla, cualquier otra temporada activa quedará inactiva.
+              </p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmTarget(null)}
+                disabled={toggling}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmToggleSeason}
+                disabled={toggling}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors text-white disabled:opacity-50 ${
+                  confirmTarget.activo
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {toggling
+                  ? "Procesando..."
+                  : confirmTarget.activo
+                    ? "Desactivar"
+                    : "Activar"}
+              </button>
             </div>
           </div>
         </div>
