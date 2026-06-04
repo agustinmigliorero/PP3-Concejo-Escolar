@@ -97,7 +97,7 @@ export async function apiLogin(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? "Error al iniciar sesiÃ³n");
+    throw new Error(err.detail ?? "Error al iniciar sesión");
   }
   return res.json();
 }
