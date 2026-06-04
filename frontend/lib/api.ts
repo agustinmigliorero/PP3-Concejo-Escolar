@@ -441,6 +441,19 @@ export async function apiGetSchoolStock(
   return res.json();
 }
 
+export async function apiUpdateSchoolStock(
+  schoolId: number,
+  items: Array<{ ingrediente_id: number; cantidad: number }>,
+): Promise<StockPrevioSchoolRecord> {
+  const res = await apiFetch(`/stock-previo/${schoolId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar el stock de la escuela");
+  return res.json();
+}
+
 // â”€â”€ Ingredientes CRUD (admin write, admin+gestor read) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IngredienteRecord {
@@ -830,11 +843,38 @@ export interface PedidoSnapshot {
       }>;
     }>;
   }>;
+  escuelas: Array<{
+    escuela_id: number;
+    codigo: string;
+    nombre: string;
+    localidad_id: number;
+    localidad_nombre: string;
+    matricula: number;
+    ingredientes: Array<{
+      ingrediente_id: number;
+      ingrediente_nombre: string;
+      unidad_calculo: string;
+      unidad_final: string;
+      cantidad_base: string;
+      cantidad_corregida: string;
+      stock_descontado: string;
+      cantidad_neta: string;
+      cantidad_final: string;
+      proveedor_id?: number;
+      proveedor_nombre?: string;
+      localidad_id?: number;
+      localidad_nombre?: string;
+      precio_unitario?: string;
+      costo_total?: string;
+    }>;
+  }>;
   resumen_global: Array<{
     ingrediente_id: number;
     ingrediente_nombre: string;
     unidad: string;
+    localidad_id?: number;
     localidad_nombre: string;
+    proveedor_id?: number;
     proveedor_nombre: string;
     precio_unitario: string;
     cantidad_total: string;
@@ -842,8 +882,11 @@ export interface PedidoSnapshot {
   }>;
   advertencias: Array<{
     tipo: string;
+    escuela_id?: number;
     escuela_nombre: string;
+    localidad_id?: number;
     localidad_nombre: string;
+    ingrediente_id?: number;
     ingrediente_nombre: string;
   }>;
   costo_total: string;
@@ -902,12 +945,27 @@ export async function apiGetPedidos(): Promise<PedidoRecord[]> {
 export async function apiDownloadPedidoExport(
   id: number,
   format: "pdf" | "excel",
-  scope: "resumen" | "proveedores" = "resumen",
+  scope: "resumen" | "proveedores" | "localidades" | "escuelas" = "resumen",
+  filters?: {
+    localidad_id?: number | null;
+    proveedor_id?: number | null;
+    escuela_id?: number | null;
+  },
 ): Promise<Blob> {
-  const path =
+  const params = new URLSearchParams();
+  if (filters?.localidad_id) params.set("localidad_id", String(filters.localidad_id));
+  if (filters?.proveedor_id) params.set("proveedor_id", String(filters.proveedor_id));
+  if (filters?.escuela_id) params.set("escuela_id", String(filters.escuela_id));
+  const query = params.toString();
+  const basePath =
     scope === "proveedores"
       ? `/pedidos/${id}/export/proveedores/${format}`
-      : `/pedidos/${id}/export/${format}`;
+      : scope === "localidades"
+        ? `/pedidos/${id}/export/localidades/${format}`
+        : scope === "escuelas"
+          ? `/pedidos/${id}/export/escuelas/${format}`
+          : `/pedidos/${id}/export/${format}`;
+  const path = `${basePath}${query ? `?${query}` : ""}`;
   const res = await apiFetch(path);
   if (!res.ok) throw await buildApiError(res, "Error al descargar el pedido");
   return res.blob();

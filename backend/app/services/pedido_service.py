@@ -499,6 +499,114 @@ def _safe_filename(value: str) -> str:
     return cleaned.strip("_") or "documento"
 
 
+def filtered_snapshot_for_export(
+    pedido: GeneracionPedido,
+    user: User,
+    localidad_id: int | None = None,
+    proveedor_id: int | None = None,
+    escuela_id: int | None = None,
+) -> dict:
+    snapshot = school_snapshot_for_user(pedido.datos_snapshot, user)
+
+    selected_school_ids = {
+        school.get("escuela_id")
+        for school in snapshot.get("escuelas", [])
+        if (localidad_id is None or school.get("localidad_id") == localidad_id)
+        and (escuela_id is None or school.get("escuela_id") == escuela_id)
+    }
+
+    filtered_providers = []
+    provider_school_ids: set[int] = set()
+    for provider in snapshot.get("proveedores", []):
+        if localidad_id is not None and provider.get("localidad_id") != localidad_id:
+            continue
+        if proveedor_id is not None and provider.get("proveedor_id") != proveedor_id:
+            continue
+
+        ingredients = []
+        for ingredient in provider.get("ingredientes", []):
+            school_rows = [
+                row for row in ingredient.get("escuelas", [])
+                if row.get("escuela_id") in selected_school_ids
+            ]
+            if school_rows:
+                provider_school_ids.update(row.get("escuela_id") for row in school_rows)
+                quantity_total = sum(_dec(row.get("cantidad", "0")) for row in school_rows)
+                cost_total = quantity_total * _dec(ingredient.get("precio_unitario", "0"))
+                ingredients.append({
+                    **ingredient,
+                    "escuelas": school_rows,
+                    "cantidad_total": _qty(quantity_total),
+                    "costo_total": _money(cost_total),
+                })
+
+        if ingredients:
+            filtered_providers.append({**provider, "ingredientes": ingredients})
+
+    if proveedor_id is not None:
+        selected_school_ids = provider_school_ids
+
+    filtered_schools = [
+        school for school in snapshot.get("escuelas", [])
+        if school.get("escuela_id") in selected_school_ids
+    ]
+
+    resumen_by_key: dict[str, dict] = {}
+    total = Decimal("0")
+    for school in filtered_schools:
+        for item in school.get("ingredientes", []):
+            if "proveedor_id" not in item:
+                continue
+            if localidad_id is not None and item.get("localidad_id") != localidad_id:
+                continue
+            if proveedor_id is not None and item.get("proveedor_id") != proveedor_id:
+                continue
+
+            key = f"{item.get('ingrediente_id')}:{item.get('localidad_id')}:{item.get('proveedor_id')}"
+            row = resumen_by_key.setdefault(
+                key,
+                {
+                    "ingrediente_id": item.get("ingrediente_id"),
+                    "ingrediente_nombre": item.get("ingrediente_nombre", ""),
+                    "unidad": item.get("unidad_final", ""),
+                    "localidad_id": item.get("localidad_id"),
+                    "localidad_nombre": item.get("localidad_nombre", ""),
+                    "proveedor_id": item.get("proveedor_id"),
+                    "proveedor_nombre": item.get("proveedor_nombre", ""),
+                    "precio_unitario": item.get("precio_unitario", ""),
+                    "cantidad_total": Decimal("0"),
+                    "costo_total": Decimal("0"),
+                },
+            )
+            row["cantidad_total"] += _dec(item.get("cantidad_final", "0"))
+            row["costo_total"] += _dec(item.get("costo_total", "0"))
+            total += _dec(item.get("costo_total", "0"))
+
+    resumen = [
+        {
+            **{k: v for k, v in row.items() if k not in ("cantidad_total", "costo_total")},
+            "cantidad_total": _qty(row["cantidad_total"]),
+            "costo_total": _money(row["costo_total"]),
+        }
+        for row in resumen_by_key.values()
+    ]
+
+    advertencias = [
+        warning for warning in snapshot.get("advertencias", [])
+        if warning.get("escuela_id") in selected_school_ids
+        and (localidad_id is None or warning.get("localidad_id") == localidad_id)
+    ]
+
+    return {
+        **snapshot,
+        "escuelas": filtered_schools,
+        "proveedores": filtered_providers,
+        "resumen_global": resumen,
+        "advertencias": advertencias,
+        "costo_total": _money(total),
+    }
+
+
 def _provider_school_columns(provider: dict) -> list[dict]:
     schools_by_id: dict[int, dict] = {}
     for ingredient in provider.get("ingredientes", []):
@@ -510,11 +618,17 @@ def _provider_school_columns(provider: dict) -> list[dict]:
     )
 
 
-def export_resumen_excel(pedido: GeneracionPedido, user: User) -> BytesIO:
+def export_resumen_excel(
+    pedido: GeneracionPedido,
+    user: User,
+    localidad_id: int | None = None,
+    proveedor_id: int | None = None,
+    escuela_id: int | None = None,
+) -> BytesIO:
     from openpyxl import Workbook
     from openpyxl.styles import Font
 
-    snapshot = school_snapshot_for_user(pedido.datos_snapshot, user)
+    snapshot = filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Resumen global"
@@ -562,13 +676,19 @@ def export_resumen_excel(pedido: GeneracionPedido, user: User) -> BytesIO:
     return output
 
 
-def export_resumen_pdf(pedido: GeneracionPedido, user: User) -> BytesIO:
+def export_resumen_pdf(
+    pedido: GeneracionPedido,
+    user: User,
+    localidad_id: int | None = None,
+    proveedor_id: int | None = None,
+    escuela_id: int | None = None,
+) -> BytesIO:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-    snapshot = school_snapshot_for_user(pedido.datos_snapshot, user)
+    snapshot = filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
     output = BytesIO()
     doc = SimpleDocTemplate(
         output,
@@ -734,8 +854,15 @@ def _provider_pdf(snapshot: dict, provider: dict) -> BytesIO:
     return output
 
 
-def export_proveedores_zip(pedido: GeneracionPedido, user: User, file_format: str) -> BytesIO:
-    snapshot = school_snapshot_for_user(pedido.datos_snapshot, user)
+def export_proveedores_zip(
+    pedido: GeneracionPedido,
+    user: User,
+    file_format: str,
+    localidad_id: int | None = None,
+    proveedor_id: int | None = None,
+    escuela_id: int | None = None,
+) -> BytesIO:
+    snapshot = filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
     if file_format not in ("pdf", "excel"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato invalido")
 
@@ -753,6 +880,166 @@ def export_proveedores_zip(pedido: GeneracionPedido, user: User, file_format: st
             )
             archive.writestr(f"{base_name}.{extension}", content.getvalue())
 
+    output.seek(0)
+    return output
+
+
+def _providers_by_locality(snapshot: dict) -> list[dict]:
+    groups: dict[int, dict] = {}
+    for provider in snapshot.get("proveedores", []):
+        locality_id = provider.get("localidad_id")
+        group = groups.setdefault(
+            locality_id,
+            {
+                "localidad_id": locality_id,
+                "localidad_nombre": provider.get("localidad_nombre", ""),
+                "proveedores": [],
+            },
+        )
+        group["proveedores"].append(provider)
+    return sorted(groups.values(), key=lambda item: item.get("localidad_nombre", ""))
+
+
+def _locality_pdf(snapshot: dict, locality_group: dict) -> BytesIO:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    output = BytesIO()
+    doc = SimpleDocTemplate(
+        output,
+        pagesize=landscape(A4),
+        rightMargin=24,
+        leftMargin=24,
+        topMargin=24,
+        bottomMargin=24,
+    )
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph("PEDIDO POR LOCALIDAD", styles["Title"]),
+        Paragraph(f"Semana: {snapshot.get('semana_inicio', '')}", styles["Normal"]),
+        Paragraph(f"Localidad: {locality_group.get('localidad_nombre', '')}", styles["Normal"]),
+        Spacer(1, 12),
+    ]
+
+    data = [["Proveedor", "Ingrediente", "Unidad", "Escuela", "Cantidad", "Total proveedor"]]
+    for provider in locality_group.get("proveedores", []):
+        for ingredient in provider.get("ingredientes", []):
+            for school in ingredient.get("escuelas", []):
+                data.append([
+                    provider.get("proveedor_nombre", ""),
+                    ingredient.get("ingrediente_nombre", ""),
+                    ingredient.get("unidad", ""),
+                    f"{school.get('escuela_codigo', '')} - {school.get('escuela_nombre', '')}",
+                    school.get("cantidad", ""),
+                    ingredient.get("cantidad_total", ""),
+                ])
+    if len(data) == 1:
+        data.append(["Sin datos", "", "", "", "", ""])
+
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f3f4f6")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(table)
+    doc.build(story)
+    output.seek(0)
+    return output
+
+
+def export_localidades_pdf_zip(
+    pedido: GeneracionPedido,
+    user: User,
+    localidad_id: int | None = None,
+    proveedor_id: int | None = None,
+    escuela_id: int | None = None,
+) -> BytesIO:
+    snapshot = filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
+    output = BytesIO()
+    with zipfile.ZipFile(output, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for locality_group in _providers_by_locality(snapshot):
+            base_name = _safe_filename(locality_group.get("localidad_nombre", "localidad"))
+            archive.writestr(f"{base_name}.pdf", _locality_pdf(snapshot, locality_group).getvalue())
+    output.seek(0)
+    return output
+
+
+def _school_pdf(snapshot: dict, school: dict) -> BytesIO:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    output = BytesIO()
+    doc = SimpleDocTemplate(
+        output,
+        pagesize=landscape(A4),
+        rightMargin=24,
+        leftMargin=24,
+        topMargin=24,
+        bottomMargin=24,
+    )
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph("PEDIDO POR ESCUELA", styles["Title"]),
+        Paragraph(f"Semana: {snapshot.get('semana_inicio', '')}", styles["Normal"]),
+        Paragraph(
+            f"Escuela: {school.get('codigo', '')} - {school.get('nombre', '')}",
+            styles["Normal"],
+        ),
+        Paragraph(f"Localidad: {school.get('localidad_nombre', '')}", styles["Normal"]),
+        Spacer(1, 12),
+    ]
+
+    data = [["Ingrediente", "Unidad", "Cantidad", "Proveedor", "Precio unit.", "Costo"]]
+    for item in school.get("ingredientes", []):
+        if "proveedor_id" not in item:
+            continue
+        data.append([
+            item.get("ingrediente_nombre", ""),
+            item.get("unidad_final", ""),
+            item.get("cantidad_final", ""),
+            item.get("proveedor_nombre", ""),
+            item.get("precio_unitario", ""),
+            item.get("costo_total", ""),
+        ])
+    if len(data) == 1:
+        data.append(["Sin datos", "", "", "", "", ""])
+
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f3f4f6")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(table)
+    doc.build(story)
+    output.seek(0)
+    return output
+
+
+def export_escuelas_pdf_zip(
+    pedido: GeneracionPedido,
+    user: User,
+    localidad_id: int | None = None,
+    proveedor_id: int | None = None,
+    escuela_id: int | None = None,
+) -> BytesIO:
+    snapshot = filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
+    output = BytesIO()
+    with zipfile.ZipFile(output, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for school in snapshot.get("escuelas", []):
+            base_name = _safe_filename(
+                f"{school.get('codigo', '')}_{school.get('nombre', 'escuela')}"
+            )
+            archive.writestr(f"{base_name}.pdf", _school_pdf(snapshot, school).getvalue())
     output.seek(0)
     return output
 

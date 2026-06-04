@@ -80,7 +80,11 @@ export default function DashboardLayout({
       : []),
   ];
 
-  const currentLink = navLinks.find((link) => link.href === pathname);
+  const isLinkActive = (href: string) =>
+    href === "/dashboard"
+      ? pathname === href
+      : pathname === href || pathname?.startsWith(`${href}/`);
+  const currentLink = navLinks.find((link) => isLinkActive(link.href));
   const navGroups = navLinks.reduce<Record<string, typeof navLinks>>((groups, link) => {
     groups[link.group] = [...(groups[link.group] ?? []), link];
     return groups;
@@ -112,7 +116,7 @@ export default function DashboardLayout({
                 </p>
                 <div className="space-y-1">
                   {links.map((link) => {
-                    const active = pathname === link.href;
+                    const active = isLinkActive(link.href);
                     return (
                       <Link
                         key={link.href}
@@ -191,7 +195,7 @@ export default function DashboardLayout({
               aria-label="Navegación móvil"
             >
               {navLinks.map((link) => {
-                const active = pathname === link.href;
+                const active = isLinkActive(link.href);
                 return (
                   <Link
                     key={link.href}

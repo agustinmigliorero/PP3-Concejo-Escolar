@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -72,11 +72,20 @@ def get_pedido(
 @router.get("/{pedido_id}/export/excel")
 def export_pedido_excel(
     pedido_id: int,
+    localidad_id: int | None = Query(default=None, gt=0),
+    proveedor_id: int | None = Query(default=None, gt=0),
+    escuela_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
-    content = pedido_service.export_resumen_excel(pedido, current_user)
+    content = pedido_service.export_resumen_excel(
+        pedido,
+        current_user,
+        localidad_id=localidad_id,
+        proveedor_id=proveedor_id,
+        escuela_id=escuela_id,
+    )
     filename = f"resumen_pedido_{pedido.id}_{pedido.semana_inicio.isoformat()}.xlsx"
     return StreamingResponse(
         content,
@@ -88,11 +97,20 @@ def export_pedido_excel(
 @router.get("/{pedido_id}/export/pdf")
 def export_pedido_pdf(
     pedido_id: int,
+    localidad_id: int | None = Query(default=None, gt=0),
+    proveedor_id: int | None = Query(default=None, gt=0),
+    escuela_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
-    content = pedido_service.export_resumen_pdf(pedido, current_user)
+    content = pedido_service.export_resumen_pdf(
+        pedido,
+        current_user,
+        localidad_id=localidad_id,
+        proveedor_id=proveedor_id,
+        escuela_id=escuela_id,
+    )
     filename = f"resumen_pedido_{pedido.id}_{pedido.semana_inicio.isoformat()}.pdf"
     return StreamingResponse(
         content,
@@ -104,11 +122,21 @@ def export_pedido_pdf(
 @router.get("/{pedido_id}/export/proveedores/excel")
 def export_proveedores_excel(
     pedido_id: int,
+    localidad_id: int | None = Query(default=None, gt=0),
+    proveedor_id: int | None = Query(default=None, gt=0),
+    escuela_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
-    content = pedido_service.export_proveedores_zip(pedido, current_user, "excel")
+    content = pedido_service.export_proveedores_zip(
+        pedido,
+        current_user,
+        "excel",
+        localidad_id=localidad_id,
+        proveedor_id=proveedor_id,
+        escuela_id=escuela_id,
+    )
     filename = f"ordenes_proveedores_{pedido.id}_{pedido.semana_inicio.isoformat()}.zip"
     return StreamingResponse(
         content,
@@ -120,12 +148,72 @@ def export_proveedores_excel(
 @router.get("/{pedido_id}/export/proveedores/pdf")
 def export_proveedores_pdf(
     pedido_id: int,
+    localidad_id: int | None = Query(default=None, gt=0),
+    proveedor_id: int | None = Query(default=None, gt=0),
+    escuela_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
-    content = pedido_service.export_proveedores_zip(pedido, current_user, "pdf")
+    content = pedido_service.export_proveedores_zip(
+        pedido,
+        current_user,
+        "pdf",
+        localidad_id=localidad_id,
+        proveedor_id=proveedor_id,
+        escuela_id=escuela_id,
+    )
     filename = f"ordenes_proveedores_{pedido.id}_{pedido.semana_inicio.isoformat()}.zip"
+    return StreamingResponse(
+        content,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{pedido_id}/export/localidades/pdf")
+def export_localidades_pdf(
+    pedido_id: int,
+    localidad_id: int | None = Query(default=None, gt=0),
+    proveedor_id: int | None = Query(default=None, gt=0),
+    escuela_id: int | None = Query(default=None, gt=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
+    content = pedido_service.export_localidades_pdf_zip(
+        pedido,
+        current_user,
+        localidad_id=localidad_id,
+        proveedor_id=proveedor_id,
+        escuela_id=escuela_id,
+    )
+    filename = f"pedidos_localidades_{pedido.id}_{pedido.semana_inicio.isoformat()}.zip"
+    return StreamingResponse(
+        content,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{pedido_id}/export/escuelas/pdf")
+def export_escuelas_pdf(
+    pedido_id: int,
+    localidad_id: int | None = Query(default=None, gt=0),
+    proveedor_id: int | None = Query(default=None, gt=0),
+    escuela_id: int | None = Query(default=None, gt=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
+    content = pedido_service.export_escuelas_pdf_zip(
+        pedido,
+        current_user,
+        localidad_id=localidad_id,
+        proveedor_id=proveedor_id,
+        escuela_id=escuela_id,
+    )
+    filename = f"pedidos_escuelas_{pedido.id}_{pedido.semana_inicio.isoformat()}.zip"
     return StreamingResponse(
         content,
         media_type="application/zip",

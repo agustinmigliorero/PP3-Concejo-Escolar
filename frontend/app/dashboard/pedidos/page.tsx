@@ -26,6 +26,14 @@ const DAYS = [
   { id: 5, label: "Vie", name: "Viernes" },
 ];
 
+type PedidoExportScope = "resumen" | "proveedores" | "localidades" | "escuelas";
+
+type PedidoFilters = {
+  localidad_id?: number | null;
+  proveedor_id?: number | null;
+  escuela_id?: number | null;
+};
+
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -61,6 +69,33 @@ function seasonLabel(temporada: TemporadaRecord): string {
   return `${temporada.nombre === "VERANO" ? "Verano" : "Invierno"} ${temporada.anio}`;
 }
 
+function uniqueById<T extends { id: number }>(items: T[]): T[] {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
+}
+
+function filteredPedidoCost(pedido: PedidoRecord, filters: PedidoFilters): string {
+  const total = pedido.datos_snapshot.escuelas.reduce((schoolTotal, school) => {
+    if (filters.localidad_id && school.localidad_id !== filters.localidad_id) {
+      return schoolTotal;
+    }
+    if (filters.escuela_id && school.escuela_id !== filters.escuela_id) {
+      return schoolTotal;
+    }
+
+    const itemTotal = school.ingredientes.reduce((sum, item) => {
+      if (filters.proveedor_id && item.proveedor_id !== filters.proveedor_id) {
+        return sum;
+      }
+      const cost = Number(item.costo_total ?? 0);
+      return Number.isNaN(cost) ? sum : sum + cost;
+    }, 0);
+
+    return schoolTotal + itemTotal;
+  }, 0);
+
+  return total.toFixed(2);
+}
+
 export default function PedidosPage() {
   const { user } = useUser();
   const canGenerate = user?.role === "admin" || user?.role === "gestor";
@@ -77,6 +112,11 @@ export default function PedidosPage() {
   const [notas, setNotas] = useState("");
   const [snapshot, setSnapshot] = useState<PedidoSnapshot | null>(null);
   const [pedidos, setPedidos] = useState<PedidoRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<"generar" | "historial">("generar");
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyLocalidadId, setHistoryLocalidadId] = useState("");
+  const [historyProveedorId, setHistoryProveedorId] = useState("");
+  const [historyEscuelaId, setHistoryEscuelaId] = useState("");
   const [loading, setLoading] = useState(true);
   const [previewing, setPreviewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -113,6 +153,12 @@ export default function PedidosPage() {
     }
   }, [canViewHistory, loadData, user]);
 
+  useEffect(() => {
+    if (user?.role === "escuela") {
+      setActiveTab("historial");
+    }
+  }, [user?.role]);
+
   const selectedOption = useMemo(
     () => temporada?.opciones_menu.find((opcion) => String(opcion.id) === opcionId),
     [temporada, opcionId],
@@ -122,6 +168,87 @@ export default function PedidosPage() {
     () => pedidos.find((pedido) => pedido.semana_inicio === semanaInicio) ?? null,
     [pedidos, semanaInicio],
   );
+  const currentTab = canGenerate ? activeTab : "historial";
+  const historyFilters = useMemo<PedidoFilters>(
+    () => ({
+      localidad_id: historyLocalidadId ? Number(historyLocalidadId) : null,
+      proveedor_id: historyProveedorId ? Number(historyProveedorId) : null,
+      escuela_id: historyEscuelaId ? Number(historyEscuelaId) : null,
+    }),
+    [historyEscuelaId, historyLocalidadId, historyProveedorId],
+  );
+  const historyOptions = useMemo(() => {
+    const localidades = uniqueById(
+      pedidos.flatMap((pedido) =>
+        pedido.datos_snapshot.escuelas.map((school) => ({
+          id: school.localidad_id,
+          nombre: school.localidad_nombre,
+        })),
+      ),
+    ).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    const proveedores = uniqueById(
+      pedidos.flatMap((pedido) =>
+        pedido.datos_snapshot.proveedores.map((provider) => ({
+          id: provider.proveedor_id,
+          nombre: provider.proveedor_nombre,
+          localidad_id: provider.localidad_id,
+          localidad_nombre: provider.localidad_nombre,
+        })),
+      ),
+    ).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    const escuelas = uniqueById(
+      pedidos.flatMap((pedido) =>
+        pedido.datos_snapshot.escuelas.map((school) => ({
+          id: school.escuela_id,
+          nombre: school.nombre,
+          codigo: school.codigo,
+          localidad_id: school.localidad_id,
+        })),
+      ),
+    ).sort((a, b) => `${a.codigo} ${a.nombre}`.localeCompare(`${b.codigo} ${b.nombre}`));
+
+    return { localidades, proveedores, escuelas };
+  }, [pedidos]);
+  const filteredPedidos = useMemo(() => {
+    const normalizedSearch = historySearch.trim().toLowerCase();
+    return pedidos.filter((pedido) => {
+      const snapshot = pedido.datos_snapshot;
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        pedido.semana_inicio.includes(normalizedSearch) ||
+        snapshot.opcion_menu.numero_opcion.toString().includes(normalizedSearch) ||
+        snapshot.escuelas.some((school) =>
+          `${school.codigo} ${school.nombre} ${school.localidad_nombre}`
+            .toLowerCase()
+            .includes(normalizedSearch),
+        ) ||
+        snapshot.proveedores.some((provider) =>
+          `${provider.proveedor_nombre} ${provider.localidad_nombre}`
+            .toLowerCase()
+            .includes(normalizedSearch),
+        );
+
+      const matchesLocalidad =
+        !historyFilters.localidad_id ||
+        snapshot.escuelas.some((school) => school.localidad_id === historyFilters.localidad_id);
+      const matchesProveedor =
+        !historyFilters.proveedor_id ||
+        snapshot.proveedores.some((provider) => provider.proveedor_id === historyFilters.proveedor_id);
+      const matchesEscuela =
+        !historyFilters.escuela_id ||
+        snapshot.escuelas.some((school) => school.escuela_id === historyFilters.escuela_id);
+
+      const hasScopedFilter =
+        Boolean(historyFilters.localidad_id) ||
+        Boolean(historyFilters.proveedor_id) ||
+        Boolean(historyFilters.escuela_id);
+      const hasFilteredData = !hasScopedFilter || Number(filteredPedidoCost(pedido, historyFilters)) > 0;
+
+      return matchesSearch && matchesLocalidad && matchesProveedor && matchesEscuela && hasFilteredData;
+    });
+  }, [historyFilters, historySearch, pedidos]);
   const selectedDayNames = useMemo(
     () =>
       DAYS.filter((day) => diasHabiles.includes(day.id))
@@ -246,14 +373,15 @@ export default function PedidosPage() {
   async function downloadPedido(
     pedido: PedidoRecord,
     format: "pdf" | "excel",
-    scope: "resumen" | "proveedores",
+    scope: PedidoExportScope,
+    filters?: PedidoFilters,
   ) {
     setError(null);
     try {
-      const blob = await apiDownloadPedidoExport(pedido.id, format, scope);
+      const blob = await apiDownloadPedidoExport(pedido.id, format, scope, filters);
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const extension = scope === "proveedores" ? "zip" : format === "pdf" ? "pdf" : "xlsx";
+      const extension = scope === "resumen" ? (format === "pdf" ? "pdf" : "xlsx") : "zip";
       link.href = url;
       link.download = `${scope}_${pedido.id}_${pedido.semana_inicio}.${extension}`;
       document.body.appendChild(link);
@@ -298,7 +426,46 @@ export default function PedidosPage() {
         </p>
       )}
 
-      {canGenerate && (
+      <div className="rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+        <div className={`grid gap-2 ${canGenerate ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}>
+          {canGenerate && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("generar")}
+              className={`rounded-xl px-4 py-3 text-left transition-colors ${
+                currentTab === "generar"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <span className="block text-sm font-bold">Generar pedido</span>
+              <span className={`mt-1 block text-xs ${
+                currentTab === "generar" ? "text-blue-50" : "text-slate-500"
+              }`}>
+                Preparacion semanal, stock y previsualizacion.
+              </span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setActiveTab("historial")}
+            className={`rounded-xl px-4 py-3 text-left transition-colors ${
+              currentTab === "historial"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <span className="block text-sm font-bold">Historial y reportes</span>
+            <span className={`mt-1 block text-xs ${
+              currentTab === "historial" ? "text-blue-50" : "text-slate-500"
+            }`}>
+              Pedidos generados, filtros y descargas por agrupacion.
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {canGenerate && currentTab === "generar" && (
       <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="border-b border-gray-100 bg-slate-50 px-5 py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -642,7 +809,7 @@ export default function PedidosPage() {
       </section>
       )}
 
-      {canGenerate && snapshot && (
+      {canGenerate && currentTab === "generar" && snapshot && (
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <div>
@@ -701,87 +868,203 @@ export default function PedidosPage() {
         </section>
       )}
 
-      <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800">Historial</h2>
-          {user.role === "escuela" && (
-            <p className="text-sm text-gray-500 mt-1">
-              Solo se muestran pedidos donde esta incluida tu escuela.
-            </p>
-          )}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500">
-              <tr>
-                <th className="text-left font-medium px-5 py-3">Semana</th>
-                <th className="text-left font-medium px-5 py-3">Menu</th>
-                <th className="text-left font-medium px-5 py-3">Dias</th>
-                <th className="text-right font-medium px-5 py-3">Costo total</th>
-                <th className="text-right font-medium px-5 py-3">Resumen</th>
-                <th className="text-right font-medium px-5 py-3">Ordenes proveedor</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {pedidos.map((pedido) => (
-                <tr key={pedido.id}>
-                  <td className="px-5 py-3 font-medium text-gray-800">
-                    {pedido.semana_inicio}
-                  </td>
-                  <td className="px-5 py-3 text-gray-600">
-                    Opcion {pedido.datos_snapshot.opcion_menu.numero_opcion}
-                  </td>
-                  <td className="px-5 py-3 text-gray-600">
-                    {pedido.dias_habiles.join(", ")}
-                  </td>
-                  <td className="px-5 py-3 text-right text-gray-800">
-                    {money(pedido.datos_snapshot.costo_total)}
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => downloadPedido(pedido, "pdf", "resumen")}
-                        className="text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
-                      >
-                        PDF
-                      </button>
-                      <button
-                        onClick={() => downloadPedido(pedido, "excel", "resumen")}
-                        className="text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
-                      >
-                        Excel
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => downloadPedido(pedido, "pdf", "proveedores")}
-                        className="text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
-                      >
-                        PDF ZIP
-                      </button>
-                      <button
-                        onClick={() => downloadPedido(pedido, "excel", "proveedores")}
-                        className="text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
-                      >
-                        Excel ZIP
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {pedidos.length === 0 && (
+      {currentTab === "historial" && (
+        <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">Historial y reportes</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {user.role === "escuela"
+                    ? "Solo se muestran pedidos donde esta incluida tu escuela."
+                    : "Filtra el historial y descarga PDFs agrupados desde el snapshot de cada semana."}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                <span className="font-bold text-slate-900">{filteredPedidos.length}</span>{" "}
+                de {pedidos.length} pedidos
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
+                  Buscar
+                </label>
+                <input
+                  value={historySearch}
+                  onChange={(event) => setHistorySearch(event.target.value)}
+                  placeholder="Semana, escuela, proveedor..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
+                  Localidad
+                </label>
+                <select
+                  value={historyLocalidadId}
+                  onChange={(event) => {
+                    setHistoryLocalidadId(event.target.value);
+                    setHistoryEscuelaId("");
+                  }}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Todas</option>
+                  {historyOptions.localidades.map((localidad) => (
+                    <option key={localidad.id} value={localidad.id}>
+                      {localidad.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
+                  Proveedor
+                </label>
+                <select
+                  value={historyProveedorId}
+                  onChange={(event) => setHistoryProveedorId(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Todos</option>
+                  {historyOptions.proveedores.map((proveedor) => (
+                    <option key={proveedor.id} value={proveedor.id}>
+                      {proveedor.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
+                  Escuela
+                </label>
+                <select
+                  value={historyEscuelaId}
+                  onChange={(event) => setHistoryEscuelaId(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Todas</option>
+                  {historyOptions.escuelas
+                    .filter((school) => !historyLocalidadId || school.localidad_id === Number(historyLocalidadId))
+                    .map((school) => (
+                      <option key={school.id} value={school.id}>
+                        {school.codigo} - {school.nombre}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            {(historySearch || historyLocalidadId || historyProveedorId || historyEscuelaId) && (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistorySearch("");
+                    setHistoryLocalidadId("");
+                    setHistoryProveedorId("");
+                    setHistoryEscuelaId("");
+                  }}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500">
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
-                    Todavia no hay pedidos generados.
-                  </td>
+                  <th className="px-5 py-3 text-left font-medium">Semana</th>
+                  <th className="px-5 py-3 text-left font-medium">Menu</th>
+                  <th className="px-5 py-3 text-left font-medium">Dias</th>
+                  <th className="px-5 py-3 text-right font-medium">Costo filtrado</th>
+                  <th className="px-5 py-3 text-right font-medium">PDFs</th>
+                  <th className="px-5 py-3 text-right font-medium">Excel</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredPedidos.map((pedido) => (
+                  <tr key={pedido.id}>
+                    <td className="px-5 py-3 font-medium text-gray-800">
+                      {pedido.semana_inicio}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600">
+                      Opcion {pedido.datos_snapshot.opcion_menu.numero_opcion}
+                    </td>
+                    <td className="px-5 py-3 text-gray-600">
+                      {pedido.dias_habiles.join(", ")}
+                    </td>
+                    <td className="px-5 py-3 text-right text-gray-800">
+                      {money(filteredPedidoCost(pedido, historyFilters))}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => downloadPedido(pedido, "pdf", "resumen", historyFilters)}
+                          className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          Semana
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadPedido(pedido, "pdf", "localidades", historyFilters)}
+                          className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          Localidades ZIP
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadPedido(pedido, "pdf", "proveedores", historyFilters)}
+                          className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          Proveedor/localidad ZIP
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadPedido(pedido, "pdf", "escuelas", historyFilters)}
+                          className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          Escuelas ZIP
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => downloadPedido(pedido, "excel", "resumen", historyFilters)}
+                          className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          Resumen
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadPedido(pedido, "excel", "proveedores", historyFilters)}
+                          className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          Proveedores ZIP
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredPedidos.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                      No hay pedidos para los filtros seleccionados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
