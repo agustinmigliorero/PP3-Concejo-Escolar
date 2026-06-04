@@ -55,6 +55,7 @@ export default function DashboardLayout({
           { href: "/dashboard/asignaciones", label: "Asignaciones" },
           { href: "/dashboard/recetas", label: "Recetas" },
           { href: "/dashboard/temporadas", label: "Temporadas" },
+          { href: "/dashboard/menus", label: "Menús" },
         ]
       : []),
     ...(user?.role === "admin" || user?.role === "gestor"
@@ -62,10 +63,14 @@ export default function DashboardLayout({
           { href: "/dashboard/localidades", label: "Localidades" },
           { href: "/dashboard/ingredientes", label: "Ingredientes" },
           { href: "/dashboard/escuelas", label: "Escuelas" },
+          { href: "/dashboard/pedidos", label: "Pedidos" },
         ]
       : []),
     ...(user?.role === "escuela"
-      ? [{ href: "/dashboard/mi-escuela", label: "Escuela" }]
+      ? [
+          { href: "/dashboard/mi-escuela", label: "Escuela" },
+          { href: "/dashboard/pedidos", label: "Pedidos" },
+        ]
       : []),
   ];
 

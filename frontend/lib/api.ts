@@ -433,6 +433,14 @@ export async function apiUpdateMyStock(
   return res.json();
 }
 
+export async function apiGetSchoolStock(
+  schoolId: number,
+): Promise<StockPrevioSchoolRecord> {
+  const res = await apiFetch(`/stock-previo/${schoolId}`);
+  if (!res.ok) throw await buildApiError(res, "Error al obtener el stock de la escuela");
+  return res.json();
+}
+
 // â”€â”€ Ingredientes CRUD (admin write, admin+gestor read) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IngredienteRecord {
@@ -594,6 +602,52 @@ export async function apiUpdateTemporadaOpciones(
   return res.json();
 }
 
+// ── Grilla semanal de menú (admin only) ─────────────────────────────────────
+
+export interface DiaMenuRecord {
+  id: number;
+  opcion_menu_id: number;
+  dia_semana: number;
+  tipo_comida: TipoComida;
+  receta_id: number;
+  receta_nombre: string;
+}
+
+export interface OpcionMenuWithDiasRecord extends OpcionMenuRecord {
+  dias_menu: DiaMenuRecord[];
+}
+
+export interface TemporadaMenuRecord {
+  temporada_id: number;
+  opciones: OpcionMenuWithDiasRecord[];
+}
+
+export async function apiGetTemporadaMenu(
+  temporadaId: number,
+): Promise<TemporadaMenuRecord> {
+  const res = await apiFetch(`/temporadas/${temporadaId}/menu`);
+  if (!res.ok) throw await buildApiError(res, "Error al obtener el menu");
+  return res.json();
+}
+
+export async function apiUpdateTemporadaMenu(
+  temporadaId: number,
+  items: Array<{
+    opcion_menu_id: number;
+    dia_semana: number;
+    tipo_comida: TipoComida;
+    receta_id: number;
+  }>,
+): Promise<TemporadaMenuRecord> {
+  const res = await apiFetch(`/temporadas/${temporadaId}/menu`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al guardar el menu");
+  return res.json();
+}
+
 // ── Recetas (admin only) ─────────────────────────────────────────────────────
 
 export type TipoComida = "DESAYUNO" | "ALMUERZO" | "MERIENDA";
@@ -743,5 +797,119 @@ export async function apiUpdateAsignacionPrecio(
   });
   if (!res.ok) throw await buildApiError(res, "Error al actualizar el precio");
   return res.json();
+}
+
+// ── Pedidos (admin + gestor) ────────────────────────────────────────────────
+
+export interface PedidoSnapshot {
+  semana_inicio: string;
+  dias_habiles: number[];
+  opcion_menu: {
+    id: number;
+    numero_opcion: number;
+    descripcion: string | null;
+    temporada: { id: number | null; nombre: string | null; anio: number | null };
+  };
+  proveedores: Array<{
+    proveedor_id: number;
+    proveedor_nombre: string;
+    localidad_id: number;
+    localidad_nombre: string;
+    ingredientes: Array<{
+      ingrediente_id: number;
+      ingrediente_nombre: string;
+      unidad: string;
+      precio_unitario: string;
+      cantidad_total: string;
+      costo_total: string;
+      escuelas: Array<{
+        escuela_id: number;
+        escuela_codigo: string;
+        escuela_nombre: string;
+        cantidad: string;
+      }>;
+    }>;
+  }>;
+  resumen_global: Array<{
+    ingrediente_id: number;
+    ingrediente_nombre: string;
+    unidad: string;
+    localidad_nombre: string;
+    proveedor_nombre: string;
+    precio_unitario: string;
+    cantidad_total: string;
+    costo_total: string;
+  }>;
+  advertencias: Array<{
+    tipo: string;
+    escuela_nombre: string;
+    localidad_nombre: string;
+    ingrediente_nombre: string;
+  }>;
+  costo_total: string;
+}
+
+export interface PedidoRecord {
+  id: number;
+  semana_inicio: string;
+  opcion_menu_id: number;
+  dias_habiles: number[];
+  generado_por_id: number;
+  generado_at: string;
+  notas: string | null;
+  datos_snapshot: PedidoSnapshot;
+}
+
+export async function apiPreviewPedido(data: {
+  semana_inicio: string;
+  opcion_menu_id: number;
+  dias_habiles: number[];
+  stock_overrides?: Array<{ escuela_id: number; ingrediente_id: number; cantidad: number }>;
+  notas?: string | null;
+}): Promise<PedidoSnapshot> {
+  const res = await apiFetch("/pedidos/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al previsualizar pedido");
+  const payload = await res.json();
+  return payload.snapshot;
+}
+
+export async function apiConfirmPedido(data: {
+  semana_inicio: string;
+  opcion_menu_id: number;
+  dias_habiles: number[];
+  stock_overrides?: Array<{ escuela_id: number; ingrediente_id: number; cantidad: number }>;
+  notas?: string | null;
+}): Promise<PedidoRecord> {
+  const res = await apiFetch("/pedidos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al confirmar pedido");
+  return res.json();
+}
+
+export async function apiGetPedidos(): Promise<PedidoRecord[]> {
+  const res = await apiFetch("/pedidos");
+  if (!res.ok) throw await buildApiError(res, "Error al obtener pedidos");
+  return res.json();
+}
+
+export async function apiDownloadPedidoExport(
+  id: number,
+  format: "pdf" | "excel",
+  scope: "resumen" | "proveedores" = "resumen",
+): Promise<Blob> {
+  const path =
+    scope === "proveedores"
+      ? `/pedidos/${id}/export/proveedores/${format}`
+      : `/pedidos/${id}/export/${format}`;
+  const res = await apiFetch(path);
+  if (!res.ok) throw await buildApiError(res, "Error al descargar el pedido");
+  return res.blob();
 }
 

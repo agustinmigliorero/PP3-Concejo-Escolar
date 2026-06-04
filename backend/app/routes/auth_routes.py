@@ -1,6 +1,7 @@
+from time import monotonic
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,49 @@ from app.services import auth_service
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _COOKIE_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
+_LOGIN_WINDOW_SECONDS = 15 * 60
+_LOGIN_MAX_FAILURES = 5
+_login_attempts: dict[str, list[float]] = {}
+
+
+def _login_attempt_key(request: Request, username: str) -> str:
+    client_host = request.client.host if request.client else "unknown"
+    return f"{client_host}:{username.strip().lower()}"
+
+
+def _prune_attempts(key: str, now: float) -> list[float]:
+    attempts = [
+        attempt
+        for attempt in _login_attempts.get(key, [])
+        if now - attempt < _LOGIN_WINDOW_SECONDS
+    ]
+    if attempts:
+        _login_attempts[key] = attempts
+    else:
+        _login_attempts.pop(key, None)
+    return attempts
+
+
+def _enforce_login_rate_limit(request: Request, username: str) -> str:
+    key = _login_attempt_key(request, username)
+    attempts = _prune_attempts(key, monotonic())
+    if len(attempts) >= _LOGIN_MAX_FAILURES:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos fallidos. Espera unos minutos e intenta nuevamente.",
+        )
+    return key
+
+
+def _record_failed_login(key: str) -> None:
+    now = monotonic()
+    attempts = _prune_attempts(key, now)
+    attempts.append(now)
+    _login_attempts[key] = attempts
+
+
+def _clear_login_attempts(key: str) -> None:
+    _login_attempts.pop(key, None)
 
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
@@ -39,8 +83,20 @@ def _refresh_unauthorized(detail: object) -> JSONResponse:
 
 
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
-    result = auth_service.login(db, body.username, body.password)
+def login(
+    body: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    attempt_key = _enforce_login_rate_limit(request, body.username)
+    try:
+        result = auth_service.login(db, body.username, body.password)
+    except HTTPException:
+        _record_failed_login(attempt_key)
+        raise
+
+    _clear_login_attempts(attempt_key)
     _set_refresh_cookie(response, result["refresh_token"])
     return LoginResponse(
         access_token=result["access_token"],
