@@ -19,11 +19,11 @@ import {
 import { showSuccessToast } from "@/components/toast";
 
 const DAYS = [
-  { id: 1, label: "Lun" },
-  { id: 2, label: "Mar" },
-  { id: 3, label: "Mie" },
-  { id: 4, label: "Jue" },
-  { id: 5, label: "Vie" },
+  { id: 1, label: "Lun", name: "Lunes" },
+  { id: 2, label: "Mar", name: "Martes" },
+  { id: 3, label: "Mie", name: "Miercoles" },
+  { id: 4, label: "Jue", name: "Jueves" },
+  { id: 5, label: "Vie", name: "Viernes" },
 ];
 
 function formatLocalDate(date: Date): string {
@@ -122,6 +122,15 @@ export default function PedidosPage() {
     () => pedidos.find((pedido) => pedido.semana_inicio === semanaInicio) ?? null,
     [pedidos, semanaInicio],
   );
+  const selectedDayNames = useMemo(
+    () =>
+      DAYS.filter((day) => diasHabiles.includes(day.id))
+        .map((day) => day.name)
+        .join(", "),
+    [diasHabiles],
+  );
+  const previewDisabled = previewing || !selectedOption || Boolean(existingPedido);
+  const confirmDisabled = confirming || !snapshot || Boolean(existingPedido);
 
   function toggleDay(day: number) {
     setDiasHabiles((current) =>
@@ -290,206 +299,345 @@ export default function PedidosPage() {
       )}
 
       {canGenerate && (
-      <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Temporada
-            </label>
-            <div className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700">
-              {temporada ? seasonLabel(temporada) : "Sin temporada activa"}
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Opcion
-            </label>
-            <select
-              value={opcionId}
-              onChange={(event) => {
-                setOpcionId(event.target.value);
-                setSnapshot(null);
-              }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {temporada?.opciones_menu.map((opcion) => (
-                <option key={opcion.id} value={opcion.id}>
-                  Opcion {opcion.numero_opcion} - {opcion.descripcion}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Lunes de la semana
-            </label>
-            <input
-              type="date"
-              value={semanaInicio}
-              onChange={(event) => {
-                setSemanaInicio(event.target.value);
-                setSnapshot(null);
-              }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Dias habiles
-            </label>
-            <div className="flex gap-1">
-              {DAYS.map((day) => {
-                const active = diasHabiles.includes(day.id);
-                return (
-                  <button
-                    key={day.id}
-                    type="button"
-                    onClick={() => toggleDay(day.id)}
-                    className={`h-10 min-w-11 rounded-lg text-sm font-medium border transition-colors ${
-                      active
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-white text-gray-500 border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    {day.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {existingPedido && (
-          <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-            <p className="text-sm font-medium text-blue-900">
-              Ya existe un pedido generado para la semana {existingPedido.semana_inicio}.
-            </p>
-            <p className="text-sm text-blue-800 mt-1">
-              No se genera un duplicado. Descarga el reporte anterior desde aca o desde el historial.
-            </p>
-            <div className="flex flex-wrap gap-2 mt-3">
-              <button
-                type="button"
-                onClick={() => downloadPedido(existingPedido, "pdf", "resumen")}
-                className="bg-white border border-blue-200 hover:bg-blue-100 text-blue-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Resumen PDF
-              </button>
-              <button
-                type="button"
-                onClick={() => downloadPedido(existingPedido, "excel", "resumen")}
-                className="bg-white border border-blue-200 hover:bg-blue-100 text-blue-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Resumen Excel
-              </button>
-              <button
-                type="button"
-                onClick={() => downloadPedido(existingPedido, "pdf", "proveedores")}
-                className="bg-white border border-blue-200 hover:bg-blue-100 text-blue-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Ordenes PDF ZIP
-              </button>
-              <button
-                type="button"
-                onClick={() => downloadPedido(existingPedido, "excel", "proveedores")}
-                className="bg-white border border-blue-200 hover:bg-blue-100 text-blue-700 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Ordenes Excel ZIP
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Notas
-          </label>
-          <input
-            value={notas}
-            onChange={(event) => setNotas(event.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Opcional"
-          />
-        </div>
-
-        <div className="mt-5 border-t border-gray-100 pt-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="border-b border-gray-100 bg-slate-50 px-5 py-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-gray-800">Stock previo editable</h2>
-              <p className="text-sm text-gray-500">
-                Se usa solo para este calculo; al confirmar, el stock de las escuelas incluidas vuelve a 0.
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
+                Generacion semanal
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-slate-900">
+                Preparar pedido
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Configura la semana, revisa el calculo y confirma solo cuando la previsualizacion este lista.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={loadStockMatrix}
-              disabled={stockLoading || schools.length === 0 || Boolean(existingPedido)}
-              className="border border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            >
-              {stockLoading ? "Cargando..." : "Cargar stock actual"}
-            </button>
-          </div>
-
-          {stockRecords.length > 0 && (
-            <div className="mt-4 overflow-x-auto border border-gray-100 rounded-lg">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-gray-500">
-                  <tr>
-                    <th className="text-left font-medium px-4 py-3 min-w-56">Escuela</th>
-                    {stockRecords[0]?.items.map((item) => (
-                      <th key={item.ingrediente_id} className="text-left font-medium px-4 py-3 min-w-36">
-                        {item.ingrediente_nombre}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {stockRecords.map((record) => (
-                    <tr key={record.escuela_id}>
-                      <td className="px-4 py-3 font-medium text-gray-800">
-                        {record.escuela_nombre}
-                      </td>
-                      {record.items.map((item) => (
-                        <td key={item.ingrediente_id} className="px-4 py-3">
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={stockDraft[stockKey(record.escuela_id, item.ingrediente_id)] ?? "0"}
-                            onChange={(event) => {
-                              setStockDraft((current) => ({
-                                ...current,
-                                [stockKey(record.escuela_id, item.ingrediente_id)]: event.target.value,
-                              }));
-                              setSnapshot(null);
-                            }}
-                            className="w-28 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
+              <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">
+                1. Configurar
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1">
+                2. Previsualizar
+              </span>
+              <span className={`rounded-full border px-3 py-1 ${
+                snapshot
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-slate-200 bg-white"
+              }`}>
+                3. Confirmar
+              </span>
             </div>
-          )}
+          </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-5">
-          <button
-            onClick={preview}
-            disabled={previewing || !selectedOption || Boolean(existingPedido)}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-          >
-            {previewing ? "Calculando..." : "Previsualizar"}
-          </button>
-          <button
-            onClick={confirm}
-            disabled={confirming || !snapshot || Boolean(existingPedido)}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-          >
-            {confirming ? "Confirmando..." : "Confirmar pedido"}
-          </button>
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_330px]">
+          <div className="space-y-6 p-5">
+            <div>
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Datos de la semana</h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Estos datos definen que menu y que dias se van a calcular.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Temporada
+                  </label>
+                  <div className="flex min-h-10 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-700">
+                    {temporada ? seasonLabel(temporada) : "Sin temporada activa"}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Opcion de menu
+                  </label>
+                  <select
+                    value={opcionId}
+                    onChange={(event) => {
+                      setOpcionId(event.target.value);
+                      setSnapshot(null);
+                    }}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {temporada?.opciones_menu.map((opcion) => (
+                      <option key={opcion.id} value={opcion.id}>
+                        Opcion {opcion.numero_opcion} - {opcion.descripcion}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Lunes de la semana
+                  </label>
+                  <input
+                    type="date"
+                    value={semanaInicio}
+                    onChange={(event) => {
+                      setSemanaInicio(event.target.value);
+                      setSnapshot(null);
+                    }}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <fieldset className="mt-5">
+                <legend className="text-sm font-bold text-slate-900">
+                  Dias habiles
+                </legend>
+                <p className="mt-1 text-sm text-slate-500">
+                  Cada dia incluido suma raciones al calculo. Los dias quitados no se computan.
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {DAYS.map((day) => {
+                    const active = diasHabiles.includes(day.id);
+                    return (
+                      <button
+                        key={day.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleDay(day.id)}
+                        className={`min-h-[4.75rem] rounded-lg border px-3 py-2 text-left transition-colors ${
+                          active
+                            ? "border-blue-600 bg-blue-50 text-blue-950 shadow-[inset_0_0_0_1px_var(--brand)]"
+                            : "border-slate-300 bg-white text-slate-500 hover:border-slate-400 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="text-base font-bold">{day.label}</span>
+                          <span className={`h-3 w-3 rounded-full border ${
+                            active
+                              ? "border-blue-700 bg-blue-700"
+                              : "border-slate-300 bg-white"
+                          }`} />
+                        </span>
+                        <span className={`mt-2 block text-xs font-semibold ${
+                          active ? "text-blue-700" : "text-slate-500"
+                        }`}>
+                          {active ? "Incluido" : "No incluido"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            </div>
+
+            {existingPedido && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                <p className="text-sm font-bold text-blue-950">
+                  Ya existe un pedido generado para la semana {existingPedido.semana_inicio}.
+                </p>
+                <p className="mt-1 text-sm text-blue-800">
+                  No se genera un duplicado. Descarga el reporte anterior desde aca o desde el historial.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => downloadPedido(existingPedido, "pdf", "resumen")}
+                    className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                  >
+                    Resumen PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadPedido(existingPedido, "excel", "resumen")}
+                    className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                  >
+                    Resumen Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadPedido(existingPedido, "pdf", "proveedores")}
+                    className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                  >
+                    Ordenes PDF ZIP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadPedido(existingPedido, "excel", "proveedores")}
+                    className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                  >
+                    Ordenes Excel ZIP
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-gray-100 pt-5">
+              <label className="mb-1 block text-sm font-bold text-slate-900">
+                Notas
+              </label>
+              <input
+                value={notas}
+                onChange={(event) => setNotas(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Opcional"
+              />
+            </div>
+
+            <div className="border-t border-gray-100 pt-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">Stock previo editable</h3>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                      Opcional
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Se usa solo para este calculo; al confirmar, el stock de las escuelas incluidas vuelve a 0.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadStockMatrix}
+                  disabled={stockLoading || schools.length === 0 || Boolean(existingPedido)}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  {stockLoading ? "Cargando stock..." : "Cargar stock actual"}
+                </button>
+              </div>
+
+              {stockRecords.length > 0 && (
+                <div className="mt-4 overflow-x-auto rounded-lg border border-gray-100">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-gray-500">
+                      <tr>
+                        <th className="min-w-56 px-4 py-3 text-left font-medium">Escuela</th>
+                        {stockRecords[0]?.items.map((item) => (
+                          <th key={item.ingrediente_id} className="min-w-36 px-4 py-3 text-left font-medium">
+                            {item.ingrediente_nombre}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {stockRecords.map((record) => (
+                        <tr key={record.escuela_id}>
+                          <td className="px-4 py-3 font-medium text-gray-800">
+                            {record.escuela_nombre}
+                          </td>
+                          {record.items.map((item) => (
+                            <td key={item.ingrediente_id} className="px-4 py-3">
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={stockDraft[stockKey(record.escuela_id, item.ingrediente_id)] ?? "0"}
+                                onChange={(event) => {
+                                  setStockDraft((current) => ({
+                                    ...current,
+                                    [stockKey(record.escuela_id, item.ingrediente_id)]: event.target.value,
+                                  }));
+                                  setSnapshot(null);
+                                }}
+                                className="w-28 rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <aside className="border-t border-gray-100 bg-slate-50/80 p-5 lg:border-l lg:border-t-0">
+            <div className="lg:sticky lg:top-24">
+              <h3 className="text-sm font-bold text-slate-900">Resumen para confirmar</h3>
+              <dl className="mt-4 space-y-3 text-sm">
+                <div>
+                  <dt className="text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
+                    Menu
+                  </dt>
+                  <dd className="mt-1 font-semibold text-slate-900">
+                    {selectedOption
+                      ? `Opcion ${selectedOption.numero_opcion}`
+                      : "Sin opcion seleccionada"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
+                    Semana
+                  </dt>
+                  <dd className="mt-1 font-semibold text-slate-900">{semanaInicio}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
+                    Dias incluidos
+                  </dt>
+                  <dd className="mt-1 font-semibold text-slate-900">
+                    {diasHabiles.length} de {DAYS.length}
+                  </dd>
+                  <dd className="mt-1 text-slate-600">
+                    {selectedDayNames || "Selecciona al menos un dia"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
+                    Stock cargado
+                  </dt>
+                  <dd className="mt-1 font-semibold text-slate-900">
+                    {stockRecords.length > 0
+                      ? `${stockRecords.length} escuelas`
+                      : "Sin stock manual"}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className={`mt-5 rounded-lg border px-3 py-3 text-sm ${
+                snapshot
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                  : "border-amber-200 bg-amber-50 text-amber-900"
+              }`}>
+                <p className="font-bold">
+                  {snapshot ? "Previsualizacion lista" : "Falta previsualizar"}
+                </p>
+                <p className="mt-1">
+                  {snapshot
+                    ? `Costo estimado: ${money(snapshot.costo_total)}. Ya podes confirmar el pedido.`
+                    : "Primero revisa el calculo para habilitar la confirmacion."}
+                </p>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-gray-100 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-600">
+            {existingPedido
+              ? "Esta semana ya tiene pedido generado."
+              : snapshot
+                ? "Revisa la previsualizacion de abajo antes de confirmar."
+                : "La confirmacion se habilita despues de previsualizar."}
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={preview}
+              disabled={previewDisabled}
+              className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:bg-blue-300"
+            >
+              {previewing ? "Calculando..." : "Previsualizar pedido"}
+            </button>
+            <button
+              type="button"
+              onClick={confirm}
+              disabled={confirmDisabled}
+              className="rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-emerald-800 disabled:bg-slate-300 disabled:text-slate-600 disabled:shadow-none"
+            >
+              {confirming ? "Confirmando..." : "Confirmar pedido"}
+            </button>
+          </div>
         </div>
       </section>
       )}

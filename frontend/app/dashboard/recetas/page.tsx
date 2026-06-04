@@ -14,6 +14,7 @@ import {
   type TemporadaRecord,
   type TipoComida,
 } from "@/lib/api";
+import { showErrorToast, showSuccessToast } from "@/components/toast";
 
 type Tab = "activas" | "inactivas";
 type ModalMode = "create" | "edit";
@@ -238,8 +239,10 @@ export default function RecetasPage() {
 
       if (modalMode === "create") {
         await apiCreateReceta(payload);
+        showSuccessToast("Receta creada correctamente");
       } else if (editingId !== null) {
         await apiUpdateReceta(editingId, payload);
+        showSuccessToast("Receta actualizada correctamente");
       }
 
       setModalOpen(false);
@@ -259,8 +262,16 @@ export default function RecetasPage() {
       const updated = await apiToggleRecetaActive(confirmTarget.id);
       setRecetas((prev) => prev.map((receta) => (receta.id === updated.id ? updated : receta)));
       setConfirmTarget(null);
+      showSuccessToast(
+        updated.activo
+          ? "Receta activada correctamente"
+          : "Receta desactivada correctamente",
+      );
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al cambiar el estado de la receta");
+      const message =
+        e instanceof Error ? e.message : "Error al cambiar el estado de la receta";
+      setError(message);
+      showErrorToast(message);
       setConfirmTarget(null);
     } finally {
       setToggling(false);

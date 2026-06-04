@@ -95,6 +95,12 @@ textarea::placeholder {
   border-spacing: 0;
 }
 
+.backoffice-main section,
+.backoffice-main > div > .bg-white,
+.backoffice-main > div > section.bg-white {
+  border-color: #dde6f2;
+}
+
 .backoffice-main thead {
   position: relative;
   z-index: 1;
@@ -112,8 +118,23 @@ textarea::placeholder {
   vertical-align: middle;
 }
 
+.backoffice-main th,
+.backoffice-main td {
+  border-color: #edf2f7;
+}
+
 .backoffice-main tbody tr:last-child {
   border-bottom: 0;
+}
+
+.backoffice-main tbody tr {
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.backoffice-main tbody tr:hover {
+  box-shadow: inset 3px 0 0 rgba(31, 94, 255, 0.2);
 }
 
 .backoffice-main input,
@@ -132,10 +153,22 @@ textarea::placeholder {
 
 .backoffice-main button {
   min-height: 2.25rem;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.backoffice-main button:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 .backoffice-main .shadow-sm {
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 10px 26px rgba(15, 23, 42, 0.035);
 }
 
 .backoffice-main .shadow-xl {
@@ -171,6 +204,34 @@ textarea::placeholder {
 
 .backoffice-main .text-blue-700 {
   color: var(--brand-strong);
+}
+
+.backoffice-main .fixed.inset-0 {
+  backdrop-filter: blur(3px);
+}
+
+.backoffice-main .fixed.inset-0 > .bg-white {
+  border: 1px solid #dbe4f0;
+}
+
+.backoffice-main label {
+  color: #334155;
+}
+
+.backoffice-main input[type="checkbox"] {
+  accent-color: var(--brand);
+}
+
+.backoffice-main [class*="bg-red-50"] {
+  border-color: #fecaca;
+}
+
+.backoffice-main [class*="bg-green-50"] {
+  border-color: #bbf7d0;
+}
+
+.backoffice-main [class*="bg-blue-50"] {
+  border-color: #bfdbfe;
 }
 
 .backoffice-main .overflow-x-auto {
