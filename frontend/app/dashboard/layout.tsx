@@ -22,33 +22,46 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<UserInfo | null>(null);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     const redirectToLogin = () => {
+      setUser(null);
+      setAuthReady(false);
       router.replace(`/login?from=${encodeURIComponent(pathname || "/dashboard")}`);
     };
     const unsubscribe = onAuthExpired(redirectToLogin);
+    let active = true;
 
     async function init() {
+      setAuthReady(false);
       if (!getAccessToken()) {
         const ok = await tryRefresh();
         if (!ok) {
-          redirectToLogin();
+          if (active) redirectToLogin();
           return;
         }
       }
       try {
-        setUser(await apiGetMe());
+        const currentUser = await apiGetMe();
+        if (!active) return;
+        setUser(currentUser);
+        setAuthReady(true);
       } catch {
-        redirectToLogin();
+        if (active) redirectToLogin();
       }
     }
     init();
-    return unsubscribe;
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [pathname, router]);
 
   async function handleLogout() {
     await apiLogout();
+    setUser(null);
+    setAuthReady(false);
     router.replace("/login");
   }
 
@@ -89,6 +102,7 @@ export default function DashboardLayout({
     groups[link.group] = [...(groups[link.group] ?? []), link];
     return groups;
   }, {});
+  const isSessionReady = authReady && user !== null;
 
   return (
     <UserContext.Provider value={{ user }}>
@@ -215,7 +229,13 @@ export default function DashboardLayout({
           </header>
 
           <main id="contenido" className="backoffice-main flex-1 p-4 sm:p-6 lg:p-8">
-            {children}
+            {isSessionReady ? (
+              children
+            ) : (
+              <div className="mx-auto max-w-3xl rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+                Cargando sesion...
+              </div>
+            )}
           </main>
         </div>
         <ToastViewport />

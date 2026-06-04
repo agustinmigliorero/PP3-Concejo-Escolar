@@ -128,7 +128,12 @@ def _try_refresh_from_recent_rotation(
     ):
         return None
 
-    return _rotate_refresh_token(db, replacement, user_id, family)
+    # A concurrent refresh may still carry the just-replaced cookie. Do not
+    # rotate again, because response ordering can overwrite the browser cookie
+    # with a token that this request has already revoked.
+    user = _get_active_user(db, user_id)
+    access_token = create_access_token({"sub": str(user.id), "role": user.role})
+    return {"access_token": access_token}
 
 
 def _is_expired(db_token: RefreshToken) -> bool:
