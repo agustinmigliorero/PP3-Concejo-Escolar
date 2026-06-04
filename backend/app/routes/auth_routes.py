@@ -118,7 +118,8 @@ def refresh(
     except HTTPException as exc:
         return _refresh_unauthorized(exc.detail)
 
-    _set_refresh_cookie(response, result["refresh_token"])
+    if result.get("refresh_token"):
+        _set_refresh_cookie(response, result["refresh_token"])
     return RefreshResponse(access_token=result["access_token"])
 
 
