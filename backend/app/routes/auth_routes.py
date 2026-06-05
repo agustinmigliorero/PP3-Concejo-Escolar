@@ -15,8 +15,8 @@ from app.services import auth_service
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _COOKIE_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
-_LOGIN_WINDOW_SECONDS = 15 * 60
-_LOGIN_MAX_FAILURES = 5
+_LOGIN_WINDOW_SECONDS = 10 * 60
+_LOGIN_MAX_FAILURES = 20
 _login_attempts: dict[str, list[float]] = {}
 
 
