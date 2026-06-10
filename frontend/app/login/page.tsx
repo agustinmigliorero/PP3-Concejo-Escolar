@@ -41,6 +41,8 @@ export default function LoginPage() {
       router.push(from);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+      setUsername("");
+      setPassword("");
     } finally {
       setLoading(false);
     }
