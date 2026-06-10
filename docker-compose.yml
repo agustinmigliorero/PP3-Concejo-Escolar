@@ -5,6 +5,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/data:/app/data
+      - ./backend:/app
     env_file:
       # Opcional: solo se usa en dev local. En Dokploy las env vars
       # (SECRET_KEY, etc.) se inyectan directamente al contenedor.
@@ -27,5 +28,3 @@ services:
       - "3005:3001"
     depends_on:
       - backend
-
-
