@@ -15,6 +15,11 @@ import {
   type TipoComida,
 } from "@/lib/api";
 import { showErrorToast, showSuccessToast } from "@/components/toast";
+import {
+  getRecipeUnitConfig,
+  toRecipeQuantity,
+  toStoredQuantity,
+} from "@/lib/units";
 
 type Tab = "activas" | "inactivas";
 type ModalMode = "create" | "edit";
@@ -87,7 +92,7 @@ export default function RecetasPage() {
     try {
       const [recetasData, ingredientesData, temporadasData] = await Promise.all([
         apiGetRecetas(true),
-        apiGetIngredientes(),
+        apiGetIngredientes(true),
         apiGetTemporadas(true),
       ]);
       setRecetas(recetasData);
@@ -111,6 +116,10 @@ export default function RecetasPage() {
   const visibleRecetas = useMemo(
     () => recetas.filter((receta) => (tab === "activas" ? receta.activo : !receta.activo)),
     [recetas, tab],
+  );
+  const ingredientesById = useMemo(
+    () => new Map(ingredientes.map((ingrediente) => [ingrediente.id, ingrediente])),
+    [ingredientes],
   );
 
   if (!currentUser) {
@@ -156,7 +165,12 @@ export default function RecetasPage() {
       ingredientes: receta.ingredientes.map((item) => ({
         tempId: createTempId(),
         ingrediente_id: String(item.ingrediente_id),
-        cantidad_por_porcion: String(item.cantidad_por_porcion),
+        cantidad_por_porcion: String(
+          toRecipeQuantity(
+            Number(item.cantidad_por_porcion),
+            ingredientesById.get(item.ingrediente_id) ?? item,
+          ),
+        ),
       })),
     });
     setFormError(null);
@@ -194,6 +208,16 @@ export default function RecetasPage() {
     }));
   }
 
+  function recipeUnitFor(ingredienteId: string): string | null {
+    const ingrediente = ingredientesById.get(Number(ingredienteId));
+    return ingrediente ? getRecipeUnitConfig(ingrediente).recipeUnit : null;
+  }
+
+  function orderUnitFor(ingredienteId: string): string | null {
+    const ingrediente = ingredientesById.get(Number(ingredienteId));
+    return ingrediente ? getRecipeUnitConfig(ingrediente).orderUnit : null;
+  }
+
   async function handleSave() {
     setFormError(null);
 
@@ -208,10 +232,18 @@ export default function RecetasPage() {
       return;
     }
 
-    const cleanedIngredients = form.ingredientes.map((item) => ({
-      ingrediente_id: Number(item.ingrediente_id),
-      cantidad_por_porcion: Number(item.cantidad_por_porcion),
-    }));
+    const cleanedIngredients = form.ingredientes.map((item) => {
+      const ingredienteId = Number(item.ingrediente_id);
+      const ingrediente = ingredientesById.get(ingredienteId);
+      const cantidadReceta = Number(item.cantidad_por_porcion);
+
+      return {
+        ingrediente_id: ingredienteId,
+        cantidad_por_porcion: ingrediente
+          ? toStoredQuantity(cantidadReceta, ingrediente)
+          : Number.NaN,
+      };
+    });
 
     if (
       cleanedIngredients.some(
@@ -374,10 +406,15 @@ export default function RecetasPage() {
                         </p>
                         <p className="text-xs text-gray-500 line-clamp-2">
                           {receta.ingredientes
-                            .map(
-                              (item) =>
-                                `${item.ingrediente_nombre} (${item.cantidad_por_porcion} ${item.unidad_medida})`,
-                            )
+                            .map((item) => {
+                              const ingrediente = ingredientesById.get(item.ingrediente_id) ?? item;
+                              const { recipeUnit } = getRecipeUnitConfig(ingrediente);
+                              const cantidad = toRecipeQuantity(
+                                Number(item.cantidad_por_porcion),
+                                ingrediente,
+                              );
+                              return `${item.ingrediente_nombre} (${cantidad} ${recipeUnit})`;
+                            })
                             .join(" · ")}
                         </p>
                       </div>
@@ -523,7 +560,7 @@ export default function RecetasPage() {
                   {form.ingredientes.map((item, index) => (
                     <div
                       key={item.tempId}
-                      className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_180px_88px] gap-3 items-end"
+                      className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_200px_88px] gap-3 items-end"
                     >
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -534,14 +571,19 @@ export default function RecetasPage() {
                           onChange={(event) =>
                             updateIngredientRow(item.tempId, {
                               ingrediente_id: event.target.value,
+                              cantidad_por_porcion: "",
                             })
                           }
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Seleccionar ingrediente</option>
                           {ingredientes.map((ingrediente) => (
-                            <option key={ingrediente.id} value={ingrediente.id}>
-                              {ingrediente.nombre} ({ingrediente.unidad_medida})
+                            <option
+                              key={ingrediente.id}
+                              value={ingrediente.id}
+                              disabled={!ingrediente.activo}
+                            >
+                              {ingrediente.nombre} (receta: {getRecipeUnitConfig(ingrediente).recipeUnit}; pedido: {getRecipeUnitConfig(ingrediente).orderUnit}){ingrediente.activo ? "" : " - inactivo"}
                             </option>
                           ))}
                         </select>
@@ -551,19 +593,30 @@ export default function RecetasPage() {
                         <label className="block text-xs font-medium text-gray-500 mb-1">
                           Cantidad por porción
                         </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.cantidad_por_porcion}
-                          onChange={(event) =>
-                            updateIngredientRow(item.tempId, {
-                              cantidad_por_porcion: event.target.value,
-                            })
-                          }
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="0.00"
-                        />
+                        <div className="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={item.cantidad_por_porcion}
+                            onChange={(event) =>
+                              updateIngredientRow(item.tempId, {
+                                cantidad_por_porcion: event.target.value,
+                              })
+                            }
+                            className="w-full min-w-0 rounded-l-lg px-3 py-2 text-sm focus:outline-none"
+                            placeholder="0"
+                          />
+                          <span className="flex items-center border-l border-gray-200 bg-gray-50 px-3 text-sm text-gray-500 rounded-r-lg">
+                            {recipeUnitFor(item.ingrediente_id) ?? "unidad"}
+                          </span>
+                        </div>
+                        {recipeUnitFor(item.ingrediente_id) &&
+                          recipeUnitFor(item.ingrediente_id) !== orderUnitFor(item.ingrediente_id) && (
+                            <p className="text-[11px] text-gray-400 mt-1">
+                              El pedido se calcula en {orderUnitFor(item.ingrediente_id)}.
+                            </p>
+                          )}
                       </div>
 
                       <button
