@@ -143,7 +143,7 @@ Abrí http://localhost:3005, iniciá sesión con `admin` / `admin1234`.
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 ```
 
-> La base de datos SQLite en dev vive dentro del contenedor. Si necesitás persistirla localmente, montá un volumen en `docker-compose.yml`.
+> La base de datos SQLite vive en el volumen Docker `concejo_escolar_sqlite_data` y persiste aunque se recree el contenedor.
 
 ---
 
@@ -447,7 +447,7 @@ NEXT_PUBLIC_API_URL=http://<TU_IP>:8000
 ### ⚠️ Cosas a tener en cuenta
 
 - **No commitear `.env`** — está en `.gitignore`. Las secrets van solo en Dokploy.
-- **La base de datos vive en un volumen Docker** (`sqlite_data`). Si eliminás el volumen, perdés todos los datos. Hacé backups periódicos.
+- **La base de datos vive en el volumen Docker** `concejo_escolar_sqlite_data`. Su nombre físico es fijo para que Dokploy lo reutilice entre deploys. Si eliminás el volumen, perdés todos los datos. Hacé backups periódicos.
 - **El `requirements.txt` debe estar en UTF-8 sin BOM** (ver sección de dependencias). pip en Linux falla con otros encodings.
 
 ---

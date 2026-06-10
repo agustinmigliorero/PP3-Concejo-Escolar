@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/data
+      - sqlite_data:/app/data
     env_file:
       # Opcional: solo se usa en dev local. En Dokploy las env vars
       # (SECRET_KEY, etc.) se inyectan directamente al contenedor.
@@ -28,4 +28,8 @@ services:
     depends_on:
       - backend
 
-
+volumes:
+  sqlite_data:
+    # El nombre fijo evita que Dokploy cree otro volumen si cambia el
+    # nombre del proyecto/stack entre despliegues.
+    name: concejo_escolar_sqlite_data
