@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.controllers.school_controller import (
     CreateSchoolRequest,
+    UpdateMySchoolMatriculationRequest,
     UpdateSchoolRequest,
 )
-from app.middlewares.auth_middleware import require_gestor_or_admin
+from app.middlewares.auth_middleware import get_current_user, require_gestor_or_admin
+from app.models.user_model import User
 from app.services import school_service
 
 router = APIRouter(prefix="/schools", tags=["schools"])
@@ -21,6 +23,27 @@ def list_schools(
     _=Depends(require_gestor_or_admin),
 ):
     return school_service.get_all_schools(db, locality_id)
+
+
+@router.get("/me")
+def get_my_school(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return school_service.get_school_for_user(db, current_user)
+
+
+@router.patch("/me/matriculation")
+def update_my_school_matriculation(
+    body: UpdateMySchoolMatriculationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return school_service.update_school_matriculation_for_user(
+        db,
+        current_user,
+        body.matriculation,
+    )
 
 
 @router.get("/{school_id}")
@@ -49,6 +72,7 @@ def create_school(
         offers_breakfast=body.offers_breakfast,
         offers_lunch=body.offers_lunch,
         offers_snack=body.offers_snack,
+        offers_dinner=body.offers_dinner,
     )
 
 
@@ -71,6 +95,7 @@ def update_school(
         offers_breakfast=body.offers_breakfast,
         offers_lunch=body.offers_lunch,
         offers_snack=body.offers_snack,
+        offers_dinner=body.offers_dinner,
         active=body.active,
     )
 

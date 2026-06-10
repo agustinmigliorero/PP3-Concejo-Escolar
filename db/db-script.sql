@@ -53,8 +53,7 @@ CREATE TABLE IF NOT EXISTS `providers` (
 CREATE TABLE IF NOT EXISTS `refresh_tokens` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `user_id` BIGINT NOT NULL,
-    `jti` CHAR(36) NOT NULL,
-    `token_hash` CHAR(64) NOT NULL,
+    `jti` CHAR(36) NOT NULL UNIQUE,
     `token_family` CHAR(36) NOT NULL,
     `expires_at` DATETIME NOT NULL,
     `revoked_at` DATETIME NULL,

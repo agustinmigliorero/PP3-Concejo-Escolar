@@ -9,6 +9,7 @@ import {
   type LocalidadRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
+import { showSuccessToast } from "@/components/toast";
 
 type Tab = "activas" | "inactivas";
 type ModalMode = "create" | "edit";
@@ -70,8 +71,10 @@ export default function LocalidadesPage() {
     try {
       if (modalMode === "create") {
         await apiCreateLocalidad(nombre);
+        showSuccessToast("Localidad creada correctamente");
       } else if (editingId !== null) {
         await apiUpdateLocalidad(editingId, nombre);
+        showSuccessToast("Localidad actualizada correctamente");
       }
       setModalOpen(false);
       setError(null);
@@ -90,6 +93,11 @@ export default function LocalidadesPage() {
       const updated = await apiToggleLocalidadActive(confirmTarget.id);
       setLocalidades((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
       setConfirmTarget(null);
+      showSuccessToast(
+        updated.activo
+          ? "Localidad activada correctamente"
+          : "Localidad desactivada correctamente",
+      );
     } catch {
       setError("Error al cambiar el estado de la localidad");
       setConfirmTarget(null);

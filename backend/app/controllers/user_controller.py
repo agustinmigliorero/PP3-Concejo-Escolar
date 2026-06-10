@@ -55,5 +55,6 @@ class UserResponse(BaseModel):
     role: str
     school_id: Optional[int]
     active: bool
+    is_protected_admin: bool = False
 
     model_config = {"from_attributes": True}

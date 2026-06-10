@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   apiGetSchools,
@@ -11,15 +12,17 @@ import {
   type LocalidadRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
+import { showSuccessToast } from "@/components/toast";
 
 type Tab = "activas" | "inactivas";
 type ModalMode = "create" | "edit";
-type MealKey = "offers_breakfast" | "offers_lunch" | "offers_snack";
+type MealKey = "offers_breakfast" | "offers_lunch" | "offers_snack" | "offers_dinner";
 
 const MEALS: { key: MealKey; label: string }[] = [
   { key: "offers_breakfast", label: "Desayuno" },
   { key: "offers_lunch", label: "Almuerzo" },
   { key: "offers_snack", label: "Merienda" },
+  { key: "offers_dinner", label: "Cena" },
 ];
 
 interface FormState {
@@ -32,6 +35,7 @@ interface FormState {
   offers_breakfast: boolean;
   offers_lunch: boolean;
   offers_snack: boolean;
+  offers_dinner: boolean;
 }
 
 const EMPTY_FORM: FormState = {
@@ -44,6 +48,7 @@ const EMPTY_FORM: FormState = {
   offers_breakfast: false,
   offers_lunch: false,
   offers_snack: false,
+  offers_dinner: false,
 };
 
 export default function EscuelasPage() {
@@ -106,6 +111,7 @@ export default function EscuelasPage() {
       offers_breakfast: s.offers_breakfast,
       offers_lunch: s.offers_lunch,
       offers_snack: s.offers_snack,
+      offers_dinner: s.offers_dinner,
     });
     setFormError(null);
     setModalMode("edit");
@@ -148,7 +154,9 @@ export default function EscuelasPage() {
           offers_breakfast: form.offers_breakfast,
           offers_lunch: form.offers_lunch,
           offers_snack: form.offers_snack,
+          offers_dinner: form.offers_dinner
         });
+        showSuccessToast("Escuela creada correctamente");
       } else if (editingId !== null) {
         await apiUpdateSchool(editingId, {
           name: form.name,
@@ -160,7 +168,9 @@ export default function EscuelasPage() {
           offers_breakfast: form.offers_breakfast,
           offers_lunch: form.offers_lunch,
           offers_snack: form.offers_snack,
+          offers_dinner: form.offers_dinner,
         });
+        showSuccessToast("Escuela actualizada correctamente");
       }
       setModalOpen(false);
       setError(null);
@@ -181,6 +191,11 @@ export default function EscuelasPage() {
         prev.map((s) => (s.id === updated.id ? updated : s)),
       );
       setConfirmTarget(null);
+      showSuccessToast(
+        updated.active
+          ? "Escuela activada correctamente"
+          : "Escuela desactivada correctamente",
+      );
     } catch {
       setError("Error al cambiar el estado de la escuela");
       setConfirmTarget(null);
@@ -194,6 +209,7 @@ export default function EscuelasPage() {
     if (s.offers_breakfast) active.push("D");
     if (s.offers_lunch) active.push("A");
     if (s.offers_snack) active.push("M");
+    if (s.offers_dinner) active.push("C");
     return active.length === 0
       ? <span className="text-gray-400 text-xs">—</span>
       : active.map((m) => (
@@ -291,7 +307,14 @@ export default function EscuelasPage() {
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-5 py-3 text-gray-400">{s.id}</td>
-                  <td className="px-5 py-3 font-medium text-gray-800">{s.name}</td>
+                  <td className="px-5 py-3 font-medium text-gray-800">
+                    <Link
+                      href={`/dashboard/escuelas/${s.id}`}
+                      className="text-blue-700 hover:text-blue-900 hover:underline"
+                    >
+                      {s.name}
+                    </Link>
+                  </td>
                   <td className="px-5 py-3 text-gray-600 font-mono">{s.code}</td>
                   <td className="px-5 py-3 text-gray-600">{s.locality_name}</td>
                   <td className="px-5 py-3 text-gray-800">
@@ -309,6 +332,12 @@ export default function EscuelasPage() {
                   {canManage && (
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/dashboard/escuelas/${s.id}`}
+                          className="text-slate-600 hover:text-slate-900 font-medium px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+                        >
+                          Ver detalle
+                        </Link>
                         {s.active && (
                           <button
                             onClick={() => openEdit(s)}

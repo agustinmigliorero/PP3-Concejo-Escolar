@@ -65,6 +65,38 @@ A continuación, se listan los recursos HTTP desarrollados actualmente en el sis
 *   `PUT /ingredientes/{id}`: Edita las propiedades estructurales de un ingrediente (Admin).
 *   `PATCH /ingredientes/{id}/toggle-active`: Activa o desactiva temporalmente el uso de un ingrediente para no mostrarlo en nuevas recetas (Admin).
 
+### 3.5. Proveedores (`/proveedores`)
+*   `GET /proveedores`: Lista los proveedores (Admin).
+*   `GET /proveedores/{id}`: Detalle de un proveedor (Admin).
+*   `POST /proveedores`: Crea un proveedor con sus datos de contacto (Admin).
+*   `PUT /proveedores/{id}`: Edita un proveedor (Admin).
+*   `PATCH /proveedores/{id}/toggle-active`: Activa/desactiva (soft-delete) un proveedor (Admin).
+
+### 3.6. Escuelas (`/schools`)
+*   `GET /schools`: Lista las escuelas (filtrable por `locality_id`) (Admin/Gestor).
+*   `GET /schools/{id}`: Detalle de una escuela (Admin/Gestor).
+*   `POST /schools`: Crea una escuela con su localidad, matrícula y comidas ofrecidas (Admin/Gestor).
+*   `PUT /schools/{id}`: Edita una escuela (incluida la matrícula) (Admin/Gestor).
+*   `PATCH /schools/{id}/toggle-active`: Activa/desactiva una escuela (Admin/Gestor).
+*   `GET /schools/me`: Detalle de la escuela asociada al usuario Escuela.
+*   `PATCH /schools/me/matriculation`: Actualiza la matrícula de la escuela asociada al usuario Escuela.
+
+### 3.7. Asignaciones Proveedor-Ingrediente-Localidad (`/asignaciones`)
+Determina qué proveedor entrega cada ingrediente en cada localidad y a qué precio, con historial inmutable.
+*   `GET /asignaciones`: Lista asignaciones; filtros opcionales `ingrediente_id`, `localidad_id`, `proveedor_id` y `solo_vigentes` (default `true`) (Admin).
+*   `GET /asignaciones/historial?ingrediente_id=&localidad_id=`: Historial completo de cambios de proveedor/precio para una combinación (Admin).
+*   `POST /asignaciones`: Crea una asignación; cierra automáticamente la vigente anterior de esa combinación (`ingrediente`, `localidad`) (Admin).
+*   `PUT /asignaciones/{id}`: Edita el precio de la asignación **vigente** (Admin).
+
+> **Convención de fechas:** `fecha_hasta` es exclusiva. Una asignación está vigente en una fecha `d` si `fecha_desde <= d < fecha_hasta` (o `fecha_hasta IS NULL`). Solo una asignación por combinación puede tener `fecha_hasta = NULL`.
+
+### 3.8. Stock Previo (`/stock-previo`)
+Permite cargar las cantidades sobrantes que se descontarán del próximo pedido.
+*   `GET /stock-previo/me`: Lista el stock previo de la escuela asociada al usuario Escuela.
+*   `PUT /stock-previo/me`: Actualiza el stock previo de la escuela asociada al usuario Escuela.
+*   `GET /stock-previo/{school_id}`: Lista el stock previo de una escuela específica (Admin/Gestor).
+*   `PUT /stock-previo/{school_id}`: Actualiza el stock previo de una escuela específica (Admin/Gestor).
+
 ---
 
 ## 4. Roles y Seguridad
@@ -73,7 +105,7 @@ El sistema implementa un modelo de Control de Acceso Basado en Roles (RBAC) con 
 
 1.  **Administrador:** Acceso irrestricto. Responsable de la configuración estructural (ABM de Usuarios, Localidades, Ingredientes, Proveedores, Asignaciones, Recetas y Menús estacionales).
 2.  **Gestor:** Acceso operativo. Gestiona la información de las Escuelas (matrículas), genera los pedidos semanales (con posibilidad de alterar días hábiles y editar stock previo) y consulta el historial global.
-3.  **Escuela:** Acceso restringido. Cada usuario de este tipo está vinculado estrictamente a una (1) escuela. Puede cargar el stock sobrante (previo al pedido) y visualizar exclusivamente los pedidos donde su institución está incluida.
+3.  **Escuela:** Acceso restringido. Cada usuario de este tipo está vinculado estrictamente a una (1) escuela. Puede actualizar la matrícula, cargar el stock sobrante (previo al pedido) y visualizar exclusivamente los pedidos donde su institución está incluida.
 
 *Seguridad:* Las contraseñas están hasheadas usando `bcrypt`. Todas las transacciones en producción deben operar bajo HTTPS.
 

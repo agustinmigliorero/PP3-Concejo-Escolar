@@ -30,7 +30,7 @@ Aplicación web para la gestión de pedidos de ingredientes del Servicio Aliment
 | CRUD Temporadas y opciones de menú            | ✅            | ❌     | ❌      |
 | Asignar recetas a días del menú               | ✅            | ❌     | ❌      |
 | CRUD Escuelas                                 | ✅            | ✅     | ❌      |
-| Actualizar matrícula de escuelas              | ✅            | ✅     | ❌      |
+| Actualizar matrícula de escuelas              | ✅            | ✅     | ✅      |
 | Generar órdenes de compra                     | ✅            | ✅     | ❌      |
 | Ver historial de pedidos generados (todos)    | ✅            | ✅     | ❌      |
 | Cargar stock previo de su escuela             | ❌            | ❌     | ✅      |
@@ -45,8 +45,7 @@ Aplicación web para la gestión de pedidos de ingredientes del Servicio Aliment
 ```
 Usuario
   - id
-  - nombre
-  - email (único)
+  - username (único)  (login por nombre de usuario, no por email)
   - password_hash
   - rol: ADMIN | GESTOR | ESCUELA
   - escuela_id → Escuela  (null para ADMIN y GESTOR; obligatorio para ESCUELA)
@@ -248,7 +247,7 @@ StockPrevio
 
 12. **Ingredientes por unidad**: Cuando `unidad_medida = "unidades"` y `contenido_por_unidad` está definido, la cantidad calculada en la unidad base se convierte a unidades comerciales redondeando siempre hacia arriba (`ceil`). Ejemplo: 1200 ml / 900 ml por botella = ceil(1.33) = 2 botellas. El descuento de stock también se expresa en la unidad base antes del redondeo.
 
-13. **Rol Escuela**: Cada usuario con rol ESCUELA está asociado a una única escuela. Solo puede cargar el stock previo de su propia escuela y ver el historial de pedidos generados que incluyen a su escuela. No puede generar pedidos, ver datos de otras escuelas ni acceder a ninguna función administrativa.
+13. **Rol Escuela**: Cada usuario con rol ESCUELA está asociado a una única escuela. Puede actualizar la matrícula y cargar el stock previo de su propia escuela, además de ver el historial de pedidos generados que incluyen a su escuela. No puede generar pedidos, ver datos de otras escuelas ni acceder a ninguna función administrativa.
 
 ---
 
@@ -256,7 +255,7 @@ StockPrevio
 
 ### 5.1 Autenticación
 
-- Login con email + contraseña
+- Login con username + contraseña
 - JWT access token (corta duración) + refresh token (larga duración, rotativo)
 - Logout invalida el refresh token
 - Passwords hasheadas con bcrypt
@@ -267,7 +266,7 @@ StockPrevio
 
 - Crear usuario con rol (Admin/Gestor/Escuela)
 - Para usuarios con rol Escuela, seleccionar la escuela asociada (1:1)
-- Editar nombre, email, rol
+- Editar username, rol
 - Activar/desactivar usuario (no se eliminan)
 - Reset de contraseña por el administrador
 
@@ -341,6 +340,7 @@ StockPrevio
 
 ### 5.12 Funcionalidades del usuario Escuela
 
+- **Actualizar matrícula**: modificar la matrícula total de su escuela cuando haya cambios de alumnos.
 - **Cargar stock previo**: tabla con los ingredientes relevantes para su escuela (los que aparecen en el menú activo). El usuario ingresa las cantidades disponibles en cada ingrediente. Solo se muestran ingredientes de la temporada activa.
 - **Ver historial de pedidos**: listado de pedidos generados que incluyen a su escuela, con los documentos descargables correspondientes (solo las filas de su escuela).
 - No tiene acceso a datos de otras escuelas, proveedores, recetas, ni a la función de generación.
