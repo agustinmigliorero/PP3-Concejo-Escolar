@@ -65,3 +65,23 @@ export function toStoredQuantity(
 ): number {
   return stableNumber(recipeQuantity / getRecipeUnitConfig(ingredient).displayFactor);
 }
+
+export function formatContextQuantity(quantity: number | string, unit: string): string {
+  const value = Number(quantity);
+  const normalized = normalizedUnit(unit);
+  let displayValue = value;
+  let displayUnit = normalized;
+
+  if (value >= 1000 && normalized === "g") {
+    displayValue = value / 1000;
+    displayUnit = "kg";
+  } else if (value >= 1000 && ["ml", "cc"].includes(normalized)) {
+    displayValue = value / 1000;
+    displayUnit = "litros";
+  }
+
+  const formatted = new Intl.NumberFormat("es-AR", {
+    maximumFractionDigits: 3,
+  }).format(displayValue);
+  return `${formatted} ${displayUnit}`;
+}
