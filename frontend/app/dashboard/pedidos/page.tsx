@@ -17,6 +17,7 @@ import {
   type TemporadaRecord,
 } from "@/lib/api";
 import { showSuccessToast } from "@/components/toast";
+import { formatContextQuantity } from "@/lib/units";
 
 const DAYS = [
   { id: 1, label: "Lun", name: "Lunes" },
@@ -855,7 +856,17 @@ export default function PedidosPage() {
                     <td className="px-5 py-3 text-gray-600">{row.localidad_nombre}</td>
                     <td className="px-5 py-3 text-gray-600">{row.proveedor_nombre}</td>
                     <td className="px-5 py-3 text-right text-gray-700">
-                      {row.cantidad_total} {row.unidad}
+                      <span className="block">
+                        {row.cantidad_total} {row.unidad}
+                      </span>
+                      {row.contenido_por_unidad && row.unidad_contenido && (
+                        <span className="block text-xs text-gray-400 mt-0.5">
+                          {row.cantidad_contenido_total
+                            ? `${formatContextQuantity(row.cantidad_contenido_total, row.unidad_contenido)} en total · `
+                            : ""}
+                          {row.contenido_por_unidad} {row.unidad_contenido} c/u
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-right text-gray-800">
                       {money(row.costo_total)}

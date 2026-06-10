@@ -832,14 +832,18 @@ export interface PedidoSnapshot {
       ingrediente_id: number;
       ingrediente_nombre: string;
       unidad: string;
+      contenido_por_unidad?: string | null;
+      unidad_contenido?: string | null;
       precio_unitario: string;
       cantidad_total: string;
+      cantidad_contenido_total?: string | null;
       costo_total: string;
       escuelas: Array<{
         escuela_id: number;
         escuela_codigo: string;
         escuela_nombre: string;
         cantidad: string;
+        cantidad_contenido?: string | null;
       }>;
     }>;
   }>;
@@ -860,6 +864,9 @@ export interface PedidoSnapshot {
       stock_descontado: string;
       cantidad_neta: string;
       cantidad_final: string;
+      contenido_por_unidad?: string | null;
+      unidad_contenido?: string | null;
+      cantidad_contenido_final?: string | null;
       proveedor_id?: number;
       proveedor_nombre?: string;
       localidad_id?: number;
@@ -872,12 +879,15 @@ export interface PedidoSnapshot {
     ingrediente_id: number;
     ingrediente_nombre: string;
     unidad: string;
+    contenido_por_unidad?: string | null;
+    unidad_contenido?: string | null;
     localidad_id?: number;
     localidad_nombre: string;
     proveedor_id?: number;
     proveedor_nombre: string;
     precio_unitario: string;
     cantidad_total: string;
+    cantidad_contenido_total?: string | null;
     costo_total: string;
   }>;
   advertencias: Array<{
