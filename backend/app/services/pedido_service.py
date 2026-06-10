@@ -499,6 +499,51 @@ def _safe_filename(value: str) -> str:
     return cleaned.strip("_") or "documento"
 
 
+def _snapshot_for_pdf(snapshot: dict) -> dict:
+    schools = []
+    positive_school_ingredients: set[tuple[object, object]] = set()
+    for school in snapshot.get("escuelas", []):
+        ingredients = [
+            item for item in school.get("ingredientes", [])
+            if _dec(item.get("cantidad_final", "0")) > 0
+        ]
+        positive_school_ingredients.update(
+            (school.get("escuela_id"), item.get("ingrediente_id"))
+            for item in ingredients
+        )
+        schools.append({**school, "ingredientes": ingredients})
+
+    providers = []
+    for provider in snapshot.get("proveedores", []):
+        ingredients = []
+        for ingredient in provider.get("ingredientes", []):
+            if _dec(ingredient.get("cantidad_total", "0")) <= 0:
+                continue
+            school_rows = [
+                row for row in ingredient.get("escuelas", [])
+                if _dec(row.get("cantidad", "0")) > 0
+            ]
+            if school_rows:
+                ingredients.append({**ingredient, "escuelas": school_rows})
+        if ingredients:
+            providers.append({**provider, "ingredientes": ingredients})
+
+    return {
+        **snapshot,
+        "escuelas": schools,
+        "proveedores": providers,
+        "resumen_global": [
+            row for row in snapshot.get("resumen_global", [])
+            if _dec(row.get("cantidad_total", "0")) > 0
+        ],
+        "advertencias": [
+            warning for warning in snapshot.get("advertencias", [])
+            if (warning.get("escuela_id"), warning.get("ingrediente_id"))
+            in positive_school_ingredients
+        ],
+    }
+
+
 def filtered_snapshot_for_export(
     pedido: GeneracionPedido,
     user: User,
@@ -688,7 +733,9 @@ def export_resumen_pdf(
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-    snapshot = filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
+    snapshot = _snapshot_for_pdf(
+        filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
+    )
     output = BytesIO()
     doc = SimpleDocTemplate(
         output,
@@ -865,6 +912,8 @@ def export_proveedores_zip(
     snapshot = filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
     if file_format not in ("pdf", "excel"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Formato invalido")
+    if file_format == "pdf":
+        snapshot = _snapshot_for_pdf(snapshot)
 
     output = BytesIO()
     extension = "pdf" if file_format == "pdf" else "xlsx"
@@ -959,7 +1008,9 @@ def export_localidades_pdf_zip(
     proveedor_id: int | None = None,
     escuela_id: int | None = None,
 ) -> BytesIO:
-    snapshot = filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
+    snapshot = _snapshot_for_pdf(
+        filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
+    )
     output = BytesIO()
     with zipfile.ZipFile(output, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
         for locality_group in _providers_by_locality(snapshot):
@@ -1032,7 +1083,9 @@ def export_escuelas_pdf_zip(
     proveedor_id: int | None = None,
     escuela_id: int | None = None,
 ) -> BytesIO:
-    snapshot = filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
+    snapshot = _snapshot_for_pdf(
+        filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
+    )
     output = BytesIO()
     with zipfile.ZipFile(output, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
         for school in snapshot.get("escuelas", []):
@@ -1119,7 +1172,7 @@ def export_pedido_pdf(pedido: GeneracionPedido, user: User) -> BytesIO:
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-    snapshot = school_snapshot_for_user(pedido.datos_snapshot, user)
+    snapshot = _snapshot_for_pdf(school_snapshot_for_user(pedido.datos_snapshot, user))
     output = BytesIO()
     doc = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
     styles = getSampleStyleSheet()
