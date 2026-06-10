@@ -110,7 +110,7 @@ export default function DashboardLayout({
         Saltar al contenido
       </a>
       <div className="min-h-screen bg-[#f5f7fb] text-[#172033] lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="hidden border-r border-slate-200 bg-white lg:flex lg:min-h-screen lg:flex-col">
+        <aside className="hidden border-r border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
           <div className="border-b border-slate-200 px-5 py-5">
             <Link href="/dashboard" className="block">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
