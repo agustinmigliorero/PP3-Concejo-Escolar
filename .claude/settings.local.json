@@ -18,7 +18,11 @@
       "Bash(SECRET_KEY=$\\(python -c \"import secrets; print\\(secrets.token_urlsafe\\(32\\)\\)\"\\) python -c \"from app.config.settings import settings; print\\('OK, key len =', len\\(settings.SECRET_KEY\\)\\)\")",
       "Bash(pip show *)",
       "Bash(python -c \"import pydantic_settings\")",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(SECRET_KEY=prueba123 docker compose -f docker-compose.yml config --quiet)",
+      "Bash(docker compose *)",
+      "Bash(git --no-pager diff -- docker-compose.yml)"
     ]
   }
 }

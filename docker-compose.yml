@@ -7,14 +7,18 @@ services:
       - sqlite_data:/app/data
 
     env_file:
-      # Opcional: solo se usa en dev local. En Dokploy las env vars
-      # (SECRET_KEY, etc.) se inyectan directamente al contenedor.
+      # Opcional: solo se usa en dev local (archivo backend/.env).
       - path: ./backend/.env
         required: false
     environment:
-      # Estas sobrescriben a las del .env si hace falta (paths/red de Docker).
+      # IMPORTANTE: en Dokploy las variables de "Environment Settings" NO se
+      # inyectan solas al contenedor; solo sirven para interpolar ${VAR} acá.
+      # Por eso cada variable que el backend necesita se mapea explícitamente.
+      SECRET_KEY: ${SECRET_KEY:?Falta SECRET_KEY - definila en las env vars (Dokploy) o en backend/.env}
       DATABASE_URL: sqlite:////app/data/concejo_escolar.db
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3005,http://localhost:3001}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin1234}
 
   frontend:
     build:
