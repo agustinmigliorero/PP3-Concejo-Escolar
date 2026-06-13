@@ -5,11 +5,13 @@ from app.controllers.receta_controller import CreateRecetaRequest, UpdateRecetaR
 from app.models.ingrediente_model import Ingrediente
 from app.models.receta_model import Receta, RecetaIngrediente
 from app.models.temporada_model import Temporada
+from app.services import tipo_comida_service
 
 
 def _receta_query(db: Session):
     return db.query(Receta).options(
         selectinload(Receta.ingredientes).joinedload(RecetaIngrediente.ingrediente),
+        selectinload(Receta.tipos_comida),
         selectinload(Receta.temporada),
     )
 
@@ -18,7 +20,10 @@ def _receta_to_response(receta: Receta) -> dict:
     return {
         "id": receta.id,
         "nombre": receta.nombre,
-        "tipo_comida": receta.tipo_comida,
+        "tipos_comida": [
+            {"id": tipo.id, "nombre": tipo.nombre, "activo": tipo.activo}
+            for tipo in receta.tipos_comida
+        ],
         "temporada_id": receta.temporada_id,
         "temporada_nombre": receta.temporada.nombre.value if receta.temporada else None,
         "temporada_anio": receta.temporada.anio if receta.temporada else None,
@@ -76,7 +81,7 @@ def get_all_recetas(db: Session, include_inactive: bool = False) -> list[dict]:
     if not include_inactive:
         query = query.filter(Receta.activo == True)
 
-    recetas = query.order_by(Receta.tipo_comida.asc(), Receta.nombre.asc()).all()
+    recetas = query.order_by(Receta.nombre.asc()).all()
     return [_receta_to_response(receta) for receta in recetas]
 
 
@@ -99,11 +104,12 @@ def create_receta(db: Session, data: CreateRecetaRequest) -> dict:
         [item.ingrediente_id for item in data.ingredientes],
     )
     _get_temporada(db, data.temporada_id)
+    tipos_comida = tipo_comida_service.get_tipos_comida_by_ids(db, data.tipos_comida_ids)
 
     receta = Receta(
         nombre=data.nombre,
-        tipo_comida=data.tipo_comida,
         temporada_id=data.temporada_id,
+        tipos_comida=tipos_comida,
     )
     db.add(receta)
     db.flush()
@@ -123,7 +129,12 @@ def create_receta(db: Session, data: CreateRecetaRequest) -> dict:
 
 
 def update_receta(db: Session, receta_id: int, data: UpdateRecetaRequest) -> dict:
-    receta = db.query(Receta).options(selectinload(Receta.ingredientes)).filter(Receta.id == receta_id).first()
+    receta = (
+        db.query(Receta)
+        .options(selectinload(Receta.ingredientes), selectinload(Receta.tipos_comida))
+        .filter(Receta.id == receta_id)
+        .first()
+    )
     if not receta:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receta no encontrada")
 
@@ -139,10 +150,11 @@ def update_receta(db: Session, receta_id: int, data: UpdateRecetaRequest) -> dic
 
     _get_ingredientes_map(db, [item.ingrediente_id for item in data.ingredientes])
     _get_temporada(db, data.temporada_id)
+    tipos_comida = tipo_comida_service.get_tipos_comida_by_ids(db, data.tipos_comida_ids)
 
     receta.nombre = data.nombre
-    receta.tipo_comida = data.tipo_comida
     receta.temporada_id = data.temporada_id
+    receta.tipos_comida = tipos_comida
     receta.ingredientes.clear()
     db.flush()
 

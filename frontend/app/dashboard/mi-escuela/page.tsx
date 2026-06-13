@@ -5,18 +5,13 @@ import {
   apiGetMySchool,
   apiGetMyStock,
   apiUpdateMyStock,
+  apiUpdateMySchoolContact,
   apiUpdateMySchoolMatriculation,
   type SchoolRecord,
   type StockPrevioItem,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
 import { showSuccessToast } from "@/components/toast";
-
-const MEALS: { key: keyof SchoolRecord; label: string }[] = [
-  { key: "offers_breakfast", label: "Desayuno" },
-  { key: "offers_lunch", label: "Almuerzo" },
-  { key: "offers_snack", label: "Merienda" },
-];
 
 function DetailField({
   label,
@@ -39,10 +34,13 @@ export default function MiEscuelaPage() {
   const { user } = useUser();
   const [school, setSchool] = useState<SchoolRecord | null>(null);
   const [matriculation, setMatriculation] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [stockItems, setStockItems] = useState<StockPrevioItem[]>([]);
   const [stockDraft, setStockDraft] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [contactSaving, setContactSaving] = useState(false);
   const [stockSaving, setStockSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -54,6 +52,8 @@ export default function MiEscuelaPage() {
       const [data, stock] = await Promise.all([apiGetMySchool(), apiGetMyStock()]);
       setSchool(data);
       setMatriculation(String(data.matriculation));
+      setPhone(data.phone ?? "");
+      setEmail(data.email ?? "");
       setStockItems(stock.items);
       setStockDraft(
         Object.fromEntries(
@@ -96,6 +96,27 @@ export default function MiEscuelaPage() {
       setError(e instanceof Error ? e.message : "Error al guardar la matricula");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveContact() {
+    setError(null);
+    setSuccess(null);
+    setContactSaving(true);
+    try {
+      const updated = await apiUpdateMySchoolContact({
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+      });
+      setSchool(updated);
+      setPhone(updated.phone ?? "");
+      setEmail(updated.email ?? "");
+      setSuccess("Datos de contacto actualizados correctamente");
+      showSuccessToast("Datos de contacto actualizados correctamente");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error al guardar el contacto");
+    } finally {
+      setContactSaving(false);
     }
   }
 
@@ -165,8 +186,6 @@ export default function MiEscuelaPage() {
     );
   }
 
-  const activeMeals = MEALS.filter((meal) => Boolean(school[meal.key]));
-
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -204,25 +223,66 @@ export default function MiEscuelaPage() {
           <DetailField label="Codigo" value={school.code} />
           <DetailField label="Localidad" value={school.locality_name} />
           <DetailField label="Direccion" value={school.address} />
-          <DetailField label="Telefono" value={school.phone} />
-          <div className="border border-gray-100 rounded-lg p-4 bg-gray-50">
+          <div className="border border-gray-100 rounded-lg p-4 bg-gray-50 md:col-span-2">
             <p className="text-xs uppercase tracking-wide font-medium text-gray-500 mb-2">
               Comidas
             </p>
             <div className="flex flex-wrap gap-2">
-              {activeMeals.length > 0 ? (
-                activeMeals.map((meal) => (
+              {school.tipos_comida.length > 0 ? (
+                school.tipos_comida.map((tipo) => (
                   <span
-                    key={meal.key}
+                    key={tipo.id}
                     className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded-full"
                   >
-                    {meal.label}
+                    {tipo.nombre}
                   </span>
                 ))
               ) : (
                 <span className="text-sm text-gray-400">Sin comidas cargadas</span>
               )}
             </div>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-100 pt-5 mb-5">
+          <h2 className="text-sm font-semibold text-gray-800 mb-1">Datos de contacto</h2>
+          <p className="text-xs text-gray-500 mb-3">
+            Teléfono y email son opcionales. Podés dejarlos vacíos.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Teléfono
+              </label>
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Ej: 2281-123456"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Ej: escuela@dominio.com"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="mt-3">
+            <button
+              onClick={handleSaveContact}
+              disabled={contactSaving}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              {contactSaving ? "Guardando..." : "Guardar contacto"}
+            </button>
           </div>
         </div>
 

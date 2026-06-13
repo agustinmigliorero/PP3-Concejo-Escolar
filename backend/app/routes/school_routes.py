@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.controllers.school_controller import (
     CreateSchoolRequest,
+    UpdateMySchoolContactRequest,
     UpdateMySchoolMatriculationRequest,
     UpdateSchoolRequest,
 )
@@ -46,6 +47,20 @@ def update_my_school_matriculation(
     )
 
 
+@router.patch("/me/contact")
+def update_my_school_contact(
+    body: UpdateMySchoolContactRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return school_service.update_school_contact_for_user(
+        db,
+        current_user,
+        body.phone,
+        body.email,
+    )
+
+
 @router.get("/{school_id}")
 def get_school(
     school_id: int,
@@ -68,11 +83,9 @@ def create_school(
         locality_id=body.locality_id,
         address=body.address,
         phone=body.phone,
+        email=body.email,
         matriculation=body.matriculation,
-        offers_breakfast=body.offers_breakfast,
-        offers_lunch=body.offers_lunch,
-        offers_snack=body.offers_snack,
-        offers_dinner=body.offers_dinner,
+        tipos_comida_ids=body.tipos_comida_ids,
     )
 
 
@@ -91,11 +104,9 @@ def update_school(
         locality_id=body.locality_id,
         address=body.address,
         phone=body.phone,
+        email=body.email,
         matriculation=body.matriculation,
-        offers_breakfast=body.offers_breakfast,
-        offers_lunch=body.offers_lunch,
-        offers_snack=body.offers_snack,
-        offers_dinner=body.offers_dinner,
+        tipos_comida_ids=body.tipos_comida_ids,
         active=body.active,
     )
 

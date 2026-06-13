@@ -485,6 +485,23 @@ La documentación interactiva completa está en `http://localhost:8000/docs` (Sw
 | GET    | `/stock-previo/{school_id}` | Ver stock sobrante de una escuela              | admin/gestor  |
 | PUT    | `/stock-previo/{school_id}` | Cargar/actualizar stock sobrante de una escuela | admin/gestor  |
 
+### Tipos de comida
+
+Catálogo administrable de tipos de comida (desayuno, almuerzo, merienda y los que se agreguen). Cada receta y cada escuela se asocian a uno o varios tipos.
+
+| Método | Endpoint                          | Descripción                       | Rol requerido |
+| ------ | --------------------------------- | --------------------------------- | ------------- |
+| GET    | `/tipos-comida`                   | Listar tipos de comida            | admin/gestor  |
+| POST   | `/tipos-comida`                   | Crear tipo de comida              | admin         |
+| PUT    | `/tipos-comida/{id}`              | Renombrar tipo de comida          | admin         |
+| PATCH  | `/tipos-comida/{id}/toggle-active`| Activar / desactivar              | admin         |
+
+### Contacto de la escuela propia
+
+| Método | Endpoint                 | Descripción                                       | Rol requerido |
+| ------ | ------------------------ | ------------------------------------------------- | ------------- |
+| PATCH  | `/schools/me/contact`    | Editar teléfono y email propios (ambos opcionales) | escuela       |
+
 ### Cómo autenticarse en Swagger
 
 1. Llamar a `POST /auth/login` con body `{ "username": "admin", "password": "..." }`

@@ -25,15 +25,18 @@ from app.models.asignacion_proveedor_model import AsignacionProveedor
 from app.models.ingrediente_model import Ingrediente
 from app.models.location_model import Localidad
 from app.models.proveedor_model import Proveedor
-from app.models.receta_model import Receta, RecetaIngrediente, TipoComida
+from app.models.receta_model import Receta, RecetaIngrediente
 from app.models.school_model import School
 from app.models.temporada_model import DiaMenu, NombreTemporada, OpcionMenu, Temporada
+from app.models.tipo_comida_model import TipoComida
 
 
 SEED_DATE = date(2026, 6, 8)
 SEASON_YEAR = 2026
 
 LOCALITIES = ["Azul", "Cachari", "Chillar"]
+
+MEAL_TYPES = ["DESAYUNO", "ALMUERZO", "MERIENDA"]
 
 SCHOOLS = [
     ("Azul", "EP 1", 94, 47),
@@ -229,15 +232,34 @@ def _get_or_create_ingredient(db, data: tuple) -> Ingrediente:
     return ingredient
 
 
+def _get_or_create_tipo_comida(db, nombre: str) -> TipoComida:
+    tipo = db.query(TipoComida).filter(TipoComida.nombre == nombre).first()
+    if tipo is None:
+        tipo = TipoComida(nombre=nombre, activo=True)
+        db.add(tipo)
+        db.flush()
+    else:
+        tipo.activo = True
+    return tipo
+
+
 def _seed_localities(db) -> dict[str, Localidad]:
     return {name: _get_or_create_locality(db, name) for name in LOCALITIES}
+
+
+def _seed_tipos_comida(db) -> dict[str, TipoComida]:
+    return {name: _get_or_create_tipo_comida(db, name) for name in MEAL_TYPES}
 
 
 def _seed_ingredients(db) -> dict[str, Ingrediente]:
     return {item[0]: _get_or_create_ingredient(db, item) for item in INGREDIENTS}
 
 
-def _seed_schools(db, localities: dict[str, Localidad]) -> int:
+def _seed_schools(
+    db,
+    localities: dict[str, Localidad],
+    tipos: dict[str, TipoComida],
+) -> int:
     created = 0
     for locality_name, code, dmc, comedor in SCHOOLS:
         school = db.query(School).filter(School.code == code).first()
@@ -246,17 +268,19 @@ def _seed_schools(db, localities: dict[str, Localidad]) -> int:
                 code=code,
                 name=code,
                 address="Sin datos - seed de testing",
-                phone="Sin datos",
+                phone=None,
             )
             db.add(school)
             created += 1
 
         school.locality_id = localities[locality_name].id
         school.matriculation = max(dmc, comedor)
-        school.offers_breakfast = dmc > 0
-        school.offers_lunch = comedor > 0
-        school.offers_snack = False
-        school.offers_dinner = False
+        ofrecidos = []
+        if dmc > 0:
+            ofrecidos.append(tipos["DESAYUNO"])
+        if comedor > 0:
+            ofrecidos.append(tipos["ALMUERZO"])
+        school.tipos_comida = ofrecidos
         school.active = True
     return created
 
@@ -357,21 +381,21 @@ def _get_or_create_season(db) -> Temporada:
     return season
 
 
-def _upsert_recipe(db, name: str, meal_type: TipoComida, season: Temporada, items, ingredients) -> Receta:
+def _upsert_recipe(db, name: str, tipos: list[TipoComida], season: Temporada, items, ingredients) -> Receta:
     recipe = db.query(Receta).filter(Receta.nombre == name).first()
     if recipe is None:
         recipe = Receta(
             nombre=name,
-            tipo_comida=meal_type,
             temporada_id=season.id,
             activo=True,
+            tipos_comida=tipos,
         )
         db.add(recipe)
         db.flush()
     else:
         recipe.ingredientes.clear()
         db.flush()
-        recipe.tipo_comida = meal_type
+        recipe.tipos_comida = tipos
         recipe.temporada_id = season.id
         recipe.activo = True
 
@@ -387,41 +411,43 @@ def _upsert_recipe(db, name: str, meal_type: TipoComida, season: Temporada, item
     return recipe
 
 
-def _seed_menu(db, ingredients: dict[str, Ingrediente]) -> int:
+def _seed_menu(db, ingredients: dict[str, Ingrediente], tipos: dict[str, TipoComida]) -> int:
     season = _get_or_create_season(db)
     options = {
         option.numero_opcion: option
         for option in db.query(OpcionMenu).filter(OpcionMenu.temporada_id == season.id).all()
     }
+    desayuno = tipos["DESAYUNO"]
+    almuerzo = tipos["ALMUERZO"]
     recipes = {
-        (1, TipoComida.DESAYUNO): _upsert_recipe(
+        (1, desayuno.id): _upsert_recipe(
             db,
             "Desayuno agregado semana 1 - Invierno 2026",
-            TipoComida.DESAYUNO,
+            [desayuno],
             season,
             BREAKFAST_RECIPE,
             ingredients,
         ),
-        (2, TipoComida.DESAYUNO): _upsert_recipe(
+        (2, desayuno.id): _upsert_recipe(
             db,
             "Desayuno agregado semana 2 - Invierno 2026",
-            TipoComida.DESAYUNO,
+            [desayuno],
             season,
             BREAKFAST_RECIPE,
             ingredients,
         ),
-        (1, TipoComida.ALMUERZO): _upsert_recipe(
+        (1, almuerzo.id): _upsert_recipe(
             db,
             "Almuerzo agregado semana 1 - Invierno 2026",
-            TipoComida.ALMUERZO,
+            [almuerzo],
             season,
             LUNCH_RECIPE,
             ingredients,
         ),
-        (2, TipoComida.ALMUERZO): _upsert_recipe(
+        (2, almuerzo.id): _upsert_recipe(
             db,
             "Almuerzo agregado semana 2 - Invierno 2026",
-            TipoComida.ALMUERZO,
+            [almuerzo],
             season,
             LUNCH_RECIPE,
             ingredients,
@@ -429,7 +455,7 @@ def _seed_menu(db, ingredients: dict[str, Ingrediente]) -> int:
     }
 
     changed = 0
-    for (option_number, meal_type), recipe in recipes.items():
+    for (option_number, tipo_id), recipe in recipes.items():
         option = options[option_number]
         for day in range(1, 6):
             row = (
@@ -437,7 +463,7 @@ def _seed_menu(db, ingredients: dict[str, Ingrediente]) -> int:
                 .filter(
                     DiaMenu.opcion_menu_id == option.id,
                     DiaMenu.dia_semana == day,
-                    DiaMenu.tipo_comida == meal_type.value,
+                    DiaMenu.tipo_comida_id == tipo_id,
                 )
                 .first()
             )
@@ -446,7 +472,7 @@ def _seed_menu(db, ingredients: dict[str, Ingrediente]) -> int:
                     DiaMenu(
                         opcion_menu_id=option.id,
                         dia_semana=day,
-                        tipo_comida=meal_type.value,
+                        tipo_comida_id=tipo_id,
                         receta_id=recipe.id,
                     )
                 )
@@ -461,13 +487,15 @@ def seed() -> None:
     db = SessionLocal()
     try:
         localities = _seed_localities(db)
+        tipos = _seed_tipos_comida(db)
         ingredients = _seed_ingredients(db)
-        schools_created = _seed_schools(db, localities)
+        schools_created = _seed_schools(db, localities, tipos)
         assignments_created = _seed_assignments(db, localities, ingredients)
-        menu_changes = _seed_menu(db, ingredients)
+        menu_changes = _seed_menu(db, ingredients, tipos)
         db.commit()
         print("[seed:data] Seed de datos de testing finalizado correctamente.")
         print(f"[seed:data] Localidades: {len(localities)}")
+        print(f"[seed:data] Tipos de comida: {len(tipos)}")
         print(f"[seed:data] Ingredientes: {len(ingredients)}")
         print(f"[seed:data] Escuelas nuevas: {schools_created}")
         print(f"[seed:data] Asignaciones nuevas: {assignments_created}")

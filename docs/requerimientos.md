@@ -443,3 +443,13 @@ Cada fila del resumen global corresponde a una combinación (ingrediente, locali
 - **CORS**: configurado estrictamente para el dominio del frontend.
 - **Variables de entorno**: secrets (JWT_SECRET, etc.) nunca en el repositorio.
 - **Migraciones**: `Alembic` para gestión del schema de SQLite.
+
+---
+
+## 9. Iteración — Nuevos requerimientos del cliente (2026-06-13)
+
+1. **Tipos de comida administrables**: el cliente puede crear/editar/desactivar tipos de comida (desayuno, almuerzo, merienda, cena, etc.) desde la UI, sin tocar código. Nuevo catálogo CRUD (`/tipos-comida`).
+2. **Receta con múltiples tipos**: cada receta puede asignarse a varios tipos de comida (relación N:N). En el menú semanal, un slot de un tipo sólo ofrece recetas habilitadas para ese tipo.
+3. **Comidas por escuela dinámicas**: cada escuela elige de la lista de tipos vigentes (relación N:N, reemplaza los flags fijos `offers_*`). Al crear un tipo nuevo queda disponible para asignar.
+4. **Excel/PDF con totales y redondeo**: los documentos generados muestran filas/líneas de **TOTAL**. Todas las cantidades se redondean **hacia arriba al entero más cercano por escuela** (kg/litros/gramos y unidades comerciales).
+5. **Contacto editable por la escuela**: el usuario `escuela` puede editar su **teléfono y email** (ambos opcionales) vía `PATCH /schools/me/contact`.

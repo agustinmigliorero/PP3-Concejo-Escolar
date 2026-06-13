@@ -72,6 +72,7 @@ export default function DashboardLayout({
           { href: "/dashboard/usuarios", label: "Usuarios", group: "Administración" },
           { href: "/dashboard/proveedores", label: "Proveedores", group: "Compras" },
           { href: "/dashboard/asignaciones", label: "Asignaciones", group: "Compras" },
+          { href: "/dashboard/tipos-comida", label: "Tipos de comida", group: "Planificación" },
           { href: "/dashboard/recetas", label: "Recetas", group: "Planificación" },
           { href: "/dashboard/temporadas", label: "Temporadas", group: "Planificación" },
           { href: "/dashboard/menus", label: "Menús", group: "Planificación" },

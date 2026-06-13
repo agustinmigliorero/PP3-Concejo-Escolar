@@ -11,18 +11,11 @@ from sqlalchemy.orm import Session, selectinload
 from app.controllers.pedido_controller import ConfirmPedidoRequest, PreviewPedidoRequest
 from app.models.asignacion_proveedor_model import AsignacionProveedor
 from app.models.pedido_model import GeneracionPedido
-from app.models.receta_model import Receta, RecetaIngrediente, TipoComida
+from app.models.receta_model import Receta, RecetaIngrediente
 from app.models.school_model import School
 from app.models.stock_previo_model import StockPrevio
 from app.models.temporada_model import DiaMenu, OpcionMenu
 from app.models.user_model import User, UserRole
-
-
-MEAL_TO_SCHOOL_FLAG = {
-    TipoComida.DESAYUNO.value: "offers_breakfast",
-    TipoComida.ALMUERZO.value: "offers_lunch",
-    TipoComida.MERIENDA.value: "offers_snack",
-}
 
 
 def _dec(value: Decimal | int | str) -> Decimal:
@@ -48,8 +41,10 @@ def _calculate_order_quantity(
     unidad_contenido: str | None = None,
 ) -> dict[str, Decimal | str | None]:
     if unidad_medida.strip().lower() != "unidades":
+        # Se redondea siempre hacia arriba al entero mas cercano: el proveedor
+        # entrega cantidades enteras de kg/litros/gramos/docenas (por escuela).
         return {
-            "cantidad_final": cantidad_neta,
+            "cantidad_final": _ceil_decimal(cantidad_neta),
             "unidad_final": unidad_medida,
             "unidad_calculo": unidad_medida,
             "contenido_por_unidad": None,
@@ -106,7 +101,7 @@ def _load_menu_rows(
             DiaMenu.opcion_menu_id == opcion_menu_id,
             DiaMenu.dia_semana.in_(dias_habiles),
         )
-        .order_by(DiaMenu.dia_semana, DiaMenu.tipo_comida)
+        .order_by(DiaMenu.dia_semana, DiaMenu.tipo_comida_id)
         .all()
     )
     if not rows:
@@ -173,6 +168,7 @@ def build_preview_snapshot(
     menu_rows = _load_menu_rows(db, data.opcion_menu_id, dias_habiles)
     schools = (
         db.query(School)
+        .options(selectinload(School.tipos_comida))
         .filter(School.active == True)
         .order_by(School.name)
         .all()
@@ -189,10 +185,10 @@ def build_preview_snapshot(
 
     for school in schools:
         base_by_ingredient: dict[int, dict] = {}
+        offered_tipo_ids = {tipo.id for tipo in school.tipos_comida}
 
         for row in menu_rows:
-            meal_flag = MEAL_TO_SCHOOL_FLAG.get(str(row.tipo_comida))
-            if not meal_flag or not getattr(school, meal_flag, False):
+            if row.tipo_comida_id not in offered_tipo_ids:
                 continue
 
             if not row.receta or not row.receta.activo:
@@ -831,6 +827,11 @@ def export_resumen_excel(
             row.get("costo_total", ""),
         ])
 
+    if snapshot.get("resumen_global"):
+        sheet.append(["TOTAL", "", "", "", "", "", snapshot.get("costo_total", "")])
+        for cell in sheet[sheet.max_row]:
+            cell.font = Font(bold=True)
+
     if snapshot.get("advertencias"):
         sheet.append([])
         sheet.append(["Advertencias"])
@@ -898,17 +899,23 @@ def export_resumen_pdf(
             row.get("precio_unitario", ""),
             row.get("costo_total", ""),
         ])
-    if len(data) == 1:
+    has_rows = len(data) > 1
+    if not has_rows:
         data.append(["Sin datos", "", "", "", "", "", ""])
+    else:
+        data.append(["TOTAL", "", "", "", "", "", snapshot.get("costo_total", "")])
 
-    table = Table(data, repeatRows=1)
-    table.setStyle(TableStyle([
+    table_style = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f3f4f6")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
+    ]
+    if has_rows:
+        table_style.append(("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"))
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle(table_style))
     story.append(table)
 
     if snapshot.get("advertencias"):
@@ -957,7 +964,8 @@ def _provider_excel(snapshot: dict, provider: dict) -> BytesIO:
     for cell in sheet[6]:
         cell.font = Font(bold=True)
 
-    for ingredient in provider.get("ingredientes", []):
+    ingredientes = provider.get("ingredientes", [])
+    for ingredient in ingredientes:
         quantities = {row["escuela_id"]: row.get("cantidad", "") for row in ingredient.get("escuelas", [])}
         sheet.append([
             ingredient.get("ingrediente_nombre", ""),
@@ -967,6 +975,22 @@ def _provider_excel(snapshot: dict, provider: dict) -> BytesIO:
             ingredient.get("precio_unitario", ""),
             ingredient.get("costo_total", ""),
         ])
+
+    if ingredientes:
+        total_cost = sum(
+            (_dec(item.get("costo_total", "0")) for item in ingredientes),
+            Decimal("0"),
+        )
+        sheet.append([
+            "TOTAL",
+            "",
+            *["" for _ in schools],
+            "",
+            "",
+            _money(total_cost),
+        ])
+        for cell in sheet[sheet.max_row]:
+            cell.font = Font(bold=True)
 
     for column_cells in sheet.columns:
         width = max(len(str(cell.value or "")) for cell in column_cells)
@@ -1028,6 +1052,14 @@ def _provider_pdf(snapshot: dict, provider: dict) -> BytesIO:
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
     story.append(table)
+
+    total_cost = sum(
+        (_dec(item.get("costo_total", "0")) for item in provider.get("ingredientes", [])),
+        Decimal("0"),
+    )
+    story.append(Spacer(1, 8))
+    story.append(Paragraph(f"<b>Costo estimado total: {_money(total_cost)}</b>", styles["Normal"]))
+
     doc.build(story)
     output.seek(0)
     return output
@@ -1132,6 +1164,18 @@ def _locality_pdf(snapshot: dict, locality_group: dict) -> BytesIO:
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
     story.append(table)
+
+    total_cost = sum(
+        (
+            _dec(ingredient.get("costo_total", "0"))
+            for provider in locality_group.get("proveedores", [])
+            for ingredient in provider.get("ingredientes", [])
+        ),
+        Decimal("0"),
+    )
+    story.append(Spacer(1, 8))
+    story.append(Paragraph(f"<b>Costo estimado total: {_money(total_cost)}</b>", styles["Normal"]))
+
     doc.build(story)
     output.seek(0)
     return output
@@ -1184,9 +1228,11 @@ def _school_pdf(snapshot: dict, school: dict) -> BytesIO:
     ]
 
     data = [["Ingrediente", "Unidad", "Cantidad", "Proveedor", "Precio unit.", "Costo"]]
+    school_total = Decimal("0")
     for item in school.get("ingredientes", []):
         if "proveedor_id" not in item:
             continue
+        school_total += _dec(item.get("costo_total", "0"))
         data.append([
             item.get("ingrediente_nombre", ""),
             _commercial_unit_label(item),
@@ -1199,17 +1245,23 @@ def _school_pdf(snapshot: dict, school: dict) -> BytesIO:
             item.get("precio_unitario", ""),
             item.get("costo_total", ""),
         ])
-    if len(data) == 1:
+    has_rows = len(data) > 1
+    if not has_rows:
         data.append(["Sin datos", "", "", "", "", ""])
+    else:
+        data.append(["TOTAL", "", "", "", "", _money(school_total)])
 
-    table = Table(data, repeatRows=1)
-    table.setStyle(TableStyle([
+    table_style = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f3f4f6")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
+    ]
+    if has_rows:
+        table_style.append(("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"))
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle(table_style))
     story.append(table)
     doc.build(story)
     output.seek(0)
@@ -1265,6 +1317,11 @@ def export_pedido_excel(pedido: GeneracionPedido, user: User) -> BytesIO:
             _commercial_quantity_label(row),
             row.get("costo_total", ""),
         ])
+
+    if snapshot.get("resumen_global"):
+        summary.append(["TOTAL", "", "", "", "", "", snapshot.get("costo_total", "")])
+        for cell in summary[summary.max_row]:
+            cell.font = Font(bold=True)
 
     providers_sheet = workbook.create_sheet("Proveedores")
     providers_sheet.append(["Proveedor", "Localidad", "Ingrediente", "Unidad", "Escuela", "Cantidad", "Total proveedor"])
@@ -1337,17 +1394,23 @@ def export_pedido_pdf(pedido: GeneracionPedido, user: User) -> BytesIO:
             _commercial_quantity_label(row),
             row.get("costo_total", ""),
         ])
-    if len(summary_data) == 1:
+    has_summary_rows = len(summary_data) > 1
+    if not has_summary_rows:
         summary_data.append(["Sin datos", "", "", "", "", ""])
+    else:
+        summary_data.append(["TOTAL", "", "", "", "", snapshot.get("costo_total", "")])
 
-    summary_table = Table(summary_data, repeatRows=1)
-    summary_table.setStyle(TableStyle([
+    summary_style = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f3f4f6")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
+    ]
+    if has_summary_rows:
+        summary_style.append(("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"))
+    summary_table = Table(summary_data, repeatRows=1)
+    summary_table.setStyle(TableStyle(summary_style))
     story.append(summary_table)
 
     for provider in snapshot.get("proveedores", []):

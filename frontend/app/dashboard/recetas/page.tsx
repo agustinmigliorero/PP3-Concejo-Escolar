@@ -7,12 +7,13 @@ import {
   apiGetIngredientes,
   apiGetRecetas,
   apiGetTemporadas,
+  apiGetTiposComida,
   apiToggleRecetaActive,
   apiUpdateReceta,
   type IngredienteRecord,
   type RecetaRecord,
   type TemporadaRecord,
-  type TipoComida,
+  type TipoComidaRecord,
 } from "@/lib/api";
 import { showErrorToast, showSuccessToast } from "@/components/toast";
 import {
@@ -24,12 +25,6 @@ import {
 type Tab = "activas" | "inactivas";
 type ModalMode = "create" | "edit";
 
-const TIPO_COMIDA_LABEL: Record<TipoComida, string> = {
-  DESAYUNO: "Desayuno",
-  ALMUERZO: "Almuerzo",
-  MERIENDA: "Merienda",
-};
-
 interface FormIngredient {
   tempId: string;
   ingrediente_id: string;
@@ -38,7 +33,7 @@ interface FormIngredient {
 
 interface FormState {
   nombre: string;
-  tipo_comida: TipoComida;
+  tipos_comida_ids: number[];
   temporada_id: string;
   ingredientes: FormIngredient[];
 }
@@ -58,7 +53,7 @@ function createIngredientRow(): FormIngredient {
 function createEmptyForm(): FormState {
   return {
     nombre: "",
-    tipo_comida: "ALMUERZO",
+    tipos_comida_ids: [],
     temporada_id: "",
     ingredientes: [createIngredientRow()],
   };
@@ -71,6 +66,7 @@ export default function RecetasPage() {
   const [recetas, setRecetas] = useState<RecetaRecord[]>([]);
   const [ingredientes, setIngredientes] = useState<IngredienteRecord[]>([]);
   const [temporadas, setTemporadas] = useState<TemporadaRecord[]>([]);
+  const [tiposComida, setTiposComida] = useState<TipoComidaRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("activas");
@@ -90,14 +86,16 @@ export default function RecetasPage() {
     setError(null);
 
     try {
-      const [recetasData, ingredientesData, temporadasData] = await Promise.all([
+      const [recetasData, ingredientesData, temporadasData, tiposData] = await Promise.all([
         apiGetRecetas(true),
         apiGetIngredientes(true),
         apiGetTemporadas(true),
+        apiGetTiposComida(),
       ]);
       setRecetas(recetasData);
       setIngredientes(ingredientesData);
       setTemporadas(temporadasData);
+      setTiposComida(tiposData);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error al cargar recetas");
     } finally {
@@ -160,7 +158,7 @@ export default function RecetasPage() {
   function openEdit(receta: RecetaRecord) {
     setForm({
       nombre: receta.nombre,
-      tipo_comida: receta.tipo_comida,
+      tipos_comida_ids: receta.tipos_comida.map((tipo) => tipo.id),
       temporada_id: receta.temporada_id ? String(receta.temporada_id) : "",
       ingredientes: receta.ingredientes.map((item) => ({
         tempId: createTempId(),
@@ -232,6 +230,11 @@ export default function RecetasPage() {
       return;
     }
 
+    if (form.tipos_comida_ids.length === 0) {
+      setFormError("Seleccioná al menos un tipo de comida");
+      return;
+    }
+
     const cleanedIngredients = form.ingredientes.map((item) => {
       const ingredienteId = Number(item.ingrediente_id);
       const ingrediente = ingredientesById.get(ingredienteId);
@@ -264,7 +267,7 @@ export default function RecetasPage() {
     try {
       const payload = {
         nombre: form.nombre.trim(),
-        tipo_comida: form.tipo_comida,
+        tipos_comida_ids: form.tipos_comida_ids,
         temporada_id: temporadaId,
         ingredientes: cleanedIngredients,
       };
@@ -390,9 +393,20 @@ export default function RecetasPage() {
                     <td className="px-5 py-3 text-gray-400">{receta.id}</td>
                     <td className="px-5 py-3 font-medium text-gray-800">{receta.nombre}</td>
                     <td className="px-5 py-3">
-                      <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1">
-                        {TIPO_COMIDA_LABEL[receta.tipo_comida]}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {receta.tipos_comida.length > 0 ? (
+                          receta.tipos_comida.map((tipo) => (
+                            <span
+                              key={tipo.id}
+                              className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1"
+                            >
+                              {tipo.nombre}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400">Sin tipos</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-gray-600">
                       {receta.temporada_nombre && receta.temporada_anio
@@ -475,7 +489,7 @@ export default function RecetasPage() {
             </h2>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nombre
@@ -490,28 +504,6 @@ export default function RecetasPage() {
                     placeholder="Ej: Fideos con estofado"
                     autoFocus
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tipo de comida
-                  </label>
-                  <select
-                    value={form.tipo_comida}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        tipo_comida: event.target.value as TipoComida,
-                      }))
-                    }
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {Object.entries(TIPO_COMIDA_LABEL).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
                 <div>
@@ -536,6 +528,44 @@ export default function RecetasPage() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipos de comida
+                </label>
+                {tiposComida.length === 0 ? (
+                  <p className="text-xs text-gray-400">
+                    No hay tipos de comida activos. Creá uno en la sección &quot;Tipos de comida&quot;.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    {tiposComida.map((tipo) => {
+                      const checked = form.tipos_comida_ids.includes(tipo.id);
+                      return (
+                        <label
+                          key={tipo.id}
+                          className="flex items-center gap-2 cursor-pointer border border-gray-200 rounded-lg px-3 py-2"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                tipos_comida_ids: event.target.checked
+                                  ? [...prev.tipos_comida_ids, tipo.id]
+                                  : prev.tipos_comida_ids.filter((id) => id !== tipo.id),
+                              }))
+                            }
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">{tipo.nombre}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="border border-gray-200 rounded-xl p-4">

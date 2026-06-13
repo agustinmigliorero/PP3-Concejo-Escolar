@@ -1,15 +1,8 @@
-import enum
-
-from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.config.database import Base
-
-
-class TipoComida(str, enum.Enum):
-    DESAYUNO = "DESAYUNO"
-    ALMUERZO = "ALMUERZO"
-    MERIENDA = "MERIENDA"
+from app.models.tipo_comida_model import receta_tipos_comida
 
 
 class Receta(Base):
@@ -17,11 +10,15 @@ class Receta(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(200), unique=True, nullable=False, index=True)
-    tipo_comida = Column(Enum(TipoComida), nullable=False)
     temporada_id = Column(Integer, ForeignKey("temporadas.id"), nullable=True, index=True)
     activo = Column(Boolean, default=True, nullable=False)
 
     temporada = relationship("Temporada")
+    tipos_comida = relationship(
+        "TipoComida",
+        secondary=receta_tipos_comida,
+        order_by="TipoComida.nombre",
+    )
     ingredientes = relationship(
         "RecetaIngrediente",
         back_populates="receta",

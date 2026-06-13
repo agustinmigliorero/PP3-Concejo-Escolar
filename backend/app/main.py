@@ -13,6 +13,7 @@ from app.routes import (
     proveedor_routes,
     receta_routes,
     temporada_routes,
+    tipo_comida_routes,
     stock_previo_routes,
     user_routes,
     school_routes,
@@ -29,6 +30,7 @@ import app.models.refresh_token_model  # noqa: F401
 import app.models.school_model  # noqa: F401
 import app.models.stock_previo_model  # noqa: F401
 import app.models.temporada_model  # noqa: F401
+import app.models.tipo_comida_model  # noqa: F401
 import app.models.user_model  # noqa: F401
 
 app = FastAPI(title="Concejo Escolar API")
@@ -85,6 +87,7 @@ app.include_router(proveedor_routes.router)
 app.include_router(asignacion_proveedor_routes.router)
 app.include_router(receta_routes.router)
 app.include_router(temporada_routes.router)
+app.include_router(tipo_comida_routes.router)
 app.include_router(menu_routes.router)
 app.include_router(stock_previo_routes.router)
 app.include_router(pedido_routes.router)

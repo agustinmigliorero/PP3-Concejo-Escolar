@@ -20,10 +20,16 @@ class PedidoQuantityTests(unittest.TestCase):
         self.assertEqual(result["cantidad_contenido_final"], Decimal("1800"))
         self.assertEqual(result["unidad_contenido"], "cc")
 
-    def test_keeps_bulk_quantities_without_rounding(self):
+    def test_rounds_bulk_quantities_up_to_whole_units(self):
         result = _calculate_order_quantity(Decimal("1.5"), "kg")
 
-        self.assertEqual(result["cantidad_final"], Decimal("1.5"))
+        self.assertEqual(result["cantidad_final"], Decimal("2"))
+        self.assertIsNone(result["cantidad_contenido_final"])
+
+    def test_keeps_whole_bulk_quantities_untouched(self):
+        result = _calculate_order_quantity(Decimal("3"), "litros")
+
+        self.assertEqual(result["cantidad_final"], Decimal("3"))
         self.assertIsNone(result["cantidad_contenido_final"])
 
     def test_formats_covered_content_in_a_contextual_unit(self):
