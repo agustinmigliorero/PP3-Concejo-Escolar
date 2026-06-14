@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from app.config.database import Base, engine
 from app.config.settings import settings
@@ -47,10 +49,16 @@ app.add_middleware(
 
 
 def _migrate_sqlite(conn) -> None:
-    """Add any columns present in the ORM models but missing from existing tables."""
+    """Add any columns present in the ORM models but missing from existing tables.
+
+    Solo puede agregar columnas nuevas (idealmente nullable o con default). Un
+    cambio de esquema incompatible (p. ej. una columna NOT NULL sin default, o
+    una columna que se renombro) no se puede aplicar in-place en SQLite: en ese
+    caso hay que resetear la base y re-seedear.
+    """
     for table in Base.metadata.sorted_tables:
         rows = conn.execute(
-            __import__("sqlalchemy").text(f"PRAGMA table_info({table.name})")
+            text(f"PRAGMA table_info({table.name})")
         ).fetchall()
         if not rows:
             continue
@@ -63,11 +71,21 @@ def _migrate_sqlite(conn) -> None:
                 if col.default is not None and col.default.is_scalar:
                     val = col.default.arg
                     default = f" DEFAULT {int(val) if isinstance(val, bool) else repr(val)}"
-                conn.execute(
-                    __import__("sqlalchemy").text(
-                        f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col_type}{nullable}{default}"
+                try:
+                    conn.execute(
+                        text(
+                            f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col_type}{nullable}{default}"
+                        )
                     )
-                )
+                except OperationalError as exc:
+                    raise RuntimeError(
+                        f"No se pudo agregar la columna '{col.name}' a la tabla existente "
+                        f"'{table.name}' ({exc.orig}). Es un cambio de esquema incompatible "
+                        "para una base ya creada (este proyecto no usa migraciones). "
+                        "Reseteá la base y re-seedeá: borrá el volumen/archivo .db y volvé "
+                        "a correr seed.py y seed_data.py (ver README -> 'Base de datos y "
+                        "primer usuario')."
+                    ) from exc
 
 
 @app.on_event("startup")
