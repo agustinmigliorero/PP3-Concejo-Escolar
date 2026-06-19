@@ -13,13 +13,6 @@ import {
 import { showSuccessToast } from "@/components/toast";
 import { useUser } from "@/app/dashboard/user-context";
 
-const MEALS: { key: keyof SchoolRecord; label: string }[] = [
-  { key: "offers_breakfast", label: "Desayuno" },
-  { key: "offers_lunch", label: "Almuerzo" },
-  { key: "offers_snack", label: "Merienda" },
-  { key: "offers_dinner", label: "Cena" },
-];
-
 function DetailField({
   label,
   value,
@@ -188,8 +181,6 @@ export default function EscuelaDetallePage() {
     );
   }
 
-  const activeMeals = MEALS.filter((meal) => Boolean(school[meal.key]));
-
   return (
     <div className="max-w-5xl mx-auto">
       <Link
@@ -244,7 +235,8 @@ export default function EscuelaDetallePage() {
           <DetailField label="Codigo" value={school.code} />
           <DetailField label="Localidad" value={school.locality_name} />
           <DetailField label="Direccion" value={school.address} />
-          <DetailField label="Telefono" value={school.phone} />
+          <DetailField label="Telefono" value={school.phone ?? "—"} />
+          <DetailField label="Email" value={school.email ?? "—"} />
           <DetailField
             label="Matricula"
             value={school.matriculation.toLocaleString("es-AR")}
@@ -254,13 +246,13 @@ export default function EscuelaDetallePage() {
               Comidas
             </p>
             <div className="flex flex-wrap gap-2">
-              {activeMeals.length > 0 ? (
-                activeMeals.map((meal) => (
+              {school.tipos_comida.length > 0 ? (
+                school.tipos_comida.map((tipo) => (
                   <span
-                    key={meal.key}
+                    key={tipo.id}
                     className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded-full"
                   >
-                    {meal.label}
+                    {tipo.nombre}
                   </span>
                 ))
               ) : (

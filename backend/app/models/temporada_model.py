@@ -54,7 +54,7 @@ class DiaMenu(Base):
         UniqueConstraint(
             "opcion_menu_id",
             "dia_semana",
-            "tipo_comida",
+            "tipo_comida_id",
             name="uq_dia_menu_opcion_dia_tipo",
         ),
     )
@@ -62,8 +62,9 @@ class DiaMenu(Base):
     id = Column(Integer, primary_key=True, index=True)
     opcion_menu_id = Column(Integer, ForeignKey("opciones_menu.id"), nullable=False, index=True)
     dia_semana = Column(Integer, nullable=False)
-    tipo_comida = Column(String(20), nullable=False)
+    tipo_comida_id = Column(Integer, ForeignKey("tipos_comida.id"), nullable=False, index=True)
     receta_id = Column(Integer, ForeignKey("recetas.id"), nullable=False, index=True)
 
     opcion_menu = relationship("OpcionMenu", back_populates="dias_menu")
+    tipo_comida = relationship("TipoComida")
     receta = relationship("Receta")

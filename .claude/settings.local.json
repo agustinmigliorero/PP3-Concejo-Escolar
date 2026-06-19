@@ -12,7 +12,17 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('exports keys:', list\\(d.get\\('exports',{}\\).keys\\(\\)\\)[:20]\\); print\\('has ./package.json:', './package.json' in d.get\\('exports',{}\\)\\)\")",
       "PowerShell($pkg = Get-Content \"frontend/node_modules/next/package.json\" | ConvertFrom-Json; $exports = $pkg.exports; if \\($exports\\) { $keys = $exports.PSObject.Properties.Name; Write-Host \"Exports keys \\(first 20\\):\"; $keys | Select-Object -First 20; Write-Host \"Has './package.json':\"; $keys -contains \"./package.json\" } else { Write-Host \"No exports field\" })",
       "Bash(npx tsc *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(SECRET_KEY= python -c \"import app.config.settings\")",
+      "Bash(python -c \"import secrets; print\\(secrets.token_urlsafe\\(32\\)\\)\")",
+      "Bash(SECRET_KEY=$\\(python -c \"import secrets; print\\(secrets.token_urlsafe\\(32\\)\\)\"\\) python -c \"from app.config.settings import settings; print\\('OK, key len =', len\\(settings.SECRET_KEY\\)\\)\")",
+      "Bash(pip show *)",
+      "Bash(python -c \"import pydantic_settings\")",
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(SECRET_KEY=prueba123 docker compose -f docker-compose.yml config --quiet)",
+      "Bash(docker compose *)",
+      "Bash(git --no-pager diff -- docker-compose.yml)"
     ]
   }
 }

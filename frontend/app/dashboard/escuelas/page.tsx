@@ -8,22 +8,16 @@ import {
   apiUpdateSchool,
   apiToggleSchoolActive,
   apiGetLocalidades,
+  apiGetTiposComida,
   type SchoolRecord,
   type LocalidadRecord,
+  type TipoComidaRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
 import { showSuccessToast } from "@/components/toast";
 
 type Tab = "activas" | "inactivas";
 type ModalMode = "create" | "edit";
-type MealKey = "offers_breakfast" | "offers_lunch" | "offers_snack" | "offers_dinner";
-
-const MEALS: { key: MealKey; label: string }[] = [
-  { key: "offers_breakfast", label: "Desayuno" },
-  { key: "offers_lunch", label: "Almuerzo" },
-  { key: "offers_snack", label: "Merienda" },
-  { key: "offers_dinner", label: "Cena" },
-];
 
 interface FormState {
   name: string;
@@ -31,11 +25,9 @@ interface FormState {
   locality_id: number | null;
   address: string;
   phone: string;
+  email: string;
   matriculation: number;
-  offers_breakfast: boolean;
-  offers_lunch: boolean;
-  offers_snack: boolean;
-  offers_dinner: boolean;
+  tipos_comida_ids: number[];
 }
 
 const EMPTY_FORM: FormState = {
@@ -44,11 +36,9 @@ const EMPTY_FORM: FormState = {
   locality_id: null,
   address: "",
   phone: "",
+  email: "",
   matriculation: 0,
-  offers_breakfast: false,
-  offers_lunch: false,
-  offers_snack: false,
-  offers_dinner: false,
+  tipos_comida_ids: [],
 };
 
 export default function EscuelasPage() {
@@ -57,6 +47,7 @@ export default function EscuelasPage() {
 
   const [schools, setSchools] = useState<SchoolRecord[]>([]);
   const [localidades, setLocalidades] = useState<LocalidadRecord[]>([]);
+  const [tiposComida, setTiposComida] = useState<TipoComidaRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("activas");
@@ -77,10 +68,14 @@ export default function EscuelasPage() {
     setLoading(true);
     setError(null);
     try {
-      const localidadesData = await apiGetLocalidades();
-      const schoolsData = await apiGetSchools();
+      const [localidadesData, schoolsData, tiposData] = await Promise.all([
+        apiGetLocalidades(),
+        apiGetSchools(),
+        apiGetTiposComida(),
+      ]);
       setSchools(schoolsData);
       setLocalidades(localidadesData.filter((l) => l.activo));
+      setTiposComida(tiposData);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error al cargar datos");
     } finally {
@@ -106,12 +101,10 @@ export default function EscuelasPage() {
       code: s.code,
       locality_id: s.locality_id,
       address: s.address,
-      phone: s.phone,
+      phone: s.phone ?? "",
+      email: s.email ?? "",
       matriculation: s.matriculation,
-      offers_breakfast: s.offers_breakfast,
-      offers_lunch: s.offers_lunch,
-      offers_snack: s.offers_snack,
-      offers_dinner: s.offers_dinner,
+      tipos_comida_ids: s.tipos_comida.map((tipo) => tipo.id),
     });
     setFormError(null);
     setModalMode("edit");
@@ -137,24 +130,21 @@ export default function EscuelasPage() {
       setFormError("La dirección es obligatoria");
       return;
     }
-    if (!form.phone.trim()) {
-      setFormError("El teléfono es obligatorio");
-      return;
-    }
     setSaving(true);
     try {
+      const contacto = {
+        phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
+        tipos_comida_ids: form.tipos_comida_ids,
+      };
       if (modalMode === "create") {
         await apiCreateSchool({
           name: form.name,
           code: form.code,
           locality_id: form.locality_id,
           address: form.address,
-          phone: form.phone,
           matriculation: form.matriculation,
-          offers_breakfast: form.offers_breakfast,
-          offers_lunch: form.offers_lunch,
-          offers_snack: form.offers_snack,
-          offers_dinner: form.offers_dinner
+          ...contacto,
         });
         showSuccessToast("Escuela creada correctamente");
       } else if (editingId !== null) {
@@ -163,12 +153,8 @@ export default function EscuelasPage() {
           code: form.code,
           locality_id: form.locality_id,
           address: form.address,
-          phone: form.phone,
           matriculation: form.matriculation,
-          offers_breakfast: form.offers_breakfast,
-          offers_lunch: form.offers_lunch,
-          offers_snack: form.offers_snack,
-          offers_dinner: form.offers_dinner,
+          ...contacto,
         });
         showSuccessToast("Escuela actualizada correctamente");
       }
@@ -205,19 +191,14 @@ export default function EscuelasPage() {
   }
 
   function mealBadges(s: SchoolRecord) {
-    const active: string[] = [];
-    if (s.offers_breakfast) active.push("D");
-    if (s.offers_lunch) active.push("A");
-    if (s.offers_snack) active.push("M");
-    if (s.offers_dinner) active.push("C");
-    return active.length === 0
+    return s.tipos_comida.length === 0
       ? <span className="text-gray-400 text-xs">—</span>
-      : active.map((m) => (
+      : s.tipos_comida.map((tipo) => (
           <span
-            key={m}
+            key={tipo.id}
             className="inline-block bg-blue-100 text-blue-700 text-xs font-medium px-1.5 py-0.5 rounded mr-1"
           >
-            {m}
+            {tipo.nombre}
           </span>
         ));
   }
@@ -461,7 +442,7 @@ export default function EscuelasPage() {
                 </div>
                 <div className="w-44">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Teléfono
+                    Teléfono <span className="text-gray-400 font-normal">(opcional)</span>
                   </label>
                   <input
                     type="text"
@@ -470,9 +451,24 @@ export default function EscuelasPage() {
                       setForm((f) => ({ ...f, phone: e.target.value }))
                     }
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ej: 2284-123456"
+                    placeholder="Ej: 2281-123456"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email <span className="text-gray-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, email: e.target.value }))
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ej: escuela@dominio.com"
+                />
               </div>
 
               <div>
@@ -497,27 +493,38 @@ export default function EscuelasPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Comidas que ofrece
                 </label>
-                <div className="flex gap-4">
-                  {MEALS.map((meal) => (
-                    <label
-                      key={meal.key}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form[meal.key]}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            [meal.key]: e.target.checked,
-                          }))
-                        }
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-700">{meal.label}</span>
-                    </label>
-                  ))}
-                </div>
+                {tiposComida.length === 0 ? (
+                  <p className="text-xs text-gray-400">
+                    No hay tipos de comida activos. Creá uno en la sección &quot;Tipos de comida&quot;.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-4">
+                    {tiposComida.map((tipo) => {
+                      const checked = form.tipos_comida_ids.includes(tipo.id);
+                      return (
+                        <label
+                          key={tipo.id}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                tipos_comida_ids: e.target.checked
+                                  ? [...f.tipos_comida_ids, tipo.id]
+                                  : f.tipos_comida_ids.filter((id) => id !== tipo.id),
+                              }))
+                            }
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">{tipo.nombre}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

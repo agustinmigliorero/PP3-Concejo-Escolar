@@ -11,18 +11,11 @@ from sqlalchemy.orm import Session, selectinload
 from app.controllers.pedido_controller import ConfirmPedidoRequest, PreviewPedidoRequest
 from app.models.asignacion_proveedor_model import AsignacionProveedor
 from app.models.pedido_model import GeneracionPedido
-from app.models.receta_model import Receta, RecetaIngrediente, TipoComida
+from app.models.receta_model import Receta, RecetaIngrediente
 from app.models.school_model import School
 from app.models.stock_previo_model import StockPrevio
 from app.models.temporada_model import DiaMenu, OpcionMenu
 from app.models.user_model import User, UserRole
-
-
-MEAL_TO_SCHOOL_FLAG = {
-    TipoComida.DESAYUNO.value: "offers_breakfast",
-    TipoComida.ALMUERZO.value: "offers_lunch",
-    TipoComida.MERIENDA.value: "offers_snack",
-}
 
 
 def _dec(value: Decimal | int | str) -> Decimal:
@@ -39,6 +32,42 @@ def _qty(value: Decimal) -> str:
 
 def _ceil_decimal(value: Decimal) -> Decimal:
     return value.to_integral_value(rounding=ROUND_CEILING)
+
+
+def _calculate_order_quantity(
+    cantidad_neta: Decimal,
+    unidad_medida: str,
+    contenido_por_unidad: Decimal | None = None,
+    unidad_contenido: str | None = None,
+) -> dict[str, Decimal | str | None]:
+    if unidad_medida.strip().lower() != "unidades":
+        # Se redondea siempre hacia arriba al entero mas cercano: el proveedor
+        # entrega cantidades enteras de kg/litros/gramos/docenas (por escuela).
+        return {
+            "cantidad_final": _ceil_decimal(cantidad_neta),
+            "unidad_final": unidad_medida,
+            "unidad_calculo": unidad_medida,
+            "contenido_por_unidad": None,
+            "unidad_contenido": None,
+            "cantidad_contenido_final": None,
+        }
+
+    if contenido_por_unidad is None or _dec(contenido_por_unidad) <= 0 or not unidad_contenido:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El ingrediente por unidades debe tener contenido y unidad de contenido validos",
+        )
+
+    contenido = _dec(contenido_por_unidad)
+    cantidad_final = _ceil_decimal(cantidad_neta / contenido)
+    return {
+        "cantidad_final": cantidad_final,
+        "unidad_final": unidad_medida,
+        "unidad_calculo": unidad_contenido,
+        "contenido_por_unidad": contenido,
+        "unidad_contenido": unidad_contenido,
+        "cantidad_contenido_final": cantidad_final * contenido,
+    }
 
 
 def _validate_dias(dias_habiles: list[int]) -> list[int]:
@@ -72,7 +101,7 @@ def _load_menu_rows(
             DiaMenu.opcion_menu_id == opcion_menu_id,
             DiaMenu.dia_semana.in_(dias_habiles),
         )
-        .order_by(DiaMenu.dia_semana, DiaMenu.tipo_comida)
+        .order_by(DiaMenu.dia_semana, DiaMenu.tipo_comida_id)
         .all()
     )
     if not rows:
@@ -139,6 +168,7 @@ def build_preview_snapshot(
     menu_rows = _load_menu_rows(db, data.opcion_menu_id, dias_habiles)
     schools = (
         db.query(School)
+        .options(selectinload(School.tipos_comida))
         .filter(School.active == True)
         .order_by(School.name)
         .all()
@@ -155,10 +185,10 @@ def build_preview_snapshot(
 
     for school in schools:
         base_by_ingredient: dict[int, dict] = {}
+        offered_tipo_ids = {tipo.id for tipo in school.tipos_comida}
 
         for row in menu_rows:
-            meal_flag = MEAL_TO_SCHOOL_FLAG.get(str(row.tipo_comida))
-            if not meal_flag or not getattr(school, meal_flag, False):
+            if row.tipo_comida_id not in offered_tipo_ids:
                 continue
 
             if not row.receta or not row.receta.activo:
@@ -189,18 +219,15 @@ def build_preview_snapshot(
             stock = stock_by_key.get((school.id, ingredient_id), Decimal("0"))
             cantidad_neta = max(Decimal("0"), cantidad_corregida - stock)
 
-            if (
-                ingredient.unidad_medida == "unidades"
-                and ingredient.contenido_por_unidad is not None
-                and _dec(ingredient.contenido_por_unidad) > 0
-            ):
-                cantidad_final = _ceil_decimal(cantidad_neta / _dec(ingredient.contenido_por_unidad))
-                unidad_final = ingredient.unidad_medida
-                unidad_calculo = ingredient.unidad_contenido or ingredient.unidad_medida
-            else:
-                cantidad_final = cantidad_neta
-                unidad_final = ingredient.unidad_medida
-                unidad_calculo = ingredient.unidad_medida
+            order_quantity = _calculate_order_quantity(
+                cantidad_neta,
+                ingredient.unidad_medida,
+                ingredient.contenido_por_unidad,
+                ingredient.unidad_contenido,
+            )
+            cantidad_final = order_quantity["cantidad_final"]
+            unidad_final = order_quantity["unidad_final"]
+            unidad_calculo = order_quantity["unidad_calculo"]
 
             assignment = _active_provider(
                 db,
@@ -220,6 +247,16 @@ def build_preview_snapshot(
                 "cantidad_neta": _qty(cantidad_neta),
                 "cantidad_final": _qty(cantidad_final),
             }
+            if order_quantity["contenido_por_unidad"] is not None:
+                item_snapshot.update(
+                    {
+                        "contenido_por_unidad": _qty(order_quantity["contenido_por_unidad"]),
+                        "unidad_contenido": order_quantity["unidad_contenido"],
+                        "cantidad_contenido_final": _qty(
+                            order_quantity["cantidad_contenido_final"]
+                        ),
+                    }
+                )
 
             if assignment is None:
                 advertencias.append(
@@ -266,13 +303,20 @@ def build_preview_snapshot(
                         "ingrediente_id": ingredient.id,
                         "ingrediente_nombre": ingredient.nombre,
                         "unidad": unidad_final,
+                        "contenido_por_unidad": item_snapshot.get("contenido_por_unidad"),
+                        "unidad_contenido": item_snapshot.get("unidad_contenido"),
                         "precio_unitario": _money(precio),
                         "cantidad_total": Decimal("0"),
+                        "cantidad_contenido_total": Decimal("0"),
                         "costo_total": Decimal("0"),
                         "escuelas": [],
                     },
                 )
                 ingredient_group["cantidad_total"] += cantidad_final
+                if order_quantity["cantidad_contenido_final"] is not None:
+                    ingredient_group["cantidad_contenido_total"] += order_quantity[
+                        "cantidad_contenido_final"
+                    ]
                 ingredient_group["costo_total"] += costo
                 ingredient_group["escuelas"].append(
                     {
@@ -280,6 +324,11 @@ def build_preview_snapshot(
                         "escuela_codigo": school.code,
                         "escuela_nombre": school.name,
                         "cantidad": _qty(cantidad_final),
+                        "cantidad_contenido": (
+                            _qty(order_quantity["cantidad_contenido_final"])
+                            if order_quantity["cantidad_contenido_final"] is not None
+                            else None
+                        ),
                     }
                 )
 
@@ -290,16 +339,23 @@ def build_preview_snapshot(
                         "ingrediente_id": ingredient.id,
                         "ingrediente_nombre": ingredient.nombre,
                         "unidad": unidad_final,
+                        "contenido_por_unidad": item_snapshot.get("contenido_por_unidad"),
+                        "unidad_contenido": item_snapshot.get("unidad_contenido"),
                         "localidad_id": assignment.localidad_id,
                         "localidad_nombre": locality.nombre if locality else "",
                         "proveedor_id": assignment.proveedor_id,
                         "proveedor_nombre": provider.nombre if provider else "",
                         "precio_unitario": _money(precio),
                         "cantidad_total": Decimal("0"),
+                        "cantidad_contenido_total": Decimal("0"),
                         "costo_total": Decimal("0"),
                     },
                 )
                 global_row["cantidad_total"] += cantidad_final
+                if order_quantity["cantidad_contenido_final"] is not None:
+                    global_row["cantidad_contenido_total"] += order_quantity[
+                        "cantidad_contenido_final"
+                    ]
                 global_row["costo_total"] += costo
 
             school_items.append(item_snapshot)
@@ -322,8 +378,17 @@ def build_preview_snapshot(
         for item in group["ingredientes"].values():
             ingredientes.append(
                 {
-                    **{k: v for k, v in item.items() if k not in ("cantidad_total", "costo_total")},
+                    **{
+                        k: v
+                        for k, v in item.items()
+                        if k not in ("cantidad_total", "cantidad_contenido_total", "costo_total")
+                    },
                     "cantidad_total": _qty(item["cantidad_total"]),
+                    "cantidad_contenido_total": (
+                        _qty(item["cantidad_contenido_total"])
+                        if item["contenido_por_unidad"] is not None
+                        else None
+                    ),
                     "costo_total": _money(item["costo_total"]),
                 }
             )
@@ -335,8 +400,17 @@ def build_preview_snapshot(
         costo_total += row["costo_total"]
         resumen_global.append(
             {
-                **{k: v for k, v in row.items() if k not in ("cantidad_total", "costo_total")},
+                **{
+                    k: v
+                    for k, v in row.items()
+                    if k not in ("cantidad_total", "cantidad_contenido_total", "costo_total")
+                },
                 "cantidad_total": _qty(row["cantidad_total"]),
+                "cantidad_contenido_total": (
+                    _qty(row["cantidad_contenido_total"])
+                    if row["contenido_por_unidad"] is not None
+                    else None
+                ),
                 "costo_total": _money(row["costo_total"]),
             }
         )
@@ -487,6 +561,9 @@ def school_snapshot_for_user(snapshot: dict, user: User) -> dict:
                 "proveedor_nombre": item.get("proveedor_nombre", ""),
                 "precio_unitario": item.get("precio_unitario", ""),
                 "cantidad_total": item.get("cantidad_final", ""),
+                "contenido_por_unidad": item.get("contenido_por_unidad"),
+                "unidad_contenido": item.get("unidad_contenido"),
+                "cantidad_contenido_total": item.get("cantidad_contenido_final"),
                 "costo_total": item.get("costo_total", ""),
             })
     filtered["resumen_global"] = resumen
@@ -497,6 +574,34 @@ def school_snapshot_for_user(snapshot: dict, user: User) -> dict:
 def _safe_filename(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
     return cleaned.strip("_") or "documento"
+
+
+def _commercial_unit_label(item: dict) -> str:
+    unit = item.get("unidad", item.get("unidad_final", ""))
+    content = item.get("contenido_por_unidad")
+    content_unit = item.get("unidad_contenido")
+    if content and content_unit:
+        return f"{unit} ({content} {content_unit} c/u)"
+    return unit
+
+
+def _commercial_quantity_label(
+    item: dict,
+    quantity_key: str = "cantidad_total",
+    content_key: str = "cantidad_contenido_total",
+) -> str:
+    quantity = item.get(quantity_key, "")
+    content = item.get(content_key)
+    content_unit = item.get("unidad_contenido")
+    if content and content_unit:
+        content_value = _dec(content)
+        normalized_unit = str(content_unit).strip().lower()
+        if content_value >= 1000 and normalized_unit in ("g", "gr", "grs", "gs"):
+            return f"{quantity} ({format(content_value / 1000, 'f').rstrip('0').rstrip('.')} kg)"
+        if content_value >= 1000 and normalized_unit in ("ml", "cc"):
+            return f"{quantity} ({format(content_value / 1000, 'f').rstrip('0').rstrip('.')} litros)"
+        return f"{quantity} ({content} {content_unit})"
+    return quantity
 
 
 def _snapshot_for_pdf(snapshot: dict) -> dict:
@@ -577,11 +682,19 @@ def filtered_snapshot_for_export(
             if school_rows:
                 provider_school_ids.update(row.get("escuela_id") for row in school_rows)
                 quantity_total = sum(_dec(row.get("cantidad", "0")) for row in school_rows)
+                content_quantity_total = sum(
+                    _dec(row.get("cantidad_contenido", "0") or "0") for row in school_rows
+                )
                 cost_total = quantity_total * _dec(ingredient.get("precio_unitario", "0"))
                 ingredients.append({
                     **ingredient,
                     "escuelas": school_rows,
                     "cantidad_total": _qty(quantity_total),
+                    "cantidad_contenido_total": (
+                        _qty(content_quantity_total)
+                        if ingredient.get("contenido_por_unidad") is not None
+                        else None
+                    ),
                     "costo_total": _money(cost_total),
                 })
 
@@ -619,18 +732,33 @@ def filtered_snapshot_for_export(
                     "proveedor_id": item.get("proveedor_id"),
                     "proveedor_nombre": item.get("proveedor_nombre", ""),
                     "precio_unitario": item.get("precio_unitario", ""),
+                    "contenido_por_unidad": item.get("contenido_por_unidad"),
+                    "unidad_contenido": item.get("unidad_contenido"),
                     "cantidad_total": Decimal("0"),
+                    "cantidad_contenido_total": Decimal("0"),
                     "costo_total": Decimal("0"),
                 },
             )
             row["cantidad_total"] += _dec(item.get("cantidad_final", "0"))
+            row["cantidad_contenido_total"] += _dec(
+                item.get("cantidad_contenido_final", "0") or "0"
+            )
             row["costo_total"] += _dec(item.get("costo_total", "0"))
             total += _dec(item.get("costo_total", "0"))
 
     resumen = [
         {
-            **{k: v for k, v in row.items() if k not in ("cantidad_total", "costo_total")},
+            **{
+                k: v
+                for k, v in row.items()
+                if k not in ("cantidad_total", "cantidad_contenido_total", "costo_total")
+            },
             "cantidad_total": _qty(row["cantidad_total"]),
+            "cantidad_contenido_total": (
+                _qty(row["cantidad_contenido_total"])
+                if row["contenido_por_unidad"] is not None
+                else None
+            ),
             "costo_total": _money(row["costo_total"]),
         }
         for row in resumen_by_key.values()
@@ -691,13 +819,18 @@ def export_resumen_excel(
     for row in snapshot.get("resumen_global", []):
         sheet.append([
             row.get("ingrediente_nombre", ""),
-            row.get("unidad", ""),
+            _commercial_unit_label(row),
             row.get("localidad_nombre", ""),
-            row.get("cantidad_total", ""),
+            _commercial_quantity_label(row),
             row.get("proveedor_nombre", ""),
             row.get("precio_unitario", ""),
             row.get("costo_total", ""),
         ])
+
+    if snapshot.get("resumen_global"):
+        sheet.append(["TOTAL", "", "", "", "", "", snapshot.get("costo_total", "")])
+        for cell in sheet[sheet.max_row]:
+            cell.font = Font(bold=True)
 
     if snapshot.get("advertencias"):
         sheet.append([])
@@ -759,24 +892,30 @@ def export_resumen_pdf(
     for row in snapshot.get("resumen_global", []):
         data.append([
             row.get("ingrediente_nombre", ""),
-            row.get("unidad", ""),
+            _commercial_unit_label(row),
             row.get("localidad_nombre", ""),
-            row.get("cantidad_total", ""),
+            _commercial_quantity_label(row),
             row.get("proveedor_nombre", ""),
             row.get("precio_unitario", ""),
             row.get("costo_total", ""),
         ])
-    if len(data) == 1:
+    has_rows = len(data) > 1
+    if not has_rows:
         data.append(["Sin datos", "", "", "", "", "", ""])
+    else:
+        data.append(["TOTAL", "", "", "", "", "", snapshot.get("costo_total", "")])
 
-    table = Table(data, repeatRows=1)
-    table.setStyle(TableStyle([
+    table_style = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f3f4f6")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
+    ]
+    if has_rows:
+        table_style.append(("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"))
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle(table_style))
     story.append(table)
 
     if snapshot.get("advertencias"):
@@ -825,16 +964,33 @@ def _provider_excel(snapshot: dict, provider: dict) -> BytesIO:
     for cell in sheet[6]:
         cell.font = Font(bold=True)
 
-    for ingredient in provider.get("ingredientes", []):
+    ingredientes = provider.get("ingredientes", [])
+    for ingredient in ingredientes:
         quantities = {row["escuela_id"]: row.get("cantidad", "") for row in ingredient.get("escuelas", [])}
         sheet.append([
             ingredient.get("ingrediente_nombre", ""),
-            ingredient.get("unidad", ""),
+            _commercial_unit_label(ingredient),
             *[quantities.get(school["escuela_id"], "0.00") for school in schools],
-            ingredient.get("cantidad_total", ""),
+            _commercial_quantity_label(ingredient),
             ingredient.get("precio_unitario", ""),
             ingredient.get("costo_total", ""),
         ])
+
+    if ingredientes:
+        total_cost = sum(
+            (_dec(item.get("costo_total", "0")) for item in ingredientes),
+            Decimal("0"),
+        )
+        sheet.append([
+            "TOTAL",
+            "",
+            *["" for _ in schools],
+            "",
+            "",
+            _money(total_cost),
+        ])
+        for cell in sheet[sheet.max_row]:
+            cell.font = Font(bold=True)
 
     for column_cells in sheet.columns:
         width = max(len(str(cell.value or "")) for cell in column_cells)
@@ -880,9 +1036,9 @@ def _provider_pdf(snapshot: dict, provider: dict) -> BytesIO:
         quantities = {row["escuela_id"]: row.get("cantidad", "") for row in ingredient.get("escuelas", [])}
         data.append([
             ingredient.get("ingrediente_nombre", ""),
-            ingredient.get("unidad", ""),
+            _commercial_unit_label(ingredient),
             *[quantities.get(school["escuela_id"], "0.00") for school in schools],
-            ingredient.get("cantidad_total", ""),
+            _commercial_quantity_label(ingredient),
         ])
     if len(data) == 1:
         data.append(["Sin datos", "", *["" for _ in schools], ""])
@@ -896,6 +1052,14 @@ def _provider_pdf(snapshot: dict, provider: dict) -> BytesIO:
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
     story.append(table)
+
+    total_cost = sum(
+        (_dec(item.get("costo_total", "0")) for item in provider.get("ingredientes", [])),
+        Decimal("0"),
+    )
+    story.append(Spacer(1, 8))
+    story.append(Paragraph(f"<b>Costo estimado total: {_money(total_cost)}</b>", styles["Normal"]))
+
     doc.build(story)
     output.seek(0)
     return output
@@ -979,10 +1143,14 @@ def _locality_pdf(snapshot: dict, locality_group: dict) -> BytesIO:
                 data.append([
                     provider.get("proveedor_nombre", ""),
                     ingredient.get("ingrediente_nombre", ""),
-                    ingredient.get("unidad", ""),
+                    _commercial_unit_label(ingredient),
                     f"{school.get('escuela_codigo', '')} - {school.get('escuela_nombre', '')}",
-                    school.get("cantidad", ""),
-                    ingredient.get("cantidad_total", ""),
+                    _commercial_quantity_label(
+                        {**ingredient, **school},
+                        "cantidad",
+                        "cantidad_contenido",
+                    ),
+                    _commercial_quantity_label(ingredient),
                 ])
     if len(data) == 1:
         data.append(["Sin datos", "", "", "", "", ""])
@@ -996,6 +1164,18 @@ def _locality_pdf(snapshot: dict, locality_group: dict) -> BytesIO:
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
     story.append(table)
+
+    total_cost = sum(
+        (
+            _dec(ingredient.get("costo_total", "0"))
+            for provider in locality_group.get("proveedores", [])
+            for ingredient in provider.get("ingredientes", [])
+        ),
+        Decimal("0"),
+    )
+    story.append(Spacer(1, 8))
+    story.append(Paragraph(f"<b>Costo estimado total: {_money(total_cost)}</b>", styles["Normal"]))
+
     doc.build(story)
     output.seek(0)
     return output
@@ -1048,28 +1228,40 @@ def _school_pdf(snapshot: dict, school: dict) -> BytesIO:
     ]
 
     data = [["Ingrediente", "Unidad", "Cantidad", "Proveedor", "Precio unit.", "Costo"]]
+    school_total = Decimal("0")
     for item in school.get("ingredientes", []):
         if "proveedor_id" not in item:
             continue
+        school_total += _dec(item.get("costo_total", "0"))
         data.append([
             item.get("ingrediente_nombre", ""),
-            item.get("unidad_final", ""),
-            item.get("cantidad_final", ""),
+            _commercial_unit_label(item),
+            _commercial_quantity_label(
+                item,
+                "cantidad_final",
+                "cantidad_contenido_final",
+            ),
             item.get("proveedor_nombre", ""),
             item.get("precio_unitario", ""),
             item.get("costo_total", ""),
         ])
-    if len(data) == 1:
+    has_rows = len(data) > 1
+    if not has_rows:
         data.append(["Sin datos", "", "", "", "", ""])
+    else:
+        data.append(["TOTAL", "", "", "", "", _money(school_total)])
 
-    table = Table(data, repeatRows=1)
-    table.setStyle(TableStyle([
+    table_style = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f3f4f6")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
+    ]
+    if has_rows:
+        table_style.append(("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"))
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle(table_style))
     story.append(table)
     doc.build(story)
     output.seek(0)
@@ -1118,13 +1310,18 @@ def export_pedido_excel(pedido: GeneracionPedido, user: User) -> BytesIO:
     for row in snapshot.get("resumen_global", []):
         summary.append([
             row.get("ingrediente_nombre", ""),
-            row.get("unidad", ""),
+            _commercial_unit_label(row),
             row.get("localidad_nombre", ""),
             row.get("proveedor_nombre", ""),
             row.get("precio_unitario", ""),
-            row.get("cantidad_total", ""),
+            _commercial_quantity_label(row),
             row.get("costo_total", ""),
         ])
+
+    if snapshot.get("resumen_global"):
+        summary.append(["TOTAL", "", "", "", "", "", snapshot.get("costo_total", "")])
+        for cell in summary[summary.max_row]:
+            cell.font = Font(bold=True)
 
     providers_sheet = workbook.create_sheet("Proveedores")
     providers_sheet.append(["Proveedor", "Localidad", "Ingrediente", "Unidad", "Escuela", "Cantidad", "Total proveedor"])
@@ -1137,10 +1334,14 @@ def export_pedido_excel(pedido: GeneracionPedido, user: User) -> BytesIO:
                     provider.get("proveedor_nombre", ""),
                     provider.get("localidad_nombre", ""),
                     ingredient.get("ingrediente_nombre", ""),
-                    ingredient.get("unidad", ""),
+                    _commercial_unit_label(ingredient),
                     f"{school.get('escuela_codigo', '')} - {school.get('escuela_nombre', '')}",
-                    school.get("cantidad", ""),
-                    ingredient.get("cantidad_total", ""),
+                    _commercial_quantity_label(
+                        {**ingredient, **school},
+                        "cantidad",
+                        "cantidad_contenido",
+                    ),
+                    _commercial_quantity_label(ingredient),
                 ])
 
     warnings_sheet = workbook.create_sheet("Advertencias")
@@ -1187,23 +1388,29 @@ def export_pedido_pdf(pedido: GeneracionPedido, user: User) -> BytesIO:
     for row in snapshot.get("resumen_global", []):
         summary_data.append([
             row.get("ingrediente_nombre", ""),
-            row.get("unidad", ""),
+            _commercial_unit_label(row),
             row.get("localidad_nombre", ""),
             row.get("proveedor_nombre", ""),
-            row.get("cantidad_total", ""),
+            _commercial_quantity_label(row),
             row.get("costo_total", ""),
         ])
-    if len(summary_data) == 1:
+    has_summary_rows = len(summary_data) > 1
+    if not has_summary_rows:
         summary_data.append(["Sin datos", "", "", "", "", ""])
+    else:
+        summary_data.append(["TOTAL", "", "", "", "", snapshot.get("costo_total", "")])
 
-    summary_table = Table(summary_data, repeatRows=1)
-    summary_table.setStyle(TableStyle([
+    summary_style = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f3f4f6")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
+    ]
+    if has_summary_rows:
+        summary_style.append(("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"))
+    summary_table = Table(summary_data, repeatRows=1)
+    summary_table.setStyle(TableStyle(summary_style))
     story.append(summary_table)
 
     for provider in snapshot.get("proveedores", []):
@@ -1217,9 +1424,13 @@ def export_pedido_pdf(pedido: GeneracionPedido, user: User) -> BytesIO:
             for school in ingredient.get("escuelas", []):
                 provider_data.append([
                     ingredient.get("ingrediente_nombre", ""),
-                    ingredient.get("unidad", ""),
+                    _commercial_unit_label(ingredient),
                     f"{school.get('escuela_codigo', '')} - {school.get('escuela_nombre', '')}",
-                    school.get("cantidad", ""),
+                    _commercial_quantity_label(
+                        {**ingredient, **school},
+                        "cantidad",
+                        "cantidad_contenido",
+                    ),
                 ])
         table = Table(provider_data, repeatRows=1)
         table.setStyle(TableStyle([

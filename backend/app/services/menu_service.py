@@ -7,6 +7,7 @@ from app.controllers.menu_controller import (
 )
 from app.models.receta_model import Receta
 from app.models.temporada_model import DiaMenu, OpcionMenu, Temporada
+from app.services import tipo_comida_service
 
 
 def _menu_response(temporada: Temporada) -> TemporadaMenuResponse:
@@ -22,7 +23,8 @@ def _menu_response(temporada: Temporada) -> TemporadaMenuResponse:
                         "id": dia.id,
                         "opcion_menu_id": dia.opcion_menu_id,
                         "dia_semana": dia.dia_semana,
-                        "tipo_comida": dia.tipo_comida,
+                        "tipo_comida_id": dia.tipo_comida_id,
+                        "tipo_comida_nombre": dia.tipo_comida.nombre if dia.tipo_comida else "",
                         "receta_id": dia.receta_id,
                         "receta_nombre": dia.receta.nombre if dia.receta else "",
                     }
@@ -40,7 +42,10 @@ def _load_temporada(db: Session, temporada_id: int) -> Temporada:
         .options(
             selectinload(Temporada.opciones_menu)
             .selectinload(OpcionMenu.dias_menu)
-            .joinedload(DiaMenu.receta)
+            .joinedload(DiaMenu.receta),
+            selectinload(Temporada.opciones_menu)
+            .selectinload(OpcionMenu.dias_menu)
+            .joinedload(DiaMenu.tipo_comida),
         )
         .filter(Temporada.id == temporada_id)
         .first()
@@ -69,8 +74,16 @@ def update_temporada_menu(
             detail="Hay opciones de menu que no pertenecen a la temporada",
         )
 
+    tipo_ids = {item.tipo_comida_id for item in data.items}
+    if tipo_ids:
+        tipo_comida_service.get_tipos_comida_by_ids(db, list(tipo_ids))
+
     receta_ids = {item.receta_id for item in data.items}
-    recetas = db.query(Receta).filter(Receta.id.in_(receta_ids)).all() if receta_ids else []
+    recetas = (
+        db.query(Receta).options(selectinload(Receta.tipos_comida)).filter(Receta.id.in_(receta_ids)).all()
+        if receta_ids
+        else []
+    )
     recetas_by_id = {receta.id: receta for receta in recetas}
     missing_recetas = receta_ids - set(recetas_by_id)
     if missing_recetas:
@@ -88,6 +101,15 @@ def update_temporada_menu(
                 detail=f"La receta {receta.nombre} no pertenece a esta temporada",
             )
 
+    for item in data.items:
+        receta = recetas_by_id[item.receta_id]
+        receta_tipo_ids = {tipo.id for tipo in receta.tipos_comida}
+        if item.tipo_comida_id not in receta_tipo_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"La receta {receta.nombre} no esta habilitada para ese tipo de comida",
+            )
+
     db.query(DiaMenu).filter(DiaMenu.opcion_menu_id.in_(opcion_ids)).delete(
         synchronize_session=False,
     )
@@ -96,7 +118,7 @@ def update_temporada_menu(
             DiaMenu(
                 opcion_menu_id=item.opcion_menu_id,
                 dia_semana=item.dia_semana,
-                tipo_comida=item.tipo_comida.value,
+                tipo_comida_id=item.tipo_comida_id,
                 receta_id=item.receta_id,
             )
         )

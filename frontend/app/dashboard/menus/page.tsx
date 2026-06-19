@@ -6,11 +6,12 @@ import {
   apiGetRecetas,
   apiGetTemporadaMenu,
   apiGetTemporadas,
+  apiGetTiposComida,
   apiUpdateTemporadaMenu,
   type OpcionMenuWithDiasRecord,
   type RecetaRecord,
   type TemporadaRecord,
-  type TipoComida,
+  type TipoComidaRecord,
 } from "@/lib/api";
 import { showSuccessToast } from "@/components/toast";
 
@@ -22,16 +23,10 @@ const DAYS = [
   { id: 5, label: "Viernes" },
 ];
 
-const MEALS: Array<{ id: TipoComida; label: string }> = [
-  { id: "DESAYUNO", label: "Desayuno" },
-  { id: "ALMUERZO", label: "Almuerzo" },
-  { id: "MERIENDA", label: "Merienda" },
-];
-
 type SelectionMap = Record<string, string>;
 
-function slotKey(opcionId: number, dia: number, tipo: TipoComida): string {
-  return `${opcionId}:${dia}:${tipo}`;
+function slotKey(opcionId: number, dia: number, tipoId: number): string {
+  return `${opcionId}:${dia}:${tipoId}`;
 }
 
 function seasonLabel(temporada: TemporadaRecord): string {
@@ -45,6 +40,7 @@ export default function MenusPage() {
   const [temporadas, setTemporadas] = useState<TemporadaRecord[]>([]);
   const [selectedTemporada, setSelectedTemporada] = useState("");
   const [recetas, setRecetas] = useState<RecetaRecord[]>([]);
+  const [tiposComida, setTiposComida] = useState<TipoComidaRecord[]>([]);
   const [opciones, setOpciones] = useState<OpcionMenuWithDiasRecord[]>([]);
   const [selection, setSelection] = useState<SelectionMap>({});
   const [loading, setLoading] = useState(true);
@@ -61,12 +57,14 @@ export default function MenusPage() {
       setLoading(true);
       setError(null);
       try {
-        const [temporadasData, recetasData] = await Promise.all([
+        const [temporadasData, recetasData, tiposData] = await Promise.all([
           apiGetTemporadas(true),
           apiGetRecetas(),
+          apiGetTiposComida(),
         ]);
         setTemporadas(temporadasData);
         setRecetas(recetasData);
+        setTiposComida(tiposData);
         const active = temporadasData.find((temporada) => temporada.activo) ?? temporadasData[0];
         if (active) setSelectedTemporada(String(active.id));
       } catch (e: unknown) {
@@ -92,7 +90,7 @@ export default function MenusPage() {
         const nextSelection: SelectionMap = {};
         for (const opcion of menu.opciones) {
           for (const dia of opcion.dias_menu) {
-            nextSelection[slotKey(opcion.id, dia.dia_semana, dia.tipo_comida)] = String(dia.receta_id);
+            nextSelection[slotKey(opcion.id, dia.dia_semana, dia.tipo_comida_id)] = String(dia.receta_id);
           }
         }
         setSelection(nextSelection);
@@ -110,22 +108,22 @@ export default function MenusPage() {
   const recetasByMeal = useMemo(() => {
     const temporadaId = Number(selectedTemporada);
     return Object.fromEntries(
-      MEALS.map((meal) => [
-        meal.id,
+      tiposComida.map((tipo) => [
+        tipo.id,
         recetas.filter(
           (receta) =>
             receta.activo &&
-            receta.tipo_comida === meal.id &&
-            receta.temporada_id === temporadaId,
+            receta.temporada_id === temporadaId &&
+            receta.tipos_comida.some((t) => t.id === tipo.id),
         ),
       ]),
-    ) as Record<TipoComida, RecetaRecord[]>;
-  }, [recetas, selectedTemporada]);
+    ) as Record<number, RecetaRecord[]>;
+  }, [recetas, tiposComida, selectedTemporada]);
 
-  function setSlot(opcionId: number, dia: number, tipo: TipoComida, recetaId: string) {
+  function setSlot(opcionId: number, dia: number, tipoId: number, recetaId: string) {
     setSelection((current) => ({
       ...current,
-      [slotKey(opcionId, dia, tipo)]: recetaId,
+      [slotKey(opcionId, dia, tipoId)]: recetaId,
     }));
   }
 
@@ -134,14 +132,14 @@ export default function MenusPage() {
 
     const items = opciones.flatMap((opcion) =>
       DAYS.flatMap((day) =>
-        MEALS.flatMap((meal) => {
-          const recetaId = selection[slotKey(opcion.id, day.id, meal.id)];
+        tiposComida.flatMap((tipo) => {
+          const recetaId = selection[slotKey(opcion.id, day.id, tipo.id)];
           return recetaId
             ? [
                 {
                   opcion_menu_id: opcion.id,
                   dia_semana: day.id,
-                  tipo_comida: meal.id,
+                  tipo_comida_id: tipo.id,
                   receta_id: Number(recetaId),
                 },
               ]
@@ -187,7 +185,7 @@ export default function MenusPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Menus semanales</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Asignacion de recetas por opcion, dia y comida.
+            Asignacion de recetas por opcion, dia y tipo de comida.
           </p>
         </div>
         <div className="flex gap-3">
@@ -218,6 +216,12 @@ export default function MenusPage() {
         </p>
       )}
 
+      {tiposComida.length === 0 && (
+        <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+          No hay tipos de comida activos. Creá al menos uno en la sección &quot;Tipos de comida&quot;.
+        </p>
+      )}
+
       {opciones.map((opcion) => (
         <section
           key={opcion.id}
@@ -234,9 +238,9 @@ export default function MenusPage() {
               <thead className="bg-gray-50 text-gray-500">
                 <tr>
                   <th className="text-left font-medium px-4 py-3 w-32">Dia</th>
-                  {MEALS.map((meal) => (
-                    <th key={meal.id} className="text-left font-medium px-4 py-3">
-                      {meal.label}
+                  {tiposComida.map((tipo) => (
+                    <th key={tipo.id} className="text-left font-medium px-4 py-3">
+                      {tipo.nombre}
                     </th>
                   ))}
                 </tr>
@@ -245,17 +249,17 @@ export default function MenusPage() {
                 {DAYS.map((day) => (
                   <tr key={day.id}>
                     <td className="px-4 py-3 font-medium text-gray-700">{day.label}</td>
-                    {MEALS.map((meal) => (
-                      <td key={meal.id} className="px-4 py-3 min-w-64">
+                    {tiposComida.map((tipo) => (
+                      <td key={tipo.id} className="px-4 py-3 min-w-64">
                         <select
-                          value={selection[slotKey(opcion.id, day.id, meal.id)] ?? ""}
+                          value={selection[slotKey(opcion.id, day.id, tipo.id)] ?? ""}
                           onChange={(event) =>
-                            setSlot(opcion.id, day.id, meal.id, event.target.value)
+                            setSlot(opcion.id, day.id, tipo.id, event.target.value)
                           }
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Sin receta</option>
-                          {recetasByMeal[meal.id].map((receta) => (
+                          {(recetasByMeal[tipo.id] ?? []).map((receta) => (
                             <option key={receta.id} value={receta.id}>
                               {receta.nombre}
                             </option>

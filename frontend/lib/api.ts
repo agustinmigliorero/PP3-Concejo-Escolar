@@ -297,12 +297,10 @@ export interface SchoolRecord {
   locality_id: number;
   locality_name: string;
   address: string;
-  phone: string;
+  phone: string | null;
+  email: string | null;
   matriculation: number;
-  offers_breakfast: boolean;
-  offers_lunch: boolean;
-  offers_snack: boolean;
-  offers_dinner: boolean;
+  tipos_comida: TipoComidaRecord[];
   active: boolean;
 }
 
@@ -326,12 +324,10 @@ export async function apiCreateSchool(data: {
   code: string;
   locality_id: number;
   address: string;
-  phone: string;
+  phone?: string | null;
+  email?: string | null;
   matriculation?: number;
-  offers_breakfast?: boolean;
-  offers_lunch?: boolean;
-  offers_snack?: boolean;
-  offers_dinner?: boolean;
+  tipos_comida_ids?: number[];
 }): Promise<SchoolRecord> {
   const res = await apiFetch("/schools", {
     method: "POST",
@@ -352,12 +348,10 @@ export async function apiUpdateSchool(
     code?: string;
     locality_id?: number;
     address?: string;
-    phone?: string;
+    phone?: string | null;
+    email?: string | null;
     matriculation?: number;
-    offers_breakfast?: boolean;
-    offers_lunch?: boolean;
-    offers_snack?: boolean;
-    offers_dinner?:boolean;
+    tipos_comida_ids?: number[];
     active?: boolean;
   },
 ): Promise<SchoolRecord> {
@@ -398,6 +392,19 @@ export async function apiUpdateMySchoolMatriculation(
     body: JSON.stringify({ matriculation }),
   });
   if (!res.ok) throw await buildApiError(res, "Error al actualizar la matricula");
+  return res.json();
+}
+
+export async function apiUpdateMySchoolContact(data: {
+  phone?: string | null;
+  email?: string | null;
+}): Promise<SchoolRecord> {
+  const res = await apiFetch("/schools/me/contact", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar el contacto");
   return res.json();
 }
 
@@ -621,7 +628,8 @@ export interface DiaMenuRecord {
   id: number;
   opcion_menu_id: number;
   dia_semana: number;
-  tipo_comida: TipoComida;
+  tipo_comida_id: number;
+  tipo_comida_nombre: string;
   receta_id: number;
   receta_nombre: string;
 }
@@ -648,7 +656,7 @@ export async function apiUpdateTemporadaMenu(
   items: Array<{
     opcion_menu_id: number;
     dia_semana: number;
-    tipo_comida: TipoComida;
+    tipo_comida_id: number;
     receta_id: number;
   }>,
 ): Promise<TemporadaMenuRecord> {
@@ -661,9 +669,59 @@ export async function apiUpdateTemporadaMenu(
   return res.json();
 }
 
-// ── Recetas (admin only) ─────────────────────────────────────────────────────
+// ── Tipos de comida ──────────────────────────────────────────────────────────
 
-export type TipoComida = "DESAYUNO" | "ALMUERZO" | "MERIENDA";
+export interface TipoComidaRecord {
+  id: number;
+  nombre: string;
+  activo: boolean;
+}
+
+export async function apiGetTiposComida(
+  includeInactive = false,
+): Promise<TipoComidaRecord[]> {
+  const query = includeInactive ? "?include_inactive=true" : "";
+  const res = await apiFetch(`/tipos-comida${query}`);
+  if (!res.ok) throw await buildApiError(res, "Error al obtener tipos de comida");
+  return res.json();
+}
+
+export async function apiCreateTipoComida(data: {
+  nombre: string;
+}): Promise<TipoComidaRecord> {
+  const res = await apiFetch("/tipos-comida", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al crear tipo de comida");
+  return res.json();
+}
+
+export async function apiUpdateTipoComida(
+  id: number,
+  data: { nombre: string },
+): Promise<TipoComidaRecord> {
+  const res = await apiFetch(`/tipos-comida/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar tipo de comida");
+  return res.json();
+}
+
+export async function apiToggleTipoComidaActive(
+  id: number,
+): Promise<TipoComidaRecord> {
+  const res = await apiFetch(`/tipos-comida/${id}/toggle-active`, {
+    method: "PATCH",
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al cambiar estado del tipo de comida");
+  return res.json();
+}
+
+// ── Recetas (admin only) ─────────────────────────────────────────────────────
 
 export interface RecetaIngredienteRecord {
   id: number;
@@ -676,7 +734,7 @@ export interface RecetaIngredienteRecord {
 export interface RecetaRecord {
   id: number;
   nombre: string;
-  tipo_comida: TipoComida;
+  tipos_comida: TipoComidaRecord[];
   temporada_id: number | null;
   temporada_nombre: "VERANO" | "INVIERNO" | null;
   temporada_anio: number | null;
@@ -695,7 +753,7 @@ export async function apiGetRecetas(
 
 export async function apiCreateReceta(data: {
   nombre: string;
-  tipo_comida: TipoComida;
+  tipos_comida_ids: number[];
   temporada_id: number;
   ingredientes: Array<{ ingrediente_id: number; cantidad_por_porcion: number }>;
 }): Promise<RecetaRecord> {
@@ -712,7 +770,7 @@ export async function apiUpdateReceta(
   id: number,
   data: {
     nombre: string;
-    tipo_comida: TipoComida;
+    tipos_comida_ids: number[];
     temporada_id: number;
     ingredientes: Array<{ ingrediente_id: number; cantidad_por_porcion: number }>;
   },
@@ -832,14 +890,18 @@ export interface PedidoSnapshot {
       ingrediente_id: number;
       ingrediente_nombre: string;
       unidad: string;
+      contenido_por_unidad?: string | null;
+      unidad_contenido?: string | null;
       precio_unitario: string;
       cantidad_total: string;
+      cantidad_contenido_total?: string | null;
       costo_total: string;
       escuelas: Array<{
         escuela_id: number;
         escuela_codigo: string;
         escuela_nombre: string;
         cantidad: string;
+        cantidad_contenido?: string | null;
       }>;
     }>;
   }>;
@@ -860,6 +922,9 @@ export interface PedidoSnapshot {
       stock_descontado: string;
       cantidad_neta: string;
       cantidad_final: string;
+      contenido_por_unidad?: string | null;
+      unidad_contenido?: string | null;
+      cantidad_contenido_final?: string | null;
       proveedor_id?: number;
       proveedor_nombre?: string;
       localidad_id?: number;
@@ -872,12 +937,15 @@ export interface PedidoSnapshot {
     ingrediente_id: number;
     ingrediente_nombre: string;
     unidad: string;
+    contenido_por_unidad?: string | null;
+    unidad_contenido?: string | null;
     localidad_id?: number;
     localidad_nombre: string;
     proveedor_id?: number;
     proveedor_nombre: string;
     precio_unitario: string;
     cantidad_total: string;
+    cantidad_contenido_total?: string | null;
     costo_total: string;
   }>;
   advertencias: Array<{

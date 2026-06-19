@@ -143,7 +143,7 @@ Abrí http://localhost:3005, iniciá sesión con `admin` / `admin1234`.
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 ```
 
-> La base de datos SQLite en dev vive dentro del contenedor. Si necesitás persistirla localmente, montá un volumen en `docker-compose.yml`.
+> La base de datos SQLite vive en el volumen Docker `concejo_escolar_sqlite_data` y persiste aunque se recree el contenedor.
 
 ---
 
@@ -447,7 +447,7 @@ NEXT_PUBLIC_API_URL=http://<TU_IP>:8000
 ### ⚠️ Cosas a tener en cuenta
 
 - **No commitear `.env`** — está en `.gitignore`. Las secrets van solo en Dokploy.
-- **La base de datos vive en un volumen Docker** (`sqlite_data`). Si eliminás el volumen, perdés todos los datos. Hacé backups periódicos.
+- **La base de datos vive en el volumen Docker** `concejo_escolar_sqlite_data`. Su nombre físico es fijo para que Dokploy lo reutilice entre deploys. Si eliminás el volumen, perdés todos los datos. Hacé backups periódicos.
 - **El `requirements.txt` debe estar en UTF-8 sin BOM** (ver sección de dependencias). pip en Linux falla con otros encodings.
 
 ---
@@ -484,6 +484,23 @@ La documentación interactiva completa está en `http://localhost:8000/docs` (Sw
 | PUT    | `/stock-previo/me`        | Cargar/actualizar stock sobrante propio          | escuela       |
 | GET    | `/stock-previo/{school_id}` | Ver stock sobrante de una escuela              | admin/gestor  |
 | PUT    | `/stock-previo/{school_id}` | Cargar/actualizar stock sobrante de una escuela | admin/gestor  |
+
+### Tipos de comida
+
+Catálogo administrable de tipos de comida (desayuno, almuerzo, merienda y los que se agreguen). Cada receta y cada escuela se asocian a uno o varios tipos.
+
+| Método | Endpoint                          | Descripción                       | Rol requerido |
+| ------ | --------------------------------- | --------------------------------- | ------------- |
+| GET    | `/tipos-comida`                   | Listar tipos de comida            | admin/gestor  |
+| POST   | `/tipos-comida`                   | Crear tipo de comida              | admin         |
+| PUT    | `/tipos-comida/{id}`              | Renombrar tipo de comida          | admin         |
+| PATCH  | `/tipos-comida/{id}/toggle-active`| Activar / desactivar              | admin         |
+
+### Contacto de la escuela propia
+
+| Método | Endpoint                 | Descripción                                       | Rol requerido |
+| ------ | ------------------------ | ------------------------------------------------- | ------------- |
+| PATCH  | `/schools/me/contact`    | Editar teléfono y email propios (ambos opcionales) | escuela       |
 
 ### Cómo autenticarse en Swagger
 

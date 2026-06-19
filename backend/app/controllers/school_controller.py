@@ -1,6 +1,33 @@
+import re
 from typing import Optional
 
 from pydantic import BaseModel, field_validator
+
+from app.controllers.tipo_comida_controller import TipoComidaResponse
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _normalize_phone(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    v = v.strip()
+    if not v:
+        return None
+    if len(v) < 6:
+        raise ValueError("El teléfono debe tener al menos 6 caracteres")
+    return v
+
+
+def _normalize_email(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    v = v.strip()
+    if not v:
+        return None
+    if not _EMAIL_RE.match(v):
+        raise ValueError("El email no tiene un formato válido")
+    return v
 
 
 class CreateSchoolRequest(BaseModel):
@@ -8,12 +35,10 @@ class CreateSchoolRequest(BaseModel):
     code: str
     locality_id: int
     address: str
-    phone: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
     matriculation: int = 0
-    offers_breakfast: bool = False
-    offers_lunch: bool = False
-    offers_snack: bool = False
-    offers_dinner: bool = False
+    tipos_comida_ids: list[int] = []
 
     @field_validator("name")
     @classmethod
@@ -48,11 +73,23 @@ class CreateSchoolRequest(BaseModel):
 
     @field_validator("phone")
     @classmethod
-    def phone_valid(cls, v: str) -> str:
-        v = v.strip()
-        if len(v) < 6:
-            raise ValueError("El teléfono debe tener al menos 6 caracteres")
+    def phone_valid(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_phone(v)
+
+    @field_validator("email")
+    @classmethod
+    def email_valid(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_email(v)
+
+    @field_validator("tipos_comida_ids")
+    @classmethod
+    def tipos_valid(cls, v: list[int]) -> list[int]:
+        if any(tipo_id <= 0 for tipo_id in v):
+            raise ValueError("Tipo de comida inválido")
+        if len(v) != len(set(v)):
+            raise ValueError("No se puede repetir un tipo de comida")
         return v
+
 
 class UpdateSchoolRequest(BaseModel):
     name: Optional[str] = None
@@ -60,11 +97,9 @@ class UpdateSchoolRequest(BaseModel):
     locality_id: Optional[int] = None
     address: Optional[str] = None
     phone: Optional[str] = None
+    email: Optional[str] = None
     matriculation: Optional[int] = None
-    offers_breakfast: Optional[bool] = None
-    offers_lunch: Optional[bool] = None
-    offers_snack: Optional[bool] = None
-    offers_dinner: Optional[bool] = None
+    tipos_comida_ids: Optional[list[int]] = None
     active: Optional[bool] = None
 
     @field_validator("name")
@@ -103,12 +138,25 @@ class UpdateSchoolRequest(BaseModel):
 
     @field_validator("phone")
     @classmethod
-    def phone_valid(cls, v: str | None) -> str | None:
-        if v is not None:
-            v = v.strip()
-            if len(v) < 6:
-                raise ValueError("El teléfono debe tener al menos 6 caracteres")
+    def phone_valid(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_phone(v)
+
+    @field_validator("email")
+    @classmethod
+    def email_valid(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_email(v)
+
+    @field_validator("tipos_comida_ids")
+    @classmethod
+    def tipos_valid(cls, v: Optional[list[int]]) -> Optional[list[int]]:
+        if v is None:
+            return v
+        if any(tipo_id <= 0 for tipo_id in v):
+            raise ValueError("Tipo de comida inválido")
+        if len(v) != len(set(v)):
+            raise ValueError("No se puede repetir un tipo de comida")
         return v
+
 
 class UpdateMySchoolMatriculationRequest(BaseModel):
     matriculation: int
@@ -121,6 +169,21 @@ class UpdateMySchoolMatriculationRequest(BaseModel):
         return v
 
 
+class UpdateMySchoolContactRequest(BaseModel):
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+    @field_validator("phone")
+    @classmethod
+    def phone_valid(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_phone(v)
+
+    @field_validator("email")
+    @classmethod
+    def email_valid(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_email(v)
+
+
 class SchoolResponse(BaseModel):
     id: int
     name: str
@@ -128,12 +191,10 @@ class SchoolResponse(BaseModel):
     locality_id: int
     locality_name: str = ""
     address: str
-    phone: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
     matriculation: int
-    offers_breakfast: bool
-    offers_lunch: bool
-    offers_snack: bool
-    offers_dinner: bool
+    tipos_comida: list[TipoComidaResponse] = []
     active: bool
 
     model_config = {"from_attributes": True}

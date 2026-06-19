@@ -1,9 +1,8 @@
 from decimal import Decimal
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.receta_model import TipoComida
+from app.controllers.tipo_comida_controller import TipoComidaResponse
 
 
 class RecetaIngredienteItemRequest(BaseModel):
@@ -13,7 +12,7 @@ class RecetaIngredienteItemRequest(BaseModel):
 
 class CreateRecetaRequest(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=200)
-    tipo_comida: TipoComida
+    tipos_comida_ids: list[int] = Field(..., min_length=1)
     temporada_id: int = Field(..., gt=0)
     ingredientes: list[RecetaIngredienteItemRequest]
 
@@ -21,6 +20,15 @@ class CreateRecetaRequest(BaseModel):
     @classmethod
     def strip_nombre(cls, value: str) -> str:
         return value.strip()
+
+    @field_validator("tipos_comida_ids")
+    @classmethod
+    def validate_tipos_comida(cls, value: list[int]) -> list[int]:
+        if any(tipo_id <= 0 for tipo_id in value):
+            raise ValueError("Tipo de comida invalido")
+        if len(value) != len(set(value)):
+            raise ValueError("No se puede repetir un tipo de comida en la receta")
+        return value
 
     @model_validator(mode="after")
     def validate_ingredientes(self):
@@ -48,7 +56,7 @@ class RecetaIngredienteResponse(BaseModel):
 class RecetaResponse(BaseModel):
     id: int
     nombre: str
-    tipo_comida: TipoComida
+    tipos_comida: list[TipoComidaResponse]
     temporada_id: int | None
     temporada_nombre: str | None
     temporada_anio: int | None
