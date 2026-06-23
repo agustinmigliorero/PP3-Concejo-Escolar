@@ -22,7 +22,8 @@
       "Bash(git merge *)",
       "Bash(SECRET_KEY=prueba123 docker compose -f docker-compose.yml config --quiet)",
       "Bash(docker compose *)",
-      "Bash(git --no-pager diff -- docker-compose.yml)"
+      "Bash(git --no-pager diff -- docker-compose.yml)",
+      "Bash(grep -niC1 \"subdomin\\\\|NEXT_PUBLIC_API_URL\\\\|REFRESH_COOKIE_SECURE\\\\|sae\\\\.\\\\|api\\\\.\\\\|https://\\\\|samesite\\\\|domain\" README.md backend/README.md frontend/README.md)"
     ]
   }
 }
