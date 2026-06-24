@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { apiGetMe, apiLogout, tryRefresh, type UserInfo } from "@/lib/api";
 import { getAccessToken, onAuthExpired } from "@/lib/auth";
 import { ToastViewport } from "@/components/toast";
+import { ManualModal } from "@/components/manual-modal";
 import { UserContext } from "./user-context";
 
 const ROLE_LABEL: Record<UserInfo["role"], string> = {
@@ -23,6 +24,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
 
   useEffect(() => {
     const redirectToLogin = () => {
@@ -186,6 +188,28 @@ export default function DashboardLayout({
                 </h1>
               </div>
               <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setManualOpen(true)}
+                  className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  aria-haspopup="dialog"
+                >
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path
+                      d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v12.5H5.5A1.5 1.5 0 0 0 4 17V4.5Z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M4 17a1.5 1.5 0 0 1 1.5-1.5H16"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span className="hidden sm:inline">Manual</span>
+                </button>
                 {user && (
                   <div className="hidden text-right sm:block">
                     <p className="text-sm font-semibold text-slate-800">
@@ -240,6 +264,9 @@ export default function DashboardLayout({
           </main>
         </div>
         <ToastViewport />
+        {user && manualOpen && (
+          <ManualModal role={user.role} onClose={() => setManualOpen(false)} />
+        )}
       </div>
     </UserContext.Provider>
   );
