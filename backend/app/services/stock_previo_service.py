@@ -14,6 +14,7 @@ from app.models.school_model import School
 from app.models.stock_previo_model import StockPrevio
 from app.models.temporada_model import DiaMenu, OpcionMenu, Temporada
 from app.models.user_model import User, UserRole
+from app.services import notification_service
 
 
 def _get_school_or_404(db: Session, school_id: int) -> School:
@@ -164,6 +165,7 @@ def update_school_stock(
             stock.cargado_por_id = user.id
 
     db.commit()
+    notification_service.create_stock_notification(db, school, user)
     return _build_response(db, school)
 
 

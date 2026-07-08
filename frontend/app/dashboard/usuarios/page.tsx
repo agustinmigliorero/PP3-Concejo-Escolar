@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
 import { showSuccessToast } from "@/components/toast";
+import { PasswordInput } from "@/components/password-input";
 
 const ROLES = ["admin", "gestor", "escuela"] as const;
 const ROLE_LABEL: Record<string, string> = {
@@ -348,12 +349,9 @@ export default function UsuariosPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Contraseña {modalMode === "edit" && <span className="text-gray-400 font-normal">(dejar vacío para no cambiar)</span>}
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="••••••••"
+                  onChange={(v) => setForm((f) => ({ ...f, password: v }))}
                 />
               </div>
 

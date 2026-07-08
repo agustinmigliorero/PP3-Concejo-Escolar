@@ -11,6 +11,7 @@ from app.routes import (
     ingrediente_routes,
     localidad_routes,
     menu_routes,
+    notification_routes,
     pedido_routes,
     proveedor_routes,
     receta_routes,
@@ -25,6 +26,7 @@ from app.routes import (
 import app.models.asignacion_proveedor_model  # noqa: F401
 import app.models.ingrediente_model  # noqa: F401
 import app.models.location_model  # noqa: F401
+import app.models.notification_model  # noqa: F401
 import app.models.pedido_model  # noqa: F401
 import app.models.proveedor_model  # noqa: F401
 import app.models.receta_model  # noqa: F401
@@ -109,6 +111,7 @@ app.include_router(tipo_comida_routes.router)
 app.include_router(menu_routes.router)
 app.include_router(stock_previo_routes.router)
 app.include_router(pedido_routes.router)
+app.include_router(notification_routes.router)
 
 
 @app.get("/")
