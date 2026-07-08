@@ -11,11 +11,13 @@ Sistema de gestión de pedidos de comida escolar para el Consejo Escolar de Azul
 3. [Opción A — Levantar con Docker](#opción-a--levantar-con-docker-recomendado)
 4. [Opción B — Levantar manualmente (venv + npm)](#opción-b--levantar-manualmente-venv--npm)
 5. [Variables de entorno](#variables-de-entorno)
-6. [Base de datos y primer usuario](#base-de-datos-y-primer-usuario)
-7. [Flujo de trabajo Git](#flujo-de-trabajo-git)
-8. [Deploy a producción](#deploy-a-producción)
-9. [Referencia rápida de la API](#referencia-rápida-de-la-api)
-10. [Comandos útiles](#comandos-útiles)
+6. [Base de datos y seed de datos](#base-de-datos-y-seed-de-datos)
+7. [Tests](#tests)
+8. [Flujo de trabajo Git](#flujo-de-trabajo-git)
+9. [Deploy a producción](#deploy-a-producción)
+10. [Referencia rápida de la API](#referencia-rápida-de-la-api)
+11. [Roles y permisos](#roles-y-permisos)
+12. [Comandos útiles](#comandos-útiles)
 
 ---
 
@@ -23,10 +25,12 @@ Sistema de gestión de pedidos de comida escolar para el Consejo Escolar de Azul
 
 | Capa          | Tecnología                                                            |
 | ------------- | --------------------------------------------------------------------- |
-| Backend       | Python 3.12 + FastAPI + SQLAlchemy                                    |
+| Backend       | Python 3.12 + FastAPI + SQLAlchemy 2.x                                |
 | Base de datos | SQLite (archivo local)                                                |
 | Autenticación | JWT (access token 15 min + refresh token 7 días como cookie httpOnly) |
-| Frontend      | Next.js 16 + React 19 + Tailwind CSS 4                                |
+| Frontend      | Next.js 16 + React 19 + Tailwind CSS 4 + TypeScript                   |
+| PDF           | WeasyPrint / ReportLab                                                |
+| Excel         | openpyxl                                                              |
 | Contenedores  | Docker + Docker Compose                                               |
 | Deploy        | Dokploy (auto-deploy desde `main` en GitHub)                          |
 
@@ -39,40 +43,106 @@ PP3-Concejo-Escolar/
 ├── backend/
 │   ├── app/
 │   │   ├── config/
-│   │   │   ├── database.py      # Conexión SQLite + get_db()
+│   │   │   ├── database.py      # Conexión SQLite + get_db() + auto-migración
 │   │   │   ├── security.py      # Hash bcrypt, JWT access/refresh
 │   │   │   └── settings.py      # Variables de entorno (pydantic-settings)
 │   │   ├── controllers/         # Schemas Pydantic (request/response)
 │   │   ├── middlewares/
-│   │   │   └── auth_middleware.py  # get_current_user, require_admin
-│   │   ├── models/              # Modelos SQLAlchemy (tablas)
+│   │   │   ├── auth_middleware.py   # get_current_user, require_admin
+│   │   │   ├── role_middleware.py   # require_role dinámico
+│   │   │   └── error_middleware.py  # Manejo global de errores
+│   │   ├── models/              # Modelos SQLAlchemy
+│   │   │   ├── user_model.py
+│   │   │   ├── school_model.py
+│   │   │   ├── location_model.py
+│   │   │   ├── ingrediente_model.py
+│   │   │   ├── proveedor_model.py
+│   │   │   ├── asignacion_proveedor_model.py
+│   │   │   ├── receta_model.py
+│   │   │   ├── tipo_comida_model.py
+│   │   │   ├── temporada_model.py        # Temporada, OpcionMenu, DiaMenu
+│   │   │   ├── pedido_model.py
+│   │   │   ├── stock_previo_model.py
+│   │   │   ├── notification_model.py
+│   │   │   └── refresh_token_model.py
 │   │   ├── routes/              # Endpoints FastAPI
+│   │   │   ├── auth_routes.py
+│   │   │   ├── user_routes.py
+│   │   │   ├── school_routes.py
+│   │   │   ├── localidad_routes.py
+│   │   │   ├── ingrediente_routes.py
+│   │   │   ├── proveedor_routes.py
+│   │   │   ├── asignacion_proveedor_routes.py
+│   │   │   ├── receta_routes.py
+│   │   │   ├── tipo_comida_routes.py
+│   │   │   ├── temporada_routes.py
+│   │   │   ├── menu_routes.py
+│   │   │   ├── pedido_routes.py
+│   │   │   ├── stock_previo_routes.py
+│   │   │   └── notification_routes.py
 │   │   ├── services/            # Lógica de negocio
+│   │   │   ├── auth_service.py
+│   │   │   ├── user_service.py
+│   │   │   ├── school_service.py
+│   │   │   ├── localidad_service.py
+│   │   │   ├── ingrediente_service.py
+│   │   │   ├── proveedor_service.py
+│   │   │   ├── asignacion_proveedor_service.py
+│   │   │   ├── receta_service.py
+│   │   │   ├── tipo_comida_service.py
+│   │   │   ├── temporada_service.py
+│   │   │   ├── menu_service.py
+│   │   │   ├── pedido_service.py   # Motor de cálculo (1465 líneas)
+│   │   │   ├── stock_previo_service.py
+│   │   │   └── notification_service.py
 │   │   └── main.py              # App FastAPI, routers, startup
-│   ├── seed.py                  # Crea el usuario admin inicial
+│   ├── tests/
+│   │   └── test_pedido_quantities.py  # Tests unitarios del motor de pedidos
+│   ├── data/                     # Volumen SQLite (no versionado)
+│   ├── seed.py                   # Crea el usuario admin inicial
+│   ├── seed_data.py              # Carga datos de demostración
+│   ├── seed_dataStockSob.py      # Carga datos de stock sobrante demo
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
 │   ├── app/
 │   │   ├── dashboard/
-│   │   │   ├── layout.tsx       # Layout con nav + contexto de usuario
+│   │   │   ├── layout.tsx       # Layout con nav lateral + contexto de usuario
 │   │   │   ├── page.tsx         # Pantalla de bienvenida
 │   │   │   ├── user-context.tsx # Contexto React del usuario logueado
-│   │   │   └── usuarios/
-│   │   │       └── page.tsx     # CRUD de usuarios (solo admin)
+│   │   │   ├── asignaciones/    # CRUD asignaciones proveedor × ingrediente × localidad
+│   │   │   ├── escuelas/        # CRUD escuelas (con detalle por ID)
+│   │   │   ├── historial/       # Historial de pedidos generados
+│   │   │   ├── ingredientes/    # CRUD ingredientes
+│   │   │   ├── localidades/     # CRUD localidades
+│   │   │   ├── menus/           # Grilla semanal de menú
+│   │   │   ├── mi-escuela/      # Vista escuela (matrícula, stock, pedidos)
+│   │   │   ├── pedidos/         # Generación y exportación de pedidos
+│   │   │   ├── proveedores/     # CRUD proveedores
+│   │   │   ├── recetas/         # CRUD recetas con ingredientes
+│   │   │   ├── temporadas/      # CRUD temporadas + opciones de menú
+│   │   │   ├── tipos-comida/    # CRUD tipos de comida
+│   │   │   └── usuarios/        # CRUD usuarios (admin)
 │   │   ├── login/
-│   │   │   └── page.tsx         # Formulario de login
-│   │   └── layout.tsx           # Layout raíz
+│   │   │   └── page.tsx         # Formulario de login con redirect
+│   │   ├── layout.tsx           # Layout raíz
+│   │   ├── globals.css
+│   │   └── page.tsx             # Página principal (redirect a dashboard/login)
+│   ├── components/
+│   │   ├── toast.tsx            # Sistema de notificaciones toast
+│   │   ├── notification-bell.tsx # Campana de notificaciones
+│   │   ├── manual-modal.tsx     # Modal de manual de usuario por rol
+│   │   └── password-input.tsx   # Input de contraseña con toggle
 │   ├── lib/
-│   │   ├── api.ts               # Cliente HTTP con refresh automático
-│   │   └── auth.ts              # Access token en memoria
-│   ├── proxy.ts                 # Protección de rutas (Next.js 16)
+│   │   ├── api.ts               # Cliente HTTP con refresh automático (1078 líneas)
+│   │   └── auth.ts              # Access token en memoria + onAuthExpired
+│   ├── proxy.ts                 # Protección de rutas (Next.js 16 middleware)
 │   ├── next.config.ts
 │   └── Dockerfile
 ├── db/
 │   └── db-script.sql            # Schema de referencia (MySQL histórico)
 ├── docs/
-│   └── requerimientos.md        # Requerimientos funcionales del cliente
+│   └── requerimientos.md        # Requerimientos funcionales detallados del cliente
 ├── docker-compose.yml           # Orquestación para producción / Dokploy
 └── docker-compose.dev.yml       # Overrides para desarrollo local
 ```
@@ -133,7 +203,15 @@ Salida esperada:
 [seed] Cambiá la contraseña en producción.
 ```
 
-### 5. Ingresar al sistema
+### 5. Cargar datos de prueba (opcional)
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend python seed_data.py
+```
+
+Esto crea localidades, escuelas, ingredientes, recetas, tipos de comida, temporadas y el menú semanal de demostración.
+
+### 6. Ingresar al sistema
 
 Abrí http://localhost:3005, iniciá sesión con `admin` / `admin1234`.
 
@@ -194,6 +272,12 @@ El backend queda en **http://localhost:8000**.
 
 ```bash
 python seed.py
+```
+
+**Cargar datos de prueba (opcional):**
+
+```bash
+python seed_data.py
 ```
 
 ---
@@ -317,9 +401,9 @@ frontend:
 
 ---
 
-## Base de datos y primer usuario
+## Base de datos y seed de datos
 
-El esquema de la base de datos se crea **automáticamente** al iniciar el backend (`Base.metadata.create_all()` en el startup de FastAPI). No hace falta correr migraciones manualmente.
+El esquema de la base de datos se crea **automáticamente** al iniciar el backend (`Base.metadata.create_all()` en el startup de FastAPI). Además, el sistema corre una auto-migración que agrega columnas nuevas si el modelo ORM cambió (sin modificar datos existentes).
 
 El archivo `db/db-script.sql` es un esquema de referencia histórico (MySQL), no se usa en el código.
 
@@ -335,6 +419,28 @@ python seed.py
 
 El script es idempotente: si el usuario ya existe, no hace nada.
 
+### Cargar datos de demostración
+
+`seed_data.py` carga: localidades de Azul, escuelas de ejemplo, ingredientes, recetas con ingredientes, tipos de comida, temporadas con opciones de menú, y la grilla semanal completa.
+
+```bash
+# Con Docker
+docker compose exec backend python seed_data.py
+
+# Sin Docker (con venv activado)
+python seed_data.py
+```
+
+`seed_dataStockSob.py` carga stock sobrante de demostración para escuelas existentes.
+
+```bash
+# Con Docker
+docker compose exec backend python seed_dataStockSob.py
+
+# Sin Docker (con venv activado)
+python seed_dataStockSob.py
+```
+
 ### Cambiar credenciales del admin
 
 Opción 1 — desde la interfaz: loguearse como admin → Usuarios → Editar.
@@ -344,6 +450,27 @@ Opción 2 — variables de entorno antes de correr el seed:
 ```bash
 ADMIN_USERNAME=miusuario ADMIN_PASSWORD=mipassword python seed.py
 ```
+
+---
+
+## Tests
+
+El proyecto tiene tests unitarios para el motor de cálculo de pedidos. Se ejecutan con `unittest`:
+
+```bash
+# Con Docker
+docker compose exec backend python -m unittest discover -s tests
+
+# Sin Docker (con venv activado)
+cd backend
+python -m unittest discover -s tests
+```
+
+Los tests cubren:
+
+- Redondeo de cantidades comerciales (unidades con contenido, ej: botellas de 900 ml)
+- Redondeo de cantidades a granel (kg, litros)
+- Formateo de etiquetas con contenido equivalente
 
 ---
 
@@ -476,6 +603,86 @@ La documentación interactiva completa está en `http://localhost:8000/docs` (Sw
 | PATCH  | `/users/{id}/toggle-active` | Activar / desactivar                      | admin         |
 | DELETE | `/users/{id}`               | Eliminar permanentemente (solo inactivos) | admin         |
 
+### Localidades
+
+| Método | Endpoint                          | Descripción                       | Rol requerido |
+| ------ | --------------------------------- | --------------------------------- | ------------- |
+| GET    | `/localidades`                    | Listar localidades                | admin/gestor  |
+| POST   | `/localidades`                    | Crear localidad                   | admin         |
+| PUT    | `/localidades/{id}`               | Editar localidad                  | admin         |
+| PATCH  | `/localidades/{id}/toggle-active` | Activar / desactivar              | admin         |
+
+### Escuelas
+
+| Método | Endpoint                     | Descripción                                      | Rol requerido |
+| ------ | ---------------------------- | ------------------------------------------------ | ------------- |
+| GET    | `/schools`                   | Listar escuelas (filtro opcional por localidad)   | admin/gestor  |
+| POST   | `/schools`                   | Crear escuela                                     | admin/gestor  |
+| GET    | `/schools/{id}`              | Ver escuela                                       | admin/gestor  |
+| PUT    | `/schools/{id}`              | Editar escuela                                    | admin/gestor  |
+| PATCH  | `/schools/{id}/toggle-active`| Activar / desactivar                              | admin/gestor  |
+| GET    | `/schools/me`                | Ver escuela propia                                | escuela       |
+| PATCH  | `/schools/me/matriculation`  | Actualizar matrícula propia                       | escuela       |
+| PATCH  | `/schools/me/contact`        | Editar teléfono y email propios                   | escuela       |
+
+### Ingredientes
+
+| Método | Endpoint                           | Descripción                       | Rol requerido |
+| ------ | ---------------------------------- | --------------------------------- | ------------- |
+| GET    | `/ingredientes`                    | Listar ingredientes               | admin/gestor  |
+| POST   | `/ingredientes`                    | Crear ingrediente                 | admin         |
+| PUT    | `/ingredientes/{id}`               | Editar ingrediente                | admin         |
+| PATCH  | `/ingredientes/{id}/toggle-active` | Activar / desactivar              | admin         |
+
+### Proveedores
+
+| Método | Endpoint                           | Descripción                       | Rol requerido |
+| ------ | ---------------------------------- | --------------------------------- | ------------- |
+| GET    | `/proveedores`                     | Listar proveedores                | admin         |
+| POST   | `/proveedores`                     | Crear proveedor                   | admin         |
+| PUT    | `/proveedores/{id}`                | Editar proveedor                  | admin         |
+| PATCH  | `/proveedores/{id}/toggle-active`  | Activar / desactivar              | admin         |
+
+### Asignaciones proveedor × ingrediente × localidad
+
+| Método | Endpoint                             | Descripción                                      | Rol requerido |
+| ------ | ------------------------------------ | ------------------------------------------------ | ------------- |
+| GET    | `/asignaciones`                      | Listar asignaciones (filtros por ingrediente/localidad/proveedor, solo vigentes) | admin |
+| GET    | `/asignaciones/historial`            | Historial de cambios para un ingrediente+localidad | admin |
+| POST   | `/asignaciones`                      | Crear asignación (cierra la anterior automáticamente) | admin |
+| PUT    | `/asignaciones/{id}`                 | Actualizar precio de asignación vigente           | admin |
+
+### Recetas
+
+| Método | Endpoint                        | Descripción                       | Rol requerido |
+| ------ | ------------------------------- | --------------------------------- | ------------- |
+| GET    | `/recetas`                      | Listar recetas                    | admin         |
+| POST   | `/recetas`                      | Crear receta con ingredientes     | admin         |
+| PUT    | `/recetas/{id}`                 | Editar receta                     | admin         |
+| PATCH  | `/recetas/{id}/toggle-active`   | Activar / desactivar              | admin         |
+
+### Tipos de comida
+
+| Método | Endpoint                          | Descripción                       | Rol requerido |
+| ------ | --------------------------------- | --------------------------------- | ------------- |
+| GET    | `/tipos-comida`                   | Listar tipos de comida            | admin/gestor  |
+| POST   | `/tipos-comida`                   | Crear tipo de comida              | admin         |
+| PUT    | `/tipos-comida/{id}`              | Renombrar tipo de comida          | admin         |
+| PATCH  | `/tipos-comida/{id}/toggle-active`| Activar / desactivar              | admin         |
+
+### Temporadas y menú semanal
+
+| Método | Endpoint                          | Descripción                                      | Rol requerido |
+| ------ | --------------------------------- | ------------------------------------------------ | ------------- |
+| GET    | `/temporadas`                     | Listar temporadas                                | admin         |
+| POST   | `/temporadas`                     | Crear temporada                                  | admin         |
+| PUT    | `/temporadas/{id}`                | Editar temporada                                 | admin         |
+| PATCH  | `/temporadas/{id}/toggle-active`  | Activar / desactivar (desactiva la anterior)     | admin         |
+| GET    | `/temporadas/active`              | Obtener temporada activa                         | admin/gestor  |
+| PUT    | `/temporadas/{id}/opciones`       | Guardar opciones de menú de la temporada         | admin         |
+| GET    | `/temporadas/{id}/menu`           | Obtener grilla semanal completa                  | admin         |
+| PUT    | `/temporadas/{id}/menu`           | Guardar asignación de recetas a días             | admin         |
+
 ### Stock previo
 
 | Método | Endpoint                  | Descripción                                      | Rol requerido |
@@ -485,22 +692,27 @@ La documentación interactiva completa está en `http://localhost:8000/docs` (Sw
 | GET    | `/stock-previo/{school_id}` | Ver stock sobrante de una escuela              | admin/gestor  |
 | PUT    | `/stock-previo/{school_id}` | Cargar/actualizar stock sobrante de una escuela | admin/gestor  |
 
-### Tipos de comida
+### Pedidos
 
-Catálogo administrable de tipos de comida (desayuno, almuerzo, merienda y los que se agreguen). Cada receta y cada escuela se asocian a uno o varios tipos.
+| Método | Endpoint                                          | Descripción                                      | Rol requerido |
+| ------ | ------------------------------------------------- | ------------------------------------------------ | ------------- |
+| POST   | `/pedidos/preview`                                | Previsualizar pedido (cálculo completo)          | admin/gestor  |
+| POST   | `/pedidos`                                        | Confirmar y generar pedido (guarda snapshot)     | admin/gestor  |
+| GET    | `/pedidos`                                        | Listar pedidos generados                         | admin/gestor  |
+| GET    | `/pedidos/{id}/export/pdf`                        | Descargar resumen global en PDF                  | admin/gestor  |
+| GET    | `/pedidos/{id}/export/excel`                      | Descargar resumen global en Excel                | admin/gestor  |
+| GET    | `/pedidos/{id}/export/proveedores/pdf`            | Descargar documentos por proveedor en PDF        | admin/gestor  |
+| GET    | `/pedidos/{id}/export/proveedores/excel`          | Descargar documentos por proveedor en Excel      | admin/gestor  |
+| GET    | `/pedidos/{id}/export/localidades/pdf`            | Descargar documentos por localidad en PDF        | admin/gestor  |
+| GET    | `/pedidos/{id}/export/escuelas/pdf`               | Descargar documentos por escuela en PDF          | admin/gestor  |
 
-| Método | Endpoint                          | Descripción                       | Rol requerido |
-| ------ | --------------------------------- | --------------------------------- | ------------- |
-| GET    | `/tipos-comida`                   | Listar tipos de comida            | admin/gestor  |
-| POST   | `/tipos-comida`                   | Crear tipo de comida              | admin         |
-| PUT    | `/tipos-comida/{id}`              | Renombrar tipo de comida          | admin         |
-| PATCH  | `/tipos-comida/{id}/toggle-active`| Activar / desactivar              | admin         |
+### Notificaciones
 
-### Contacto de la escuela propia
-
-| Método | Endpoint                 | Descripción                                       | Rol requerido |
-| ------ | ------------------------ | ------------------------------------------------- | ------------- |
-| PATCH  | `/schools/me/contact`    | Editar teléfono y email propios (ambos opcionales) | escuela       |
+| Método | Endpoint                            | Descripción                       | Rol requerido |
+| ------ | ----------------------------------- | --------------------------------- | ------------- |
+| GET    | `/notifications`                    | Listar notificaciones             | admin/gestor  |
+| GET    | `/notifications/unread-count`       | Cantidad de no leídas             | admin/gestor  |
+| PUT    | `/notifications/{id}/read`          | Marcar como leída                 | admin/gestor  |
 
 ### Cómo autenticarse en Swagger
 
@@ -508,6 +720,28 @@ Catálogo administrable de tipos de comida (desayuno, almuerzo, merienda y los q
 2. Copiar el `access_token` de la respuesta
 3. Hacer clic en el botón **Authorize** (candado arriba a la derecha)
 4. Pegar el token como `Bearer <token>`
+
+---
+
+## Roles y permisos
+
+| Funcionalidad                                 | Administrador | Gestor | Escuela |
+| --------------------------------------------- | ------------- | ------ | ------- |
+| CRUD Usuarios                                 | ✅            | ❌     | ❌      |
+| CRUD Localidades                              | ✅            | ❌     | ❌      |
+| CRUD Ingredientes                             | ✅            | ❌     | ❌      |
+| CRUD Proveedores                              | ✅            | ❌     | ❌      |
+| Asignaciones proveedor × ingrediente × localidad | ✅          | ❌     | ❌      |
+| CRUD Recetas                                  | ✅            | ❌     | ❌      |
+| CRUD Tipos de comida                          | ✅            | ❌     | ❌      |
+| CRUD Temporadas y menú semanal                | ✅            | ❌     | ❌      |
+| CRUD Escuelas                                 | ✅            | ✅     | ❌      |
+| Generar pedidos                               | ✅            | ✅     | ❌      |
+| Ver historial de pedidos                      | ✅            | ✅     | ❌      |
+| Ver notificaciones                            | ✅            | ✅     | ❌      |
+| Ver / editar datos de escuela propia          | ❌            | ❌     | ✅      |
+| Cargar stock previo de escuela propia         | ❌            | ❌     | ✅      |
+| Ver pedidos de escuela propia                 | ❌            | ❌     | ✅      |
 
 ---
 
@@ -544,10 +778,16 @@ docker compose -f docker-compose.yml up -d --build
 
 ```bash
 # Levantar en desarrollo
-fastapi dev app/main.py
+uvicorn app.main:app --reload
 
-# Correr seed
+# Correr seed admin
 python seed.py
+
+# Cargar datos demo
+python seed_data.py
+
+# Correr tests
+python -m unittest discover -s tests
 
 # Ver qué dependencias están instaladas
 pip list
