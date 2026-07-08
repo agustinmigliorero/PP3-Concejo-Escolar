@@ -13,6 +13,7 @@ from app.routes import (
     localidad_routes,
     menu_routes,
     patio_routes,
+    notification_routes,
     pedido_routes,
     proveedor_routes,
     receta_routes,
@@ -30,6 +31,7 @@ import app.models.evento_model  # noqa: F401
 import app.models.ingrediente_model  # noqa: F401
 import app.models.patio_model  # noqa: F401
 import app.models.location_model  # noqa: F401
+import app.models.notification_model  # noqa: F401
 import app.models.pedido_model  # noqa: F401
 import app.models.proveedor_model  # noqa: F401
 import app.models.receta_model  # noqa: F401
@@ -117,6 +119,7 @@ app.include_router(pedido_routes.router)
 app.include_router(patio_routes.router)
 app.include_router(evento_routes.router)
 app.include_router(reporte_routes.router)
+app.include_router(notification_routes.router)
 
 
 @app.get("/")

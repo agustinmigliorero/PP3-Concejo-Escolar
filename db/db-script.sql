@@ -50,6 +50,21 @@ CREATE TABLE IF NOT EXISTS `providers` (
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS `notifications` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` BIGINT NOT NULL,
+    `type` VARCHAR(50) NOT NULL DEFAULT 'stock_cargado',
+    `message` VARCHAR(500) NOT NULL,
+    `escuela_id` BIGINT,
+    `escuela_nombre` VARCHAR(200),
+    `cargado_por_username` VARCHAR(100),
+    `read` BOOLEAN NOT NULL DEFAULT FALSE,
+    `read_at` TIMESTAMP NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`escuela_id`) REFERENCES `schools`(`id`) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS `refresh_tokens` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `user_id` BIGINT NOT NULL,
