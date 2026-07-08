@@ -24,7 +24,29 @@
       "Bash(docker compose *)",
       "Bash(git --no-pager diff -- docker-compose.yml)",
       "Bash(grep -niC1 \"subdomin\\\\|NEXT_PUBLIC_API_URL\\\\|REFRESH_COOKIE_SECURE\\\\|sae\\\\.\\\\|api\\\\.\\\\|https://\\\\|samesite\\\\|domain\" README.md backend/README.md frontend/README.md)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(python -m py_compile app/services/pedido_service.py app/models/pedido_model.py app/models/patio_model.py app/models/evento_model.py)",
+      "Bash(python -m py_compile app/controllers/patio_controller.py app/controllers/evento_controller.py app/services/patio_service.py app/services/evento_service.py app/routes/patio_routes.py app/routes/evento_routes.py app/models/patio_model.py app/models/evento_model.py)",
+      "Bash(python -c \"import fastapi, sqlalchemy; print\\('deps OK', fastapi.__version__\\)\")",
+      "Bash(python -m pip list)",
+      "Bash(python -m venv /c/Users/agust/AppData/Local/Temp/claude/C--Users-agust-OneDrive-Documentos-GitHub-PP3-Concejo-Escolar/25d01317-968f-42e2-8187-dcc24f31c242/scratchpad/venv)",
+      "Bash(/c/Users/agust/AppData/Local/Temp/claude/C--Users-agust-OneDrive-Documentos-GitHub-PP3-Concejo-Escolar/25d01317-968f-42e2-8187-dcc24f31c242/scratchpad/venv/Scripts/python.exe -m pip install --quiet --disable-pip-version-check -r C:/Users/agust/OneDrive/Documentos/GitHub/PP3-Concejo-Escolar/backend/requirements.txt)",
+      "Bash(/c/Users/agust/AppData/Local/Temp/claude/C--Users-agust-OneDrive-Documentos-GitHub-PP3-Concejo-Escolar/25d01317-968f-42e2-8187-dcc24f31c242/scratchpad/venv/Scripts/python.exe /c/Users/agust/AppData/Local/Temp/claude/C--Users-agust-OneDrive-Documentos-GitHub-PP3-Concejo-Escolar/25d01317-968f-42e2-8187-dcc24f31c242/scratchpad/smoke.py)",
+      "Bash(python3 -c \"import secrets; print\\(secrets.token_urlsafe\\(32\\)\\)\")",
+      "Bash(python -c \"import ast,sys; [ast.parse\\(open\\(f,encoding='utf-8'\\).read\\(\\),f\\) for f in ['app/services/reporte_service.py','app/controllers/reporte_controller.py','app/routes/reporte_routes.py','app/main.py']]; print\\('AST OK'\\)\")",
+      "Bash(python -c \"import app.services.reporte_service as r; import app.controllers.reporte_controller as c; import app.routes.reporte_routes as rt; print\\('IMPORT OK'\\); print\\([n for n in dir\\(r\\) if not n.startswith\\('__'\\)][:12]\\)\")",
+      "Bash(where python *)",
+      "Bash(where py *)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"=== TSC EXIT: $? ===\")",
+      "Bash(python -c \"import openpyxl; print\\(openpyxl.__version__\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import fastapi\")",
+      "Bash(python -m pip show fastapi)",
+      "Read(//c/Users/agust/AppData/Local/Temp/claude/C--Users-agust-OneDrive-Documentos-GitHub-PP3-Concejo-Escolar/f6eb3572-2143-444b-91ed-9660266b53ef/scratchpad/**)",
+      "Bash(python -c \"import openpyxl, reportlab; print\\('deps ok', openpyxl.__version__, reportlab.Version\\)\")",
+      "Bash(cd \"C:/Users/agust/.claude/projects/C--Users-agust-OneDrive-Documentos-GitHub-PP3-Concejo-Escolar/memory\")",
+      "Bash(cat MEMORY.md)"
     ]
   }
 }

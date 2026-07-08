@@ -14,3 +14,5 @@ from app.models.temporada_model import DiaMenu, NombreTemporada, OpcionMenu, Tem
 from app.models.user_model import User, UserRole
 from app.models.asignacion_proveedor_model import AsignacionProveedor
 from app.models.pedido_model import GeneracionPedido
+from app.models.patio_model import PatioMenu, PatioMenuReceta
+from app.models.evento_model import Evento, EventoReceta

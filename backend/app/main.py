@@ -8,12 +8,15 @@ from app.config.settings import settings
 from app.routes import (
     asignacion_proveedor_routes,
     auth_routes,
+    evento_routes,
     ingrediente_routes,
     localidad_routes,
     menu_routes,
+    patio_routes,
     pedido_routes,
     proveedor_routes,
     receta_routes,
+    reporte_routes,
     temporada_routes,
     tipo_comida_routes,
     stock_previo_routes,
@@ -23,7 +26,9 @@ from app.routes import (
 
 # Register models so SQLAlchemy creates their tables
 import app.models.asignacion_proveedor_model  # noqa: F401
+import app.models.evento_model  # noqa: F401
 import app.models.ingrediente_model  # noqa: F401
+import app.models.patio_model  # noqa: F401
 import app.models.location_model  # noqa: F401
 import app.models.pedido_model  # noqa: F401
 import app.models.proveedor_model  # noqa: F401
@@ -109,6 +114,9 @@ app.include_router(tipo_comida_routes.router)
 app.include_router(menu_routes.router)
 app.include_router(stock_previo_routes.router)
 app.include_router(pedido_routes.router)
+app.include_router(patio_routes.router)
+app.include_router(evento_routes.router)
+app.include_router(reporte_routes.router)
 
 
 @app.get("/")

@@ -86,6 +86,7 @@ export default function DashboardLayout({
           { href: "/dashboard/ingredientes", label: "Ingredientes", group: "Catálogos" },
           { href: "/dashboard/escuelas", label: "Escuelas", group: "Escuelas" },
           { href: "/dashboard/pedidos", label: "Pedidos", group: "Operación" },
+          { href: "/dashboard/reportes", label: "Reportes y estadísticas", group: "Operación" },
         ]
       : []),
     ...(user?.role === "escuela"
