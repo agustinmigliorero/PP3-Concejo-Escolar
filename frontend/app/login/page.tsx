@@ -4,6 +4,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiLogin, tryRefresh } from "@/lib/api";
 import { getAccessToken, setAccessToken as storeToken } from "@/lib/auth";
+import { PasswordInput } from "@/components/password-input";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -111,14 +112,12 @@ export default function LoginPage() {
               >
                 Contraseña
               </label>
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
+                value={password}
+                onChange={setPassword}
                 autoComplete="current-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm transition focus:border-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-100"
                 placeholder="********"
               />
             </div>

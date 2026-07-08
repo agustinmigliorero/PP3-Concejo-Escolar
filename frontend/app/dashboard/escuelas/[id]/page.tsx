@@ -34,9 +34,16 @@ function formatStockValue(value: string) {
   return String(Number(value));
 }
 
+function parseAsUTC(value: string): Date {
+  if (value.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(value)) {
+    return new Date(value);
+  }
+  return new Date(value + "Z");
+}
+
 function formatDate(value: string | null) {
   if (!value) return "Sin carga";
-  const date = new Date(value);
+  const date = parseAsUTC(value);
   if (Number.isNaN(date.getTime())) return "Sin carga";
   return new Intl.DateTimeFormat("es-AR", {
     dateStyle: "short",

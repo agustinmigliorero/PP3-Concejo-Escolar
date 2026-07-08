@@ -7,6 +7,7 @@ import { apiGetMe, apiLogout, tryRefresh, type UserInfo } from "@/lib/api";
 import { getAccessToken, onAuthExpired } from "@/lib/auth";
 import { ToastViewport } from "@/components/toast";
 import { ManualModal } from "@/components/manual-modal";
+import { NotificationBell } from "@/components/notification-bell";
 import { UserContext } from "./user-context";
 
 const ROLE_LABEL: Record<UserInfo["role"], string> = {
@@ -188,6 +189,9 @@ export default function DashboardLayout({
                 </h1>
               </div>
               <div className="flex items-center gap-3">
+                {(user?.role === "admin" || user?.role === "gestor") && (
+                  <NotificationBell />
+                )}
                 <button
                   type="button"
                   onClick={() => setManualOpen(true)}
