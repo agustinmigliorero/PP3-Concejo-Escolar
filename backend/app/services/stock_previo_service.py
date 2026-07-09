@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import HTTPException, status
@@ -158,14 +159,21 @@ def update_school_stock(
                 ingrediente_id=item.ingrediente_id,
                 cantidad=item.cantidad,
                 cargado_por_id=user.id,
+                cargado_at=datetime.now(timezone.utc),
             )
             db.add(stock)
-        else:
+        elif stock.cantidad != item.cantidad:
             stock.cantidad = item.cantidad
+            stock.cargado_at = datetime.now(timezone.utc)
             stock.cargado_por_id = user.id
 
     db.commit()
-    notification_service.create_stock_notification(db, school, user)
+
+    items_detail = [
+        {"nombre": ingredientes_by_id[item.ingrediente_id].nombre, "cantidad": str(item.cantidad)}
+        for item in data.items
+    ]
+    notification_service.create_stock_notification(db, school, user, items=items_detail)
     return _build_response(db, school)
 
 

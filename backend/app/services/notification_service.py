@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
@@ -26,8 +27,10 @@ def create_stock_notification(
     db: Session,
     escuela: School,
     cargado_por: User,
+    items: list[dict] | None = None,
 ) -> None:
     message = f"La escuela {escuela.name} cargó stock sobrante"
+    details = json.dumps(items) if items else None
     admin_gestor = (
         db.query(User)
         .filter(
@@ -45,6 +48,7 @@ def create_stock_notification(
             escuela_id=escuela.id,
             escuela_nombre=escuela.name,
             cargado_por_username=cargado_por.username,
+            details=details,
         )
         db.add(notif)
 
@@ -55,8 +59,13 @@ def create_matriculation_notification(
     db: Session,
     escuela: School,
     modificado_por: User,
+    old_matriculation: int | None = None,
 ) -> None:
     message = f"La escuela {escuela.name} actualizó su matrícula a {escuela.matriculation}"
+    details = json.dumps({
+        "old_value": old_matriculation,
+        "new_value": escuela.matriculation,
+    })
     admin_gestor = (
         db.query(User)
         .filter(
@@ -74,6 +83,7 @@ def create_matriculation_notification(
             escuela_id=escuela.id,
             escuela_nombre=escuela.name,
             cargado_por_username=modificado_por.username,
+            details=details,
         )
         db.add(notif)
 

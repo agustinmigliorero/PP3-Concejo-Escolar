@@ -27,6 +27,32 @@ function formatDateTime(value: string) {
   }).format(date);
 }
 
+function StockDetails({ details }: { details: Record<string, unknown>[] | undefined }) {
+  if (!details || details.length === 0) return null;
+  return (
+    <ul className="list-disc list-inside text-gray-600 space-y-0.5">
+      {details.map((item, i) => (
+        <li key={i}>
+          <span className="font-medium text-gray-800">{item.nombre as string}</span>{" "}
+          <span className="text-gray-500">{item.cantidad as string}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function MatriculationDetails({ details }: { details: Record<string, unknown> | undefined }) {
+  if (!details) return null;
+  return (
+    <p className="text-gray-600">
+      {details.old_value !== undefined && details.old_value !== null ? (
+        <>De <span className="line-through text-gray-400">{String(details.old_value)}</span> → </> 
+      ) : null}
+      <span className="font-medium text-gray-800">{String(details.new_value)}</span> alumnos
+    </p>
+  );
+}
+
 export default function HistorialPage() {
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,8 +112,14 @@ export default function HistorialPage() {
                       {TYPE_LABEL[n.type] ?? n.type}
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-gray-700 max-w-xs truncate">
-                    {n.message}
+                  <td className="px-5 py-3 text-gray-700 max-w-md">
+                    {n.type === "stock_cargado" ? (
+                      <StockDetails details={n.details as Record<string, unknown>[] | undefined} />
+                    ) : n.type === "matricula_actualizada" ? (
+                      <MatriculationDetails details={n.details as Record<string, unknown> | undefined} />
+                    ) : (
+                      <span className="truncate block">{n.message}</span>
+                    )}
                   </td>
                   <td className="px-5 py-3">
                     {n.escuela_id ? (

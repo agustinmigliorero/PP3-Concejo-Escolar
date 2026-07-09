@@ -19,6 +19,10 @@ from decimal import Decimal
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+import json
+
+from sqlalchemy import text
+
 from app.config.database import Base, SessionLocal, engine
 from app.config.security import hash_password
 import app.models  # noqa: F401
@@ -89,6 +93,15 @@ TARGET_SCHOOL_CODES: list[str] = [
 
 def seed() -> None:
     Base.metadata.create_all(bind=engine)
+
+    # Migracion: agrega columna details si no existe (SQLite no tiene IF NOT EXISTS)
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE notifications ADD COLUMN details TEXT"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
     db = SessionLocal()
     try:
         # --- Crea usuario escuela para las pruebas de stock ---
@@ -153,11 +166,17 @@ def seed() -> None:
                         ingrediente_id=ingrediente.id,
                         cantidad=cantidad,
                         cargado_por_id=cargado_por.id,
+                        cargado_at=datetime.now(timezone.utc),
                     )
                     db.add(stock)
                     stock_count += 1
 
-            # Notificacion para admin y gestor
+            # Notificacion para admin y gestor con detalle de ingredientes
+            items_detail = [
+                {"nombre": nombre, "cantidad": cantidad_str}
+                for nombre, cantidad_str in STOCK_VALUES.items()
+                if nombre in ingredientes
+            ]
             admin_gestor = (
                 db.query(User)
                 .filter(
@@ -174,6 +193,7 @@ def seed() -> None:
                     escuela_id=school.id,
                     escuela_nombre=school.name,
                     cargado_por_username=cargado_por.username,
+                    details=json.dumps(items_detail),
                 )
                 db.add(notif)
                 notif_count += 1

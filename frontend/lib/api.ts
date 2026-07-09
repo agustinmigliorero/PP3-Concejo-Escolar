@@ -730,6 +730,7 @@ export interface NotificationRecord {
   escuela_id: number | null;
   escuela_nombre: string | null;
   cargado_por_username: string | null;
+  details: unknown;
   read: boolean;
   created_at: string;
 }
@@ -1073,6 +1074,180 @@ export async function apiDownloadPedidoExport(
   const path = `${basePath}${query ? `?${query}` : ""}`;
   const res = await apiFetch(path);
   if (!res.ok) throw await buildApiError(res, "Error al descargar el pedido");
+  return res.blob();
+}
+
+// ── Reportes y estadísticas (admin + gestor) ─────────────────────────────────
+
+export type ReportePedidoTipo = "" | "REGULAR" | "PATIO" | "EVENTO";
+
+export interface ReporteResumenRow {
+  ingrediente_id: number | null;
+  ingrediente_nombre: string;
+  unidad: string;
+  contenido_por_unidad?: string | null;
+  unidad_contenido?: string | null;
+  localidad_id: number | null;
+  localidad_nombre: string;
+  proveedor_id: number | null;
+  proveedor_nombre: string;
+  cantidad_total: string;
+  cantidad_contenido_total?: string | null;
+  precio_promedio: string;
+  costo_total: string;
+}
+
+export interface MontoLocalidad {
+  localidad_id: number | null;
+  localidad_nombre: string;
+  costo_total: string;
+  porcentaje: number;
+}
+
+export interface MontoProveedor {
+  proveedor_id: number | null;
+  proveedor_nombre: string;
+  localidades: string;
+  costo_total: string;
+  porcentaje: number;
+}
+
+export interface MontoEscuela {
+  escuela_id: number | null;
+  codigo: string;
+  nombre: string;
+  localidad_nombre: string;
+  costo_total: string;
+  porcentaje: number;
+}
+
+export interface MontoIngrediente {
+  ingrediente_id: number | null;
+  ingrediente_nombre: string;
+  costo_total: string;
+  porcentaje: number;
+}
+
+export interface MontoTipo {
+  tipo: string;
+  tipo_label: string;
+  num_pedidos: number;
+  costo_total: string;
+  porcentaje: number;
+}
+
+export interface PedidoIncluido {
+  id: number;
+  fecha: string;
+  tipo: string;
+  tipo_label: string;
+  detalle: string;
+  costo_total: string;
+}
+
+export interface ReporteMensual {
+  anio: number;
+  mes: number;
+  etiqueta: string;
+  tipo: string | null;
+  num_pedidos: number;
+  costo_total: string;
+  resumen: ReporteResumenRow[];
+  por_proveedor: MontoProveedor[];
+  por_localidad: MontoLocalidad[];
+  por_escuela: MontoEscuela[];
+  por_tipo: MontoTipo[];
+  pedidos: PedidoIncluido[];
+}
+
+export interface MesDisponible {
+  anio: number;
+  mes: number;
+  etiqueta: string;
+  num_pedidos: number;
+  costo_total: string;
+}
+
+export interface TendenciaPunto {
+  anio: number;
+  mes: number;
+  etiqueta: string;
+  costo_total: string;
+  num_pedidos: number;
+}
+
+export interface EstadisticasTotales {
+  costo_total: string;
+  num_pedidos: number;
+  num_escuelas: number;
+  num_proveedores: number;
+  num_localidades: number;
+  costo_promedio_pedido: string;
+  mes_pico_etiqueta: string | null;
+  mes_pico_costo: string | null;
+}
+
+export interface Estadisticas {
+  anio: number | null;
+  tipo: string | null;
+  anios: number[];
+  totales: EstadisticasTotales;
+  tendencia: TendenciaPunto[];
+  por_localidad: MontoLocalidad[];
+  por_proveedor: MontoProveedor[];
+  top_ingredientes: MontoIngrediente[];
+  por_tipo: MontoTipo[];
+}
+
+function tipoQuery(tipo?: ReportePedidoTipo): string {
+  return tipo ? `tipo=${tipo}` : "";
+}
+
+export async function apiGetReporteMeses(
+  tipo?: ReportePedidoTipo,
+): Promise<MesDisponible[]> {
+  const query = tipoQuery(tipo);
+  const res = await apiFetch(`/reportes/meses${query ? `?${query}` : ""}`);
+  if (!res.ok) throw await buildApiError(res, "Error al obtener los meses disponibles");
+  return res.json();
+}
+
+export async function apiGetReporteMensual(
+  anio: number,
+  mes: number,
+  tipo?: ReportePedidoTipo,
+): Promise<ReporteMensual> {
+  const params = new URLSearchParams({ anio: String(anio), mes: String(mes) });
+  if (tipo) params.set("tipo", tipo);
+  const res = await apiFetch(`/reportes/mensual?${params.toString()}`);
+  if (!res.ok) throw await buildApiError(res, "Error al obtener el reporte mensual");
+  return res.json();
+}
+
+export async function apiGetEstadisticas(
+  anio?: number | null,
+  tipo?: ReportePedidoTipo,
+): Promise<Estadisticas> {
+  const params = new URLSearchParams();
+  if (anio != null) params.set("anio", String(anio));
+  if (tipo) params.set("tipo", tipo);
+  const query = params.toString();
+  const res = await apiFetch(`/reportes/estadisticas${query ? `?${query}` : ""}`);
+  if (!res.ok) throw await buildApiError(res, "Error al obtener las estadísticas");
+  return res.json();
+}
+
+export async function apiDownloadReporteMensual(
+  anio: number,
+  mes: number,
+  format: "pdf" | "excel",
+  tipo?: ReportePedidoTipo,
+): Promise<Blob> {
+  const endpoint = format === "pdf" ? "pdf" : "excel";
+  const params = new URLSearchParams({ anio: String(anio), mes: String(mes) });
+  if (tipo) params.set("tipo", tipo);
+  const res = await apiFetch(`/reportes/mensual/export/${endpoint}?${params.toString()}`);
+  if (!res.ok) throw await buildApiError(res, "Error al descargar el reporte mensual");
   return res.blob();
 }
 

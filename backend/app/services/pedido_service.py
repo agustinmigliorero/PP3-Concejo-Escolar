@@ -4,6 +4,7 @@ import zipfile
 from io import BytesIO
 from datetime import date
 from decimal import Decimal, ROUND_CEILING
+from typing import NamedTuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, selectinload
@@ -16,6 +17,25 @@ from app.models.school_model import School
 from app.models.stock_previo_model import StockPrevio
 from app.models.temporada_model import DiaMenu, OpcionMenu
 from app.models.user_model import User, UserRole
+
+
+class DemandaReceta(NamedTuple):
+    receta: Receta
+    porciones: Decimal
+
+
+class DemandaEscuela(NamedTuple):
+    """Demanda de una escuela: cuantas porciones lleva cada receta.
+
+    Es la unidad de entrada del motor de calculo, independiente del origen
+    (menu semanal, patios o evento). `comensales` es el numero base de raciones
+    de la escuela (matricula en REGULAR, asistentes en PATIO/EVENTO) y se usa
+    solo para informar en el snapshot.
+    """
+
+    school: School
+    comensales: int
+    items: list[DemandaReceta]
 
 
 def _dec(value: Decimal | int | str) -> Decimal:
@@ -159,42 +179,47 @@ def _format_option(opcion: OpcionMenu) -> dict:
     }
 
 
-def build_preview_snapshot(
-    db: Session,
-    data: PreviewPedidoRequest | ConfirmPedidoRequest,
-) -> dict:
-    dias_habiles = _validate_dias(data.dias_habiles)
-    opcion = _load_opcion(db, data.opcion_menu_id)
-    menu_rows = _load_menu_rows(db, data.opcion_menu_id, dias_habiles)
-    schools = (
-        db.query(School)
-        .options(selectinload(School.tipos_comida))
-        .filter(School.active == True)
-        .order_by(School.name)
-        .all()
-    )
-    if not schools:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No hay escuelas activas")
+def _titulo(snapshot: dict) -> str:
+    """Titulo del pedido para encabezados de exportacion. REGULAR lleva la
+    opcion de menu; PATIO/EVENTO llevan su propio titulo en el snapshot."""
+    titulo = snapshot.get("titulo")
+    if titulo:
+        return str(titulo)
+    option = snapshot.get("opcion_menu") or {}
+    return f"Opcion {option.get('numero_opcion', '')}"
 
-    stock_by_key = _stock_map(db, data.stock_overrides)
-    provider_reference_date = data.semana_inicio
+
+def build_snapshot_from_demandas(
+    db: Session,
+    *,
+    demandas: list[DemandaEscuela],
+    stock_overrides,
+    provider_reference_date: date,
+    header: dict,
+) -> dict:
+    """Motor comun de calculo de pedidos.
+
+    Recibe la demanda ya resuelta (por escuela: recetas y porciones) y produce
+    el snapshot con cantidades corregidas, descuento de stock, asignacion de
+    proveedor por localidad, agrupaciones y costos. Lo usan por igual el pedido
+    semanal (REGULAR), los patios (PATIO) y los eventos (EVENTO): solo cambia
+    quien arma `demandas` y el `header`.
+    """
+    stock_by_key = _stock_map(db, stock_overrides)
     advertencias: list[dict] = []
     escuelas_snapshot: list[dict] = []
     provider_groups: dict[str, dict] = {}
     global_rows: dict[str, dict] = {}
 
-    for school in schools:
+    for demanda in demandas:
+        school = demanda.school
         base_by_ingredient: dict[int, dict] = {}
-        offered_tipo_ids = {tipo.id for tipo in school.tipos_comida}
 
-        for row in menu_rows:
-            if row.tipo_comida_id not in offered_tipo_ids:
+        for receta, porciones in demanda.items:
+            if receta is None or not receta.activo:
                 continue
 
-            if not row.receta or not row.receta.activo:
-                continue
-
-            for recipe_item in row.receta.ingredientes:
+            for recipe_item in receta.ingredientes:
                 ingredient = recipe_item.ingrediente
                 if ingredient is None or not ingredient.activo:
                     continue
@@ -206,7 +231,7 @@ def build_preview_snapshot(
                         "cantidad_base": Decimal("0"),
                     },
                 )
-                entry["cantidad_base"] += _dec(recipe_item.cantidad_por_porcion) * _dec(school.matriculation)
+                entry["cantidad_base"] += _dec(recipe_item.cantidad_por_porcion) * _dec(porciones)
 
         school_items = []
         for ingredient_id, entry in sorted(
@@ -368,6 +393,7 @@ def build_preview_snapshot(
                 "localidad_id": school.locality_id,
                 "localidad_nombre": school.locality.nombre if school.locality else "",
                 "matricula": school.matriculation,
+                "comensales": int(demanda.comensales),
                 "ingredientes": school_items,
             }
         )
@@ -416,9 +442,7 @@ def build_preview_snapshot(
         )
 
     return {
-        "semana_inicio": data.semana_inicio.isoformat(),
-        "dias_habiles": dias_habiles,
-        "opcion_menu": _format_option(opcion),
+        **header,
         "fecha_referencia_proveedores": provider_reference_date.isoformat(),
         "escuelas": escuelas_snapshot,
         "proveedores": proveedores,
@@ -428,6 +452,128 @@ def build_preview_snapshot(
     }
 
 
+def validate_recetas_exist(db: Session, receta_ids: list[int]) -> None:
+    """Valida (sin cargar ingredientes) que existan las recetas indicadas.
+    Se usa al definir un menu de patios o un evento."""
+    if not receta_ids:
+        return
+    encontradas = {
+        receta_id
+        for (receta_id,) in db.query(Receta.id).filter(Receta.id.in_(receta_ids)).all()
+    }
+    faltantes = [receta_id for receta_id in receta_ids if receta_id not in encontradas]
+    if faltantes:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Una o mas recetas no existen")
+
+
+def load_recetas_con_ingredientes(
+    db: Session,
+    receta_ids: list[int],
+    *,
+    require_active: bool = True,
+) -> list[Receta]:
+    """Carga recetas (con sus ingredientes) para armar la demanda de un menu
+    especial. Usado por patios y eventos."""
+    unique_ids = list(dict.fromkeys(receta_ids))
+    if not unique_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El menu no tiene recetas cargadas",
+        )
+    recetas = (
+        db.query(Receta)
+        .options(
+            selectinload(Receta.ingredientes).joinedload(RecetaIngrediente.ingrediente)
+        )
+        .filter(Receta.id.in_(unique_ids))
+        .all()
+    )
+    found = {receta.id: receta for receta in recetas}
+    missing = [receta_id for receta_id in unique_ids if receta_id not in found]
+    if missing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Una o mas recetas no existen")
+    if require_active:
+        inactivas = [receta.nombre for receta in recetas if not receta.activo]
+        if inactivas:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Hay recetas inactivas en el menu: {', '.join(inactivas)}",
+            )
+    return [found[receta_id] for receta_id in unique_ids]
+
+
+def load_active_schools(db: Session) -> list[School]:
+    schools = (
+        db.query(School)
+        .options(selectinload(School.tipos_comida))
+        .filter(School.active == True)
+        .order_by(School.name)
+        .all()
+    )
+    if not schools:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No hay escuelas activas")
+    return schools
+
+
+def demandas_por_comensales(
+    schools: list[School],
+    recetas: list[Receta],
+    comensales_by_school: dict[int, int],
+) -> list[DemandaEscuela]:
+    """Demanda para PATIO/EVENTO: cada escuela que participa lleva todas las
+    recetas del menu especial, con porciones = comensales cargados a mano."""
+    demandas: list[DemandaEscuela] = []
+    for school in schools:
+        comensales = comensales_by_school.get(school.id, 0)
+        if comensales <= 0:
+            continue
+        items = [DemandaReceta(receta, _dec(comensales)) for receta in recetas]
+        demandas.append(DemandaEscuela(school, comensales, items))
+    if not demandas:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debe cargarse la cantidad de comensales de al menos una escuela",
+        )
+    return demandas
+
+
+def build_preview_snapshot(
+    db: Session,
+    data: PreviewPedidoRequest | ConfirmPedidoRequest,
+) -> dict:
+    """Orquestador del pedido semanal REGULAR: arma la demanda a partir de la
+    opcion de menu y la matricula de cada escuela, y delega en el motor comun."""
+    dias_habiles = _validate_dias(data.dias_habiles)
+    opcion = _load_opcion(db, data.opcion_menu_id)
+    menu_rows = _load_menu_rows(db, data.opcion_menu_id, dias_habiles)
+    schools = load_active_schools(db)
+
+    demandas: list[DemandaEscuela] = []
+    for school in schools:
+        offered_tipo_ids = {tipo.id for tipo in school.tipos_comida}
+        items = [
+            DemandaReceta(row.receta, _dec(school.matriculation))
+            for row in menu_rows
+            if row.tipo_comida_id in offered_tipo_ids
+        ]
+        demandas.append(DemandaEscuela(school, school.matriculation, items))
+
+    header = {
+        "tipo": "REGULAR",
+        "titulo": f"Opcion {opcion.numero_opcion}",
+        "semana_inicio": data.semana_inicio.isoformat(),
+        "dias_habiles": dias_habiles,
+        "opcion_menu": _format_option(opcion),
+    }
+    return build_snapshot_from_demandas(
+        db,
+        demandas=demandas,
+        stock_overrides=data.stock_overrides,
+        provider_reference_date=data.semana_inicio,
+        header=header,
+    )
+
+
 def preview_pedido(db: Session, data: PreviewPedidoRequest) -> dict:
     return build_preview_snapshot(db, data)
 
@@ -435,7 +581,10 @@ def preview_pedido(db: Session, data: PreviewPedidoRequest) -> dict:
 def get_existing_pedido_by_week(db: Session, semana_inicio: date) -> GeneracionPedido | None:
     return (
         db.query(GeneracionPedido)
-        .filter(GeneracionPedido.semana_inicio == semana_inicio)
+        .filter(
+            GeneracionPedido.semana_inicio == semana_inicio,
+            GeneracionPedido.tipo == "REGULAR",
+        )
         .order_by(GeneracionPedido.id.desc())
         .first()
     )
@@ -448,6 +597,7 @@ def confirm_pedido(db: Session, data: ConfirmPedidoRequest, user: User) -> Gener
 
     snapshot = build_preview_snapshot(db, data)
     pedido = GeneracionPedido(
+        tipo="REGULAR",
         semana_inicio=data.semana_inicio,
         opcion_menu_id=data.opcion_menu_id,
         dias_habiles=json.dumps(snapshot["dias_habiles"]),
@@ -469,12 +619,43 @@ def confirm_pedido(db: Session, data: ConfirmPedidoRequest, user: User) -> Gener
     return pedido
 
 
-def list_pedidos(db: Session) -> list[GeneracionPedido]:
-    return (
-        db.query(GeneracionPedido)
-        .order_by(GeneracionPedido.semana_inicio.desc(), GeneracionPedido.id.desc())
-        .all()
+def persist_special_pedido(
+    db: Session,
+    *,
+    tipo: str,
+    semana_inicio: date,
+    snapshot: dict,
+    user: User,
+    notas: str | None,
+    opcion_menu_id: int | None = None,
+    evento_id: int | None = None,
+) -> GeneracionPedido:
+    """Persiste un pedido PATIO/EVENTO. No resetea el stock previo del comedor
+    regular: los comensales son ad-hoc y el stock_override es solo para este
+    calculo."""
+    pedido = GeneracionPedido(
+        tipo=tipo,
+        semana_inicio=semana_inicio,
+        opcion_menu_id=opcion_menu_id,
+        evento_id=evento_id,
+        dias_habiles=json.dumps(snapshot.get("dias_habiles", [])),
+        generado_por_id=user.id,
+        notas=notas,
+        datos_snapshot=snapshot,
     )
+    db.add(pedido)
+    db.commit()
+    db.refresh(pedido)
+    return pedido
+
+
+def list_pedidos(db: Session, tipo: str | None = None) -> list[GeneracionPedido]:
+    query = db.query(GeneracionPedido)
+    if tipo is not None:
+        query = query.filter(GeneracionPedido.tipo == tipo)
+    return query.order_by(
+        GeneracionPedido.semana_inicio.desc(), GeneracionPedido.id.desc()
+    ).all()
 
 
 def _snapshot_has_school(snapshot: dict, school_id: int | None) -> bool:
@@ -483,8 +664,10 @@ def _snapshot_has_school(snapshot: dict, school_id: int | None) -> bool:
     return any(school.get("escuela_id") == school_id for school in snapshot.get("escuelas", []))
 
 
-def list_pedidos_for_user(db: Session, user: User) -> list[GeneracionPedido]:
-    pedidos = list_pedidos(db)
+def list_pedidos_for_user(
+    db: Session, user: User, tipo: str | None = None
+) -> list[GeneracionPedido]:
+    pedidos = list_pedidos(db, tipo=tipo)
     if user.role in (UserRole.admin, UserRole.gestor):
         return pedidos
     if user.role == UserRole.escuela:
@@ -808,8 +991,7 @@ def export_resumen_excel(
     sheet.append(["RESUMEN SEMANAL SAE"])
     sheet.append(["Semana", snapshot.get("semana_inicio", "")])
     sheet.append(["Dias habiles", ", ".join(str(d) for d in snapshot.get("dias_habiles", []))])
-    option = snapshot.get("opcion_menu", {})
-    sheet.append(["Menu", f"Opcion {option.get('numero_opcion', '')}"])
+    sheet.append(["Menu", _titulo(snapshot)])
     sheet.append(["Costo total", snapshot.get("costo_total", "")])
     sheet.append([])
     sheet.append(["Ingrediente", "Unidad", "Localidad", "Cantidad total", "Proveedor", "Precio unit.", "Costo total"])
@@ -879,11 +1061,10 @@ def export_resumen_pdf(
         bottomMargin=24,
     )
     styles = getSampleStyleSheet()
-    option = snapshot.get("opcion_menu", {})
     story = [
         Paragraph("RESUMEN SEMANAL SAE", styles["Title"]),
         Paragraph(f"Semana: {snapshot.get('semana_inicio', '')}", styles["Normal"]),
-        Paragraph(f"Menu: Opcion {option.get('numero_opcion', '')}", styles["Normal"]),
+        Paragraph(f"Menu: {_titulo(snapshot)}", styles["Normal"]),
         Paragraph(f"Costo total semanal: {snapshot.get('costo_total', '')}", styles["Normal"]),
         Spacer(1, 12),
     ]
@@ -1300,8 +1481,7 @@ def export_pedido_excel(pedido: GeneracionPedido, user: User) -> BytesIO:
     summary.title = "Resumen"
     summary.append(["Semana", snapshot.get("semana_inicio", "")])
     summary.append(["Dias habiles", ", ".join(str(d) for d in snapshot.get("dias_habiles", []))])
-    option = snapshot.get("opcion_menu", {})
-    summary.append(["Menu", f"Opcion {option.get('numero_opcion', '')}"])
+    summary.append(["Menu", _titulo(snapshot)])
     summary.append(["Costo total", snapshot.get("costo_total", "")])
     summary.append([])
     summary.append(["Ingrediente", "Unidad", "Localidad", "Proveedor", "Precio unit.", "Cantidad", "Costo"])
