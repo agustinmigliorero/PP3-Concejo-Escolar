@@ -88,6 +88,11 @@ def _build_response(db: Session, school: School) -> StockPrevioSchoolResponse:
                     if ingrediente.id in stock_by_ingrediente
                     else Decimal("0")
                 ),
+                previous_cantidad=(
+                    stock_by_ingrediente[ingrediente.id].previous_cantidad
+                    if ingrediente.id in stock_by_ingrediente
+                    else None
+                ),
                 cargado_at=(
                     stock_by_ingrediente[ingrediente.id].cargado_at
                     if ingrediente.id in stock_by_ingrediente
@@ -158,11 +163,13 @@ def update_school_stock(
                 escuela_id=school.id,
                 ingrediente_id=item.ingrediente_id,
                 cantidad=item.cantidad,
+                previous_cantidad=Decimal("0"),
                 cargado_por_id=user.id,
                 cargado_at=datetime.now(timezone.utc),
             )
             db.add(stock)
         elif stock.cantidad != item.cantidad:
+            stock.previous_cantidad = stock.cantidad
             stock.cantidad = item.cantidad
             stock.cargado_at = datetime.now(timezone.utc)
             stock.cargado_por_id = user.id

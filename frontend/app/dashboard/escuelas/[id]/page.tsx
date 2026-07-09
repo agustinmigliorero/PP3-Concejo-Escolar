@@ -51,13 +51,6 @@ function formatDate(value: string | null) {
   }).format(date);
 }
 
-function isRecent(value: string | null): boolean {
-  if (!value) return false;
-  const date = parseAsUTC(value);
-  if (Number.isNaN(date.getTime())) return false;
-  return Date.now() - date.getTime() < 24 * 60 * 60 * 1000;
-}
-
 export default function EscuelaDetallePage() {
   const params = useParams<{ id: string }>();
   const { user } = useUser();
@@ -316,7 +309,7 @@ export default function EscuelaDetallePage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                   {stockItems.map((item) => {
-                    const recent = canManage && isRecent(item.cargado_at) && Number(stockDraft[item.ingrediente_id] ?? "0") > 0;
+                    const recent = canManage && Number(stockDraft[item.ingrediente_id] ?? "0") > 0 && (!item.previous_cantidad || Number(item.previous_cantidad) === 0);
                     return (
                     <tr key={item.ingrediente_id} className={recent ? "bg-amber-50/60" : ""}>
                     <td className="px-4 py-3 text-gray-800 font-medium">

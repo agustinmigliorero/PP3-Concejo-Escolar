@@ -25,6 +25,7 @@ class StockPrevioResponse(BaseModel):
     ingrediente_nombre: str
     unidad_medida: str
     cantidad: Decimal
+    previous_cantidad: Decimal | None = None
     cargado_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)

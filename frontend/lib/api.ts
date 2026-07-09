@@ -413,6 +413,7 @@ export interface StockPrevioItem {
   ingrediente_nombre: string;
   unidad_medida: string;
   cantidad: string;
+  previous_cantidad: string | null;
   cargado_at: string | null;
 }
 
