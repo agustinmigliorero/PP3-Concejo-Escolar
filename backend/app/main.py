@@ -14,6 +14,7 @@ from app.routes import (
     menu_routes,
     patio_routes,
     notification_routes,
+    notification_routes,
     pedido_routes,
     proveedor_routes,
     receta_routes,
@@ -119,6 +120,7 @@ app.include_router(pedido_routes.router)
 app.include_router(patio_routes.router)
 app.include_router(evento_routes.router)
 app.include_router(reporte_routes.router)
+app.include_router(notification_routes.router)
 app.include_router(notification_routes.router)
 
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -15,6 +15,7 @@ class Notification(Base):
     escuela_id = Column(Integer, ForeignKey("schools.id"), nullable=True)
     escuela_nombre = Column(String(200), nullable=True)
     cargado_por_username = Column(String(100), nullable=True)
+    details = Column(Text, nullable=True)
     read = Column(Boolean, default=False)
     read_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

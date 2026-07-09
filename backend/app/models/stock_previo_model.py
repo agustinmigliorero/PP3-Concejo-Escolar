@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, UniqueConstraint
 from sqlalchemy.orm import relationship
 
@@ -17,7 +15,7 @@ class StockPrevio(Base):
     ingrediente_id = Column(Integer, ForeignKey("ingredientes.id"), nullable=False, index=True)
     cantidad = Column(Numeric(12, 2), nullable=False, default=0)
     cargado_por_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    cargado_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    cargado_at = Column(DateTime(timezone=True), nullable=True)
 
     escuela = relationship("School")
     ingrediente = relationship("Ingrediente")

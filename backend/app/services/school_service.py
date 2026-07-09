@@ -97,9 +97,10 @@ def update_school_matriculation_for_user(
     matriculation: int,
 ) -> dict:
     school = _get_own_active_school(db, user)
+    old_matriculation = school.matriculation
     school.matriculation = matriculation
     db.commit()
-    notification_service.create_matriculation_notification(db, school, user)
+    notification_service.create_matriculation_notification(db, school, user, old_matriculation=old_matriculation)
     db.refresh(school)
     return _school_to_response(school)
 

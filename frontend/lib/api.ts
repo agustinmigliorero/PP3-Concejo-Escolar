@@ -730,6 +730,7 @@ export interface NotificationRecord {
   escuela_id: number | null;
   escuela_nombre: string | null;
   cargado_por_username: string | null;
+  details: unknown;
   read: boolean;
   created_at: string;
 }
