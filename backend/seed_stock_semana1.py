@@ -113,39 +113,46 @@ def seed() -> None:
 
         for school in schools:
             items_detail = []
-            for nombre, cantidad_str in SEMANA1_STOCK.items():
-                ingrediente = ingredientes.get(nombre)
-                if ingrediente is None:
-                    continue
-
-                existing = (
-                    db.query(StockPrevio)
-                    .filter(
-                        StockPrevio.escuela_id == school.id,
-                        StockPrevio.ingrediente_id == ingrediente.id,
-                    )
-                    .first()
-                )
-
+            all_ingredientes = db.query(Ingrediente).filter(Ingrediente.activo == True).order_by(Ingrediente.nombre).all()
+            for ingrediente in all_ingredientes:
+                nombre = ingrediente.nombre
+                is_loaded = nombre in SEMANA1_STOCK
+                cantidad_str = SEMANA1_STOCK.get(nombre, "0")
                 cantidad = Decimal(cantidad_str)
-                if existing:
-                    existing.previous_cantidad = existing.cantidad
-                    existing.cantidad = cantidad
-                    existing.cargado_por_id = usuario1.id
-                    existing.cargado_at = SEVEN_DAYS_AGO
-                else:
-                    stock = StockPrevio(
-                        escuela_id=school.id,
-                        ingrediente_id=ingrediente.id,
-                        cantidad=cantidad,
-                        previous_cantidad=Decimal("0"),
-                        cargado_por_id=usuario1.id,
-                        cargado_at=SEVEN_DAYS_AGO,
-                    )
-                    db.add(stock)
-                    stock_count += 1
 
-                items_detail.append({"nombre": nombre, "cantidad": cantidad_str})
+                if is_loaded:
+                    existing = (
+                        db.query(StockPrevio)
+                        .filter(
+                            StockPrevio.escuela_id == school.id,
+                            StockPrevio.ingrediente_id == ingrediente.id,
+                        )
+                        .first()
+                    )
+                    if existing:
+                        existing.previous_cantidad = Decimal("0")
+                        existing.cantidad = cantidad
+                        existing.cargado_por_id = usuario1.id
+                        existing.cargado_at = SEVEN_DAYS_AGO
+                    else:
+                        stock = StockPrevio(
+                            escuela_id=school.id,
+                            ingrediente_id=ingrediente.id,
+                            cantidad=cantidad,
+                            previous_cantidad=Decimal("0"),
+                            cargado_por_id=usuario1.id,
+                            cargado_at=SEVEN_DAYS_AGO,
+                        )
+                        db.add(stock)
+                        stock_count += 1
+
+                items_detail.append({
+                    "nombre": nombre,
+                    "unidad_medida": ingrediente.unidad_medida,
+                    "cantidad": cantidad_str if is_loaded else "0",
+                    "cantidad_anterior": "0",
+                    "actualizado": is_loaded,
+                })
 
             admin_gestor = (
                 db.query(User)
@@ -168,13 +175,14 @@ def seed() -> None:
         db.commit()
         print(f"[semana1] Stock de la semana 1 sembrado.")
         print(f"[semana1] Escuela: {schools[0].name}")
-        print(f"[semana1] Ingredientes: {len(SEMANA1_STOCK)}")
+        print(f"[semana1] Ingredientes totales: {len(items_detail)} (cargados: {len(SEMANA1_STOCK)})")
         print(f"[semana1] Registros nuevos: {stock_count}")
         print(f"[semana1] Notificaciones: {notif_count}")
         print(f"[semana1] Fecha de carga: {SEVEN_DAYS_AGO.strftime('%d/%m/%Y %H:%M')} (hace 7 dias)")
         print()
-        print("Carga inicial: todos los ingredientes tienen previous_cantidad = 0.")
-        print("Todos mostraran NUEVO en el frontend.")
+        print("Carga inicial: todos los ingredientes aparecen en la notificacion.")
+        print("Los cargados muestran cantidad_anterior = 0 y actualizado = true.")
+        print("Los no cargados muestran cantidad = 0 y actualizado = false.")
 
     except Exception:
         db.rollback()

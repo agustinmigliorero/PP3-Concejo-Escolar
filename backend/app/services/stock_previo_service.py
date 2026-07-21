@@ -136,6 +136,7 @@ def update_school_stock(
         else []
     )
     ingredientes_by_id = {ingrediente.id: ingrediente for ingrediente in ingredientes}
+    prev_cantidades: dict[int, str] = {}
 
     for item in data.items:
         ingrediente = ingredientes_by_id.get(item.ingrediente_id)
@@ -168,18 +169,47 @@ def update_school_stock(
                 cargado_at=datetime.now(timezone.utc),
             )
             db.add(stock)
-        elif stock.cantidad != item.cantidad:
-            stock.previous_cantidad = stock.cantidad
-            stock.cantidad = item.cantidad
-            stock.cargado_at = datetime.now(timezone.utc)
-            stock.cargado_por_id = user.id
+            prev_cantidades[item.ingrediente_id] = "0"
+        else:
+            prev_cantidades[item.ingrediente_id] = str(stock.cantidad)
+            if stock.cantidad != item.cantidad:
+                stock.previous_cantidad = stock.cantidad
+                stock.cantidad = item.cantidad
+                stock.cargado_at = datetime.now(timezone.utc)
+                stock.cargado_por_id = user.id
 
     db.commit()
 
-    items_detail = [
-        {"nombre": ingredientes_by_id[item.ingrediente_id].nombre, "cantidad": str(item.cantidad)}
-        for item in data.items
-    ]
+    all_ingredientes = _get_active_ingredientes(db)
+    all_stock_rows = (
+        db.query(StockPrevio)
+        .filter(StockPrevio.escuela_id == school.id)
+        .all()
+    )
+    stock_map = {row.ingrediente_id: row for row in all_stock_rows}
+    updated_items = {item.ingrediente_id: item for item in data.items}
+
+    items_detail = []
+    for ingrediente in all_ingredientes:
+        if ingrediente.id in prev_cantidades:
+            new_val = str(updated_items[ingrediente.id].cantidad)
+            old_val = prev_cantidades[ingrediente.id]
+            was_updated = True
+        else:
+            stock_row = stock_map.get(ingrediente.id)
+            val = str(stock_row.cantidad) if stock_row else "0"
+            new_val = val
+            old_val = val
+            was_updated = False
+
+        items_detail.append({
+            "nombre": ingrediente.nombre,
+            "unidad_medida": ingrediente.unidad_medida,
+            "cantidad": new_val,
+            "cantidad_anterior": old_val,
+            "actualizado": was_updated,
+        })
+
     notification_service.create_stock_notification(db, school, user, items=items_detail)
     return _build_response(db, school)
 

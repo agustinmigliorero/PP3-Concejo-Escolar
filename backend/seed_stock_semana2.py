@@ -94,7 +94,8 @@ def seed() -> None:
         notif_count = 0
 
         for school in schools:
-            changed_items = []
+            changed_names: set[str] = set()
+            new_values: dict[str, str] = {}
 
             # --- Consumidos (semana 1 → 0) ---
             for nombre in CONSUMED:
@@ -118,7 +119,8 @@ def seed() -> None:
                 stock.cargado_por_id = usuario1.id
                 stock.cargado_at = datetime.now(timezone.utc)
                 stock_updates += 1
-                changed_items.append({"nombre": nombre, "cantidad": "0"})
+                changed_names.add(nombre)
+                new_values[nombre] = "0"
 
             # --- Recargados (semana 1 → nuevo valor) ---
             for nombre, cantidad_str in RELOADED.items():
@@ -142,7 +144,8 @@ def seed() -> None:
                 stock.cargado_por_id = usuario1.id
                 stock.cargado_at = datetime.now(timezone.utc)
                 stock_updates += 1
-                changed_items.append({"nombre": nombre, "cantidad": cantidad_str})
+                changed_names.add(nombre)
+                new_values[nombre] = cantidad_str
 
             # --- Nuevos (no existian en semana 1) ---
             for nombre, cantidad_str in NEW_INGREDIENTS.items():
@@ -177,9 +180,40 @@ def seed() -> None:
                     db.add(stock)
                     stock_updates += 1
 
-                changed_items.append({"nombre": nombre, "cantidad": cantidad_str})
+                changed_names.add(nombre)
+                new_values[nombre] = cantidad_str
 
-            if changed_items:
+            # --- Construir items_detail con TODOS los ingredientes activos ---
+            # Antes de commitear, leemos los valores actuales (semana 1) de cada ingrediente
+            all_stock_rows = (
+                db.query(StockPrevio)
+                .filter(StockPrevio.escuela_id == school.id)
+                .all()
+            )
+            stock_map = {row.ingrediente_id: row for row in all_stock_rows}
+
+            items_detail = []
+            for ingrediente in db.query(Ingrediente).filter(Ingrediente.activo == True).order_by(Ingrediente.nombre).all():
+                if ingrediente.nombre in changed_names:
+                    old_val = str(stock_map[ingrediente.id].previous_cantidad or "0") if ingrediente.id in stock_map else "0"
+                    new_val = new_values[ingrediente.nombre]
+                    was_updated = True
+                else:
+                    stock_row = stock_map.get(ingrediente.id)
+                    val = str(stock_row.cantidad) if stock_row else "0"
+                    old_val = val
+                    new_val = val
+                    was_updated = False
+
+                items_detail.append({
+                    "nombre": ingrediente.nombre,
+                    "unidad_medida": ingrediente.unidad_medida,
+                    "cantidad": new_val,
+                    "cantidad_anterior": old_val,
+                    "actualizado": was_updated,
+                })
+
+            if items_detail:
                 admin_gestor = (
                     db.query(User)
                     .filter(User.active == True, User.role.in_([UserRole.admin, UserRole.gestor]))
@@ -193,7 +227,7 @@ def seed() -> None:
                         escuela_id=school.id,
                         escuela_nombre=school.name,
                         cargado_por_username=usuario1.username,
-                        details=json.dumps(changed_items),
+                        details=json.dumps(items_detail),
                     )
                     db.add(notif)
                     notif_count += 1
@@ -201,43 +235,13 @@ def seed() -> None:
         db.commit()
         print(f"[semana2] Stock de la semana 2 actualizado.")
         print(f"[semana2] Escuela: {schools[0].name}")
+        print(f"[semana2] Ingredientes totales: {len(items_detail)} (modificados: {len(changed_names)})")
         print(f"[semana2] Registros modificados: {stock_updates}")
         print(f"[semana2] Notificaciones: {notif_count}")
         print()
-        print("┌──────────────────────────┬───────────┬───────────┬─────────────────────────────────┐")
-        print("│ INGREDIENTE              │ SEMANA 1  │ SEMANA 2  │ NUEVO?                          │")
-        print("├──────────────────────────┼───────────┼───────────┼─────────────────────────────────┤")
-        print("│ MANZANA                  │ 30        │ 0         │ NO (consumido, cantidad=0)      │")
-        print("│ BANANA                   │ 12        │ 0         │ NO (consumido, cantidad=0)      │")
-        print("│ Tomate                   │ 10        │ 0         │ NO (consumido, cantidad=0)      │")
-        print("│ POLLO por Kg.            │ 20        │ 0         │ NO (consumido, cantidad=0)      │")
-        print("├──────────────────────────┼───────────┼───────────┼─────────────────────────────────┤")
-        print("│ Papa                     │ 50        │ 35        │ NO (previous=50 > 0)            │")
-        print("│ Cebolla                  │ 25        │ 18        │ NO (previous=25 > 0)            │")
-        print("│ Azucar kg                │ 6         │ 4         │ NO (previous=6 > 0)             │")
-        print("│ Arroz 00000 por kg       │ 10        │ 8         │ NO (previous=10 > 0)            │")
-        print("│ Aceite girasol           │ 5         │ 12        │ NO (previous=5 > 0)             │")
-        print("├──────────────────────────┼───────────┼───────────┼─────────────────────────────────┤")
-        print("│ Zanahoria                │ 15        │ 15        │ NO (sin cambio, previous=0)     │")
-        print("│ Ajo                      │ 1         │ 1         │ NO (sin cambio, previous=0)     │")
-        print("│ Huevo de gallina x doc   │ 4         │ 4         │ NO (sin cambio, previous=0)     │")
-        print("│ Leche fluida x litro     │ 8         │ 8         │ NO (sin cambio, previous=0)     │")
-        print("│ Te en saquito x 25 u     │ 3         │ 3         │ NO (sin cambio, previous=0)     │")
-        print("│ Queso cremoso x kg       │ 2         │ 2         │ NO (sin cambio, previous=0)     │")
-        print("│ Fideo tirabuzon x 500 g  │ 7         │ 7         │ NO (sin cambio, previous=0)     │")
-        print("│ Harina 000 x kg          │ 4         │ 4         │ NO (sin cambio, previous=0)     │")
-        print("│ Dulce de leche por 400 gr│ 3         │ 3         │ NO (sin cambio, previous=0)     │")
-        print("│ Pan rallado x kg         │ 2         │ 2         │ NO (sin cambio, previous=0)     │")
-        print("├──────────────────────────┼───────────┼───────────┼─────────────────────────────────┤")
-        print("│ Zapallo ANCO             │ —         │ 7         │ SÍ (nuevo, previous=null/0)     │")
-        print("│ Levadura seca x 20 gr    │ —         │ 2         │ SÍ (nuevo, previous=null/0)     │")
-        print("│ Cacao en polvo x 360 g   │ —         │ 1         │ SÍ (nuevo, previous=null/0)     │")
-        print("│ Dulce de batata x kg     │ —         │ 3         │ SÍ (nuevo, previous=null/0)     │")
-        print("│ Lentejas remojadas x 350g│ —         │ 5         │ SÍ (nuevo, previous=null/0)     │")
-        print("│ Pimenton x 25 gr         │ —         │ 0.5       │ SÍ (nuevo, previous=null/0)     │")
-        print("└──────────────────────────┴───────────┴───────────┴─────────────────────────────────┘")
-        print()
-        print("Solo los 6 ingredientes NUEVOS (que no estaban en semana 1) muestran NUEVO.")
+        print("La notificacion incluye TODOS los ingredientes activos.")
+        print("Stock Anterior = valor de semana 1 | Stock Nuevo = valor de semana 2.")
+        print("Los modificados muestran badge MODIFICADO en el modal.")
 
     except Exception:
         db.rollback()

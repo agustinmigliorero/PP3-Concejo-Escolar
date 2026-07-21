@@ -27,29 +27,78 @@ function formatDateTime(value: string) {
   }).format(date);
 }
 
-function StockDetails({ details }: { details: Record<string, unknown>[] | undefined }) {
-  if (!details || details.length === 0) return null;
-  return (
-    <ul className="list-disc list-inside text-gray-600 space-y-0.5">
-      {details.map((item, i) => (
-        <li key={i}>
-          <span className="font-medium text-gray-800">{item.nombre as string}</span>{" "}
-          <span className="text-gray-500">{item.cantidad as string}</span>
-        </li>
-      ))}
-    </ul>
-  );
+interface StockItem {
+  nombre: string;
+  unidad_medida?: string;
+  cantidad: string;
+  cantidad_anterior?: string;
+  actualizado?: boolean;
 }
 
-function MatriculationDetails({ details }: { details: Record<string, unknown> | undefined }) {
-  if (!details) return null;
+function StockDetailModal({
+  notification,
+  onClose,
+}: {
+  notification: NotificationRecord;
+  onClose: () => void;
+}) {
+  const items = (notification.details as StockItem[]) ?? [];
+
   return (
-    <p className="text-gray-600">
-      {details.old_value !== undefined && details.old_value !== null ? (
-        <>De <span className="line-through text-gray-400">{String(details.old_value)}</span> → </> 
-      ) : null}
-      <span className="font-medium text-gray-800">{String(details.new_value)}</span> alumnos
-    </p>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+        <h2 className="text-lg font-bold text-gray-800 mb-1">Detalle de carga</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          {notification.escuela_nombre ?? "Escuela"} · {formatDateTime(notification.created_at)}
+        </p>
+        <div className="max-h-80 overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-gray-500">
+                <th className="text-left py-2 font-medium">Ingrediente</th>
+                <th className="text-left py-2 font-medium">Previo</th>
+                <th className="text-right py-2 font-medium">Nuevo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, i) => (
+                <tr key={i} className={`border-b border-gray-50 ${Number(item.cantidad) > 0 && Number(item.cantidad_anterior) !== Number(item.cantidad) ? "bg-blue-50" : ""}`}>
+                  <td className="py-2 text-gray-800 font-medium">
+                    {item.nombre}
+                    {Number(item.cantidad) > 0 && Number(item.cantidad_anterior) !== Number(item.cantidad) && (
+                      <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-600">
+                        MODIFICADO
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 text-left text-gray-500">
+                    {item.cantidad_anterior ?? "—"}{item.unidad_medida ? ` ${item.unidad_medida}` : ""}
+                  </td>
+                  <td className="py-2 text-right text-gray-800">
+                    {item.cantidad}{item.unidad_medida ? ` ${item.unidad_medida}` : ""}
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="py-6 text-center text-gray-400">
+                    Sin detalles.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-end mt-6">
+          <button
+            onClick={onClose}
+            className="border border-gray-300 text-gray-700 font-medium py-2 px-5 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -57,6 +106,7 @@ export default function HistorialPage() {
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detailTarget, setDetailTarget] = useState<NotificationRecord | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -114,9 +164,22 @@ export default function HistorialPage() {
                   </td>
                   <td className="px-5 py-3 text-gray-700 max-w-md">
                     {n.type === "stock_cargado" ? (
-                      <StockDetails details={n.details as Record<string, unknown>[] | undefined} />
+                      <button
+                        onClick={() => setDetailTarget(n)}
+                        className="text-blue-600 hover:text-blue-800 font-medium text-sm hover:underline"
+                      >
+                        Ver detalle
+                      </button>
                     ) : n.type === "matricula_actualizada" ? (
-                      <MatriculationDetails details={n.details as Record<string, unknown> | undefined} />
+                      <span className="text-gray-600">
+                        {n.details && (n.details as Record<string, unknown>).old_value !== undefined
+                          ? `De ${(n.details as Record<string, unknown>).old_value} a `
+                          : ""}
+                        <span className="font-medium text-gray-800">
+                          {(n.details as Record<string, unknown>)?.new_value as string}
+                        </span>{" "}
+                        alumnos
+                      </span>
                     ) : (
                       <span className="truncate block">{n.message}</span>
                     )}
@@ -145,6 +208,13 @@ export default function HistorialPage() {
           </table>
         )}
       </div>
+
+      {detailTarget && (
+        <StockDetailModal
+          notification={detailTarget}
+          onClose={() => setDetailTarget(null)}
+        />
+      )}
     </div>
   );
 }

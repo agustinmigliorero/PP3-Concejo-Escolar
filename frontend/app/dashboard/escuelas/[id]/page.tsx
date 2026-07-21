@@ -309,7 +309,7 @@ export default function EscuelaDetallePage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                   {stockItems.map((item) => {
-                    const recent = canManage && Number(stockDraft[item.ingrediente_id] ?? "0") > 0 && (!item.previous_cantidad || Number(item.previous_cantidad) === 0);
+                    const recent = canManage && Number(stockDraft[item.ingrediente_id] ?? "0") > 0 && (Number(item.previous_cantidad) !== Number(stockDraft[item.ingrediente_id]));
                     return (
                     <tr key={item.ingrediente_id} className={recent ? "bg-amber-50/60" : ""}>
                     <td className="px-4 py-3 text-gray-800 font-medium">
