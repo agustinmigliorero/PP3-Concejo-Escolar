@@ -345,6 +345,27 @@ Opción 2 — variables de entorno antes de correr el seed:
 ADMIN_USERNAME=miusuario ADMIN_PASSWORD=mipassword python seed.py
 ```
 
+### Seed de stock sobrante
+
+Dos scripts para poblar la tabla de stock sobrante con datos de prueba secuenciales:
+
+| Script | Descripción |
+|---|---|
+| `seed_stock_semana1.py` | Carga inicial simulando ingredientes cargados hace 7 días por la EP 1 |
+| `seed_stock_semana2.py` | Simula el estado 7 días después: algunos ingredientes consumidos, otros recargados, más ingredientes nuevos |
+
+```bash
+# Con Docker
+docker compose exec backend python seed_stock_semana1.py
+docker compose exec backend python seed_stock_semana2.py
+
+# Sin Docker (con venv activado, desde backend/)
+python seed_stock_semana1.py
+python seed_stock_semana2.py
+```
+
+> **Orden sugerido**: correr `seed_stock_semana1.py` primero y `seed_stock_semana2.py` después para ver la evolución del stock. Ambos son idempotentes.
+
 ---
 
 ## Flujo de trabajo Git

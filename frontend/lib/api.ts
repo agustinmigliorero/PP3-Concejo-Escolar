@@ -432,6 +432,7 @@ export interface StockPrevioItem {
   ingrediente_nombre: string;
   unidad_medida: string;
   cantidad: string;
+  previous_cantidad: string | null;
   cargado_at: string | null;
 }
 
@@ -737,6 +738,44 @@ export async function apiToggleTipoComidaActive(
     method: "PATCH",
   });
   if (!res.ok) throw await buildApiError(res, "Error al cambiar estado del tipo de comida");
+  return res.json();
+}
+
+// ── Notificaciones (admin + gestor) ──────────────────────────────────────────
+
+export interface NotificationRecord {
+  id: number;
+  type: string;
+  message: string;
+  escuela_id: number | null;
+  escuela_nombre: string | null;
+  cargado_por_username: string | null;
+  details: unknown;
+  read: boolean;
+  created_at: string;
+}
+
+export interface UnreadCountRecord {
+  count: number;
+}
+
+export async function apiGetNotifications(): Promise<NotificationRecord[]> {
+  const res = await apiFetch("/notifications");
+  if (!res.ok) throw await buildApiError(res, "Error al obtener notificaciones");
+  return res.json();
+}
+
+export async function apiGetUnreadCount(): Promise<UnreadCountRecord> {
+  const res = await apiFetch("/notifications/unread-count");
+  if (!res.ok) return { count: 0 };
+  return res.json();
+}
+
+export async function apiMarkNotificationRead(
+  id: number,
+): Promise<NotificationRecord> {
+  const res = await apiFetch(`/notifications/${id}/read`, { method: "PUT" });
+  if (!res.ok) throw await buildApiError(res, "Error al marcar notificacion como leida");
   return res.json();
 }
 

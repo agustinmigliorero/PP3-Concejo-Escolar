@@ -7,7 +7,7 @@ from app.models.location_model import Localidad
 from app.models.school_model import School
 from app.models.school_matriculation_model import SchoolTipoComidaMatricula
 from app.models.user_model import User, UserRole
-from app.services import tipo_comida_service
+from app.services import notification_service, tipo_comida_service
 
 
 def _school_to_response(school: School) -> dict:
@@ -115,8 +115,10 @@ def update_school_matriculation_for_user(
     matriculation: int,
 ) -> dict:
     school = _get_own_active_school(db, user)
+    old_matriculation = school.matriculation
     school.matriculation = matriculation
     db.commit()
+    notification_service.create_matriculation_notification(db, school, user, old_matriculation=old_matriculation)
     db.refresh(school)
     return _school_to_response(school)
 

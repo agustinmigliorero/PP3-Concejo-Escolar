@@ -67,13 +67,20 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         httponly=True,
         samesite="lax",
         secure=settings.REFRESH_COOKIE_SECURE,
+        domain=settings.REFRESH_COOKIE_DOMAIN or None,
         max_age=_COOKIE_MAX_AGE,
         path="/",
     )
 
 
 def _clear_refresh_cookie(response: Response) -> None:
-    response.delete_cookie("refresh_token", path="/")
+    # El domain/path deben coincidir con los del set_cookie o el navegador no
+    # borra la cookie (quedaría una sesión "fantasma" tras el logout).
+    response.delete_cookie(
+        "refresh_token",
+        path="/",
+        domain=settings.REFRESH_COOKIE_DOMAIN or None,
+    )
 
 
 def _refresh_unauthorized(detail: object) -> JSONResponse:

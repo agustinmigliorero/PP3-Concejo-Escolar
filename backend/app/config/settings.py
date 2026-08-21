@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     REFRESH_COOKIE_SECURE: bool = False
+    # Dominio de la cookie de refresh. Vacío = host-only (dev local). En
+    # producción, con front y back en subdominios distintos del mismo dominio
+    # (ej. sae.* y api.*), poné el dominio padre con punto inicial para que la
+    # cookie se comparta entre todos: ".agustinmigliorero.com".
+    REFRESH_COOKIE_DOMAIN: str = ""
     DATABASE_URL: str = "sqlite:///./concejo_escolar.db"
     admin_username: str = "admin"
     admin_password: str = "admin1234"

@@ -31,6 +31,11 @@ const ACTIONS_BY_ROLE: Record<
       title: "Actualizar precios",
       description: "Gestionar proveedor, localidad e ingrediente.",
     },
+    {
+      href: "/dashboard/reportes",
+      title: "Reportes y estadísticas",
+      description: "Gasto mensual, proveedores y localidades.",
+    },
   ],
   gestor: [
     {
@@ -47,6 +52,11 @@ const ACTIONS_BY_ROLE: Record<
       href: "/dashboard/ingredientes",
       title: "Consultar ingredientes",
       description: "Ver unidades y parámetros de cálculo.",
+    },
+    {
+      href: "/dashboard/reportes",
+      title: "Reportes y estadísticas",
+      description: "Gasto mensual, proveedores y localidades.",
     },
   ],
   escuela: [

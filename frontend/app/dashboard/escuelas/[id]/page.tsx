@@ -34,9 +34,16 @@ function formatStockValue(value: string) {
   return String(Number(value));
 }
 
+function parseAsUTC(value: string): Date {
+  if (value.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(value)) {
+    return new Date(value);
+  }
+  return new Date(value + "Z");
+}
+
 function formatDate(value: string | null) {
   if (!value) return "Sin carga";
-  const date = new Date(value);
+  const date = parseAsUTC(value);
   if (Number.isNaN(date.getTime())) return "Sin carga";
   return new Intl.DateTimeFormat("es-AR", {
     dateStyle: "short",
@@ -321,10 +328,19 @@ export default function EscuelaDetallePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {stockItems.map((item) => (
-                  <tr key={item.ingrediente_id}>
+                  {stockItems.map((item) => {
+                    const recent = canManage && Number(stockDraft[item.ingrediente_id] ?? "0") > 0 && (Number(item.previous_cantidad) !== Number(stockDraft[item.ingrediente_id]));
+                    return (
+                    <tr key={item.ingrediente_id} className={recent ? "bg-amber-50/60" : ""}>
                     <td className="px-4 py-3 text-gray-800 font-medium">
-                      {item.ingrediente_nombre}
+                      <span className="flex items-center gap-2">
+                        {item.ingrediente_nombre}
+                        {recent && (
+                          <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-100 rounded">
+                            Nuevo
+                          </span>
+                        )}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-gray-500">{item.unidad_medida}</td>
                     <td className="px-4 py-3 text-gray-500">
@@ -346,8 +362,9 @@ export default function EscuelaDetallePage() {
                         className="w-36 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                       />
                     </td>
-                  </tr>
-                ))}
+                    </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
