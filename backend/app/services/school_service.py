@@ -5,11 +5,15 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.location_model import Localidad
 from app.models.school_model import School
+from app.models.school_matriculation_model import SchoolTipoComidaMatricula
 from app.models.user_model import User, UserRole
 from app.services import notification_service, tipo_comida_service
 
 
 def _school_to_response(school: School) -> dict:
+    saved_matriculas = {
+        row.tipo_comida_id: row.cantidad for row in school.matriculas_por_tipo
+    }
     return {
         "id": school.id,
         "name": school.name,
@@ -20,6 +24,17 @@ def _school_to_response(school: School) -> dict:
         "phone": school.phone,
         "email": school.email,
         "matriculation": school.matriculation,
+        # Las escuelas creadas antes de esta funcionalidad no tienen filas en
+        # la tabla nueva: mientras no se carguen, conservan el valor anterior
+        # como respaldo para cada servicio que ofrecen.
+        "matriculas_por_tipo": [
+            {
+                "tipo_comida_id": tipo.id,
+                "tipo_comida_nombre": tipo.nombre,
+                "cantidad": saved_matriculas.get(tipo.id, school.matriculation),
+            }
+            for tipo in school.tipos_comida
+        ],
         "tipos_comida": [
             {"id": tipo.id, "nombre": tipo.nombre, "activo": tipo.activo}
             for tipo in school.tipos_comida
@@ -34,7 +49,10 @@ def get_all_schools(
     query = (
         db.query(School)
         .join(Localidad)
-        .options(selectinload(School.tipos_comida))
+        .options(
+            selectinload(School.tipos_comida),
+            selectinload(School.matriculas_por_tipo),
+        )
     )
     if locality_id is not None:
         query = query.filter(School.locality_id == locality_id)
@@ -105,6 +123,71 @@ def update_school_matriculation_for_user(
     return _school_to_response(school)
 
 
+def _sync_school_matriculas(
+    db: Session,
+    school: School,
+    tipos_comida,
+    matriculas_por_tipo: Optional[list[dict]],
+) -> None:
+    """Sincroniza las cantidades de los servicios ofrecidos por una escuela."""
+    selected_ids = {tipo.id for tipo in tipos_comida}
+    existing = {row.tipo_comida_id: row for row in school.matriculas_por_tipo}
+
+    for row in list(school.matriculas_por_tipo):
+        if row.tipo_comida_id not in selected_ids:
+            db.delete(row)
+
+    if matriculas_por_tipo is None:
+        return
+
+    requested = {
+        item["tipo_comida_id"]: item["cantidad"] for item in matriculas_por_tipo
+    }
+    unknown_ids = set(requested) - selected_ids
+    if unknown_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La matrícula por servicio debe corresponder a una comida ofrecida por la escuela",
+        )
+
+    for tipo in tipos_comida:
+        row = existing.get(tipo.id)
+        cantidad = requested.get(
+            tipo.id,
+            row.cantidad if row is not None else school.matriculation,
+        )
+        if row is None:
+            db.add(
+                SchoolTipoComidaMatricula(
+                    school_id=school.id,
+                    tipo_comida_id=tipo.id,
+                    cantidad=cantidad,
+                )
+            )
+        elif tipo.id in requested:
+            row.cantidad = cantidad
+
+
+def update_school_matriculas_for_user(
+    db: Session,
+    user: User,
+    matriculas_por_tipo: list[dict],
+    matriculation: Optional[int] = None,
+) -> dict:
+    school = _get_own_active_school(db, user)
+    if matriculation is not None:
+        school.matriculation = matriculation
+    _sync_school_matriculas(
+        db,
+        school,
+        list(school.tipos_comida),
+        matriculas_por_tipo,
+    )
+    db.commit()
+    db.refresh(school)
+    return _school_to_response(school)
+
+
 def update_school_contact_for_user(
     db: Session,
     user: User,
@@ -138,6 +221,7 @@ def create_school(
     email: Optional[str] = None,
     matriculation: int = 0,
     tipos_comida_ids: Optional[list[int]] = None,
+    matriculas_por_tipo: Optional[list[dict]] = None,
 ) -> dict:
     _validate_locality(db, locality_id)
 
@@ -160,6 +244,8 @@ def create_school(
         tipos_comida=tipos,
     )
     db.add(school)
+    db.flush()
+    _sync_school_matriculas(db, school, tipos, matriculas_por_tipo)
     db.commit()
     db.refresh(school)
     return _school_to_response(school)
@@ -178,6 +264,7 @@ def update_school(
     email_provided: bool = False,
     matriculation: Optional[int] = None,
     tipos_comida_ids: Optional[list[int]] = None,
+    matriculas_por_tipo: Optional[list[dict]] = None,
     active: Optional[bool] = None,
 ) -> dict:
     school = db.query(School).filter(School.id == school_id).first()
@@ -215,8 +302,14 @@ def update_school(
         school.email = email
     if matriculation is not None:
         school.matriculation = matriculation
+    selected_tipos = None
     if tipos_comida_ids is not None:
-        school.tipos_comida = tipo_comida_service.get_tipos_comida_by_ids(db, tipos_comida_ids)
+        selected_tipos = tipo_comida_service.get_tipos_comida_by_ids(db, tipos_comida_ids)
+        school.tipos_comida = selected_tipos
+    elif matriculas_por_tipo is not None:
+        selected_tipos = list(school.tipos_comida)
+    if selected_tipos is not None:
+        _sync_school_matriculas(db, school, selected_tipos, matriculas_por_tipo)
     if active is not None:
         school.active = active
 

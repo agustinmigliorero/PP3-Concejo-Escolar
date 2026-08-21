@@ -37,6 +37,7 @@ import app.models.proveedor_model  # noqa: F401
 import app.models.receta_model  # noqa: F401
 import app.models.refresh_token_model  # noqa: F401
 import app.models.school_model  # noqa: F401
+import app.models.school_matriculation_model  # noqa: F401
 import app.models.stock_previo_model  # noqa: F401
 import app.models.temporada_model  # noqa: F401
 import app.models.tipo_comida_model  # noqa: F401

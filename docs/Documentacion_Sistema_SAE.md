@@ -75,11 +75,11 @@ A continuación, se listan los recursos HTTP desarrollados actualmente en el sis
 ### 3.6. Escuelas (`/schools`)
 *   `GET /schools`: Lista las escuelas (filtrable por `locality_id`) (Admin/Gestor).
 *   `GET /schools/{id}`: Detalle de una escuela (Admin/Gestor).
-*   `POST /schools`: Crea una escuela con su localidad, matrícula y comidas ofrecidas (Admin/Gestor).
-*   `PUT /schools/{id}`: Edita una escuela (incluida la matrícula) (Admin/Gestor).
+*   `POST /schools`: Crea una escuela con su localidad, matrícula general, comidas ofrecidas y matrículas por tipo de comida (Admin/Gestor).
+*   `PUT /schools/{id}`: Edita una escuela, incluida la matrícula general y las matrículas por tipo de comida (Admin/Gestor).
 *   `PATCH /schools/{id}/toggle-active`: Activa/desactiva una escuela (Admin/Gestor).
 *   `GET /schools/me`: Detalle de la escuela asociada al usuario Escuela.
-*   `PATCH /schools/me/matriculation`: Actualiza la matrícula de la escuela asociada al usuario Escuela.
+*   `PATCH /schools/me/matriculation`: Actualiza la matrícula general y/o las matrículas por tipo de comida de la escuela asociada al usuario Escuela.
 
 ### 3.7. Asignaciones Proveedor-Ingrediente-Localidad (`/asignaciones`)
 Determina qué proveedor entrega cada ingrediente en cada localidad y a qué precio, con historial inmutable.
@@ -132,7 +132,7 @@ El modelo de dominio se basa en las siguientes entidades principales:
 
 El corazón del sistema es el motor de cálculo de necesidades semanales. Para cada escuela y cada ingrediente del menú semanal activo, el cálculo es:
 
-1.  **Cantidad Base:** `Suma(Cantidad en Receta × Días Hábiles Seleccionados) × Matrícula de la Escuela`. *(Se considera solo para los servicios alimentarios que la escuela efectivamente brinda).*
+1.  **Cantidad Base:** `Suma(Cantidad en Receta × Días Hábiles Seleccionados × Matrícula del tipo de comida)`. *(Se considera solo para los servicios alimentarios que la escuela efectivamente brinda).*
 2.  **Corrección por Desperdicio:** `Cantidad Base × Índice de Corrección` (Ej: Pollo con hueso = 1.68).
 3.  **Descuento de Stock Previsto:** `Max(0, Cantidad Corregida - Stock Previo Reportado)`.
 4.  **Ajuste a Unidad Comercial (Redondeo):** Si el ingrediente se compra por unidad (ej. botella de 900ml), se aplica: `Ceil(Cantidad Neta / Contenido de Unidad Comercial)`. Siempre se redondea hacia arriba para evitar desabastecimiento.

@@ -71,14 +71,15 @@ Escuela
   - nombre
   - codigo (único, ej: "EP1", "EES7", "JI901")
   - localidad_id → Localidad
-  - matricula: int  (se actualiza cuando hay movimientos de alumnos)
+  - matricula: int  (matrícula general de referencia)
+  - matriculas_por_tipo: cantidad de alumnos/cupos por cada servicio ofrecido
   - ofrece_desayuno: bool
   - ofrece_almuerzo: bool
   - ofrece_merienda: bool
   - activo: bool
 ```
 
-**Regla**: La matrícula completa de la escuela recibe todas las comidas que esa escuela ofrece. No hay subdivisiones internas por tipo de comida.
+**Regla**: El pedido usa la matrícula/cantidad configurada para cada tipo de comida que la escuela ofrece. La matrícula general se conserva como referencia y respaldo para escuelas antiguas que todavía no tengan cantidades por servicio cargadas.
 
 ### 3.4 Ingrediente
 
@@ -222,7 +223,7 @@ StockPrevio
 1. **Porción estándar**: Todas las recetas usan una única cantidad por porción (promedio 9-11 años). No hay distinción por grupo etario en la app.
 
 2. **Cantidad a pedir por escuela**: La fórmula completa, en orden de aplicación:
-   1. `cantidad_base = suma(cantidad_por_porción × días_hábiles_aplicables) × matrícula` (solo para comidas que la escuela ofrece)
+   1. `cantidad_base = suma(cantidad_por_porción × días_hábiles_aplicables × matrícula_del_tipo_de_comida)` (solo para comidas que la escuela ofrece)
    2. `cantidad_corregida = cantidad_base × indice_correccion` (si indice = 1.0, no hay cambio)
    3. `cantidad_neta = max(0, cantidad_corregida - stock_previo)`
    4. Si el ingrediente es por unidad: `cantidad_final = ceil(cantidad_neta / contenido_por_unidad)` (entero, siempre redondea hacia arriba)
@@ -309,8 +310,8 @@ StockPrevio
 
 ### 5.9 CRUD Escuelas (Admin + Gestor)
 
-- Crear escuela con código, nombre, localidad, matrícula y comidas que ofrece
-- Editar matrícula
+- Crear escuela con código, nombre, localidad, matrícula general, comidas que ofrece y cupos por servicio
+- Editar matrícula general y cupos por servicio
 - Activar/desactivar escuela
 - Ver listado por localidad
 
@@ -322,7 +323,7 @@ StockPrevio
 4. **Cargar stock previo** (opcional): tabla editable pre-completada con el stock que cada escuela haya cargado previamente mediante su usuario propio. Las celdas sin carga de escuela muestran 0. El gestor puede editar cualquier celda antes de confirmar.
 5. El sistema calcula para cada escuela activa:
    - Solo los días hábiles seleccionados y las comidas que esa escuela ofrece
-   - `cantidad_base = suma(cantidad_por_porción × días_hábiles) × matrícula`
+   - `cantidad_base = suma(cantidad_por_porción × días_hábiles × matrícula_del_tipo_de_comida)`
    - `cantidad_corregida = cantidad_base × indice_correccion`
    - `cantidad_neta = max(0, cantidad_corregida - stock_previo)`
    - Si es ingrediente por unidad: `ceil(cantidad_neta / contenido_por_unidad)`
@@ -340,7 +341,7 @@ StockPrevio
 
 ### 5.12 Funcionalidades del usuario Escuela
 
-- **Actualizar matrícula**: modificar la matrícula total de su escuela cuando haya cambios de alumnos.
+- **Actualizar matrícula y cupos por servicio**: modificar la matrícula general y la cantidad de alumnos/cupones de cada servicio de su escuela.
 - **Cargar stock previo**: tabla con los ingredientes relevantes para su escuela (los que aparecen en el menú activo). El usuario ingresa las cantidades disponibles en cada ingrediente. Solo se muestran ingredientes de la temporada activa.
 - **Ver historial de pedidos**: listado de pedidos generados que incluyen a su escuela, con los documentos descargables correspondientes (solo las filas de su escuela).
 - No tiene acceso a datos de otras escuelas, proveedores, recetas, ni a la función de generación.

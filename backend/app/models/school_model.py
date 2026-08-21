@@ -23,6 +23,11 @@ class School(Base):
 
     locality = relationship("Localidad", back_populates="schools")
     users = relationship("User", back_populates="school")
+    matriculas_por_tipo = relationship(
+        "SchoolTipoComidaMatricula",
+        back_populates="school",
+        cascade="all, delete-orphan",
+    )
     tipos_comida = relationship(
         "TipoComida",
         secondary=school_tipos_comida,
