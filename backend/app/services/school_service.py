@@ -173,7 +173,9 @@ def update_school(
     locality_id: Optional[int] = None,
     address: Optional[str] = None,
     phone: Optional[str] = None,
+    phone_provided: bool = False,
     email: Optional[str] = None,
+    email_provided: bool = False,
     matriculation: Optional[int] = None,
     tipos_comida_ids: Optional[list[int]] = None,
     active: Optional[bool] = None,
@@ -204,9 +206,12 @@ def update_school(
         school.locality_id = locality_id
     if address is not None:
         school.address = address
-    if phone is not None:
+    # En PUT, null significa borrar el valor. Si el campo no fue enviado,
+    # se conserva el valor actual para mantener el comportamiento parcial
+    # que ya tenía este endpoint.
+    if phone_provided:
         school.phone = phone
-    if email is not None:
+    if email_provided:
         school.email = email
     if matriculation is not None:
         school.matriculation = matriculation
