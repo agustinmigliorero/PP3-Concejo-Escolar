@@ -27,6 +27,7 @@ interface FormState {
   phone: string;
   email: string;
   matriculation: number;
+  matriculas_por_tipo: Record<number, number>;
   tipos_comida_ids: number[];
 }
 
@@ -38,8 +39,16 @@ const EMPTY_FORM: FormState = {
   phone: "",
   email: "",
   matriculation: 0,
+  matriculas_por_tipo: {},
   tipos_comida_ids: [],
 };
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
 
 export default function EscuelasPage() {
   const { user: currentUser } = useUser();
@@ -51,6 +60,7 @@ export default function EscuelasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("activas");
+  const [search, setSearch] = useState("");
 
   // Create/edit modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -96,6 +106,9 @@ export default function EscuelasPage() {
   }
 
   function openEdit(s: SchoolRecord) {
+    const savedMatriculas = new Map(
+      (s.matriculas_por_tipo ?? []).map((item) => [item.tipo_comida_id, item.cantidad]),
+    );
     setForm({
       name: s.name,
       code: s.code,
@@ -104,6 +117,9 @@ export default function EscuelasPage() {
       phone: s.phone ?? "",
       email: s.email ?? "",
       matriculation: s.matriculation,
+      matriculas_por_tipo: Object.fromEntries(
+        s.tipos_comida.map((tipo) => [tipo.id, savedMatriculas.get(tipo.id) ?? s.matriculation]),
+      ),
       tipos_comida_ids: s.tipos_comida.map((tipo) => tipo.id),
     });
     setFormError(null);
@@ -126,8 +142,16 @@ export default function EscuelasPage() {
       setFormError("Debe seleccionar una localidad");
       return;
     }
-        if (!form.address.trim()) {
+    if (!form.address.trim()) {
       setFormError("La dirección es obligatoria");
+      return;
+    }
+    const matriculasPorTipo = form.tipos_comida_ids.map((tipoComidaId) => ({
+      tipo_comida_id: tipoComidaId,
+      cantidad: form.matriculas_por_tipo[tipoComidaId] ?? form.matriculation,
+    }));
+    if (matriculasPorTipo.some((item) => !Number.isInteger(item.cantidad) || item.cantidad < 0)) {
+      setFormError("Las matrículas por servicio deben ser números enteros mayores o iguales a 0");
       return;
     }
     setSaving(true);
@@ -144,6 +168,7 @@ export default function EscuelasPage() {
           locality_id: form.locality_id,
           address: form.address,
           matriculation: form.matriculation,
+          matriculas_por_tipo: matriculasPorTipo,
           ...contacto,
         });
         showSuccessToast("Escuela creada correctamente");
@@ -154,6 +179,7 @@ export default function EscuelasPage() {
           locality_id: form.locality_id,
           address: form.address,
           matriculation: form.matriculation,
+          matriculas_por_tipo: matriculasPorTipo,
           ...contacto,
         });
         showSuccessToast("Escuela actualizada correctamente");
@@ -203,9 +229,16 @@ export default function EscuelasPage() {
         ));
   }
 
-  const visible = schools.filter((s) =>
-    tab === "activas" ? s.active : !s.active
-  );
+  const normalizedSearch = normalizeSearchText(search.trim());
+  const visible = schools.filter((s) => {
+    const matchesTab = tab === "activas" ? s.active : !s.active;
+    if (!matchesTab) return false;
+    if (!normalizedSearch) return true;
+
+    return [s.name, s.code, s.locality_name].some((value) =>
+      normalizeSearchText(value).includes(normalizedSearch),
+    );
+  });
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -259,6 +292,21 @@ export default function EscuelasPage() {
         })}
       </div>
 
+      {/* Search */}
+      <div className="mb-4">
+        <label htmlFor="school-search" className="sr-only">
+          Buscar escuela
+        </label>
+        <input
+          id="school-search"
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nombre, código o localidad..."
+          className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
@@ -271,7 +319,7 @@ export default function EscuelasPage() {
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Código</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Localidad</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Matrícula</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500">Matrículas</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Comidas</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
                 {canManage && (
@@ -299,7 +347,19 @@ export default function EscuelasPage() {
                   <td className="px-5 py-3 text-gray-600 font-mono">{s.code}</td>
                   <td className="px-5 py-3 text-gray-600">{s.locality_name}</td>
                   <td className="px-5 py-3 text-gray-800">
-                    {s.matriculation.toLocaleString()}
+                    <span>{s.matriculation.toLocaleString()} total</span>
+                    {s.matriculas_por_tipo?.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {s.matriculas_por_tipo.map((item) => (
+                          <span
+                            key={item.tipo_comida_id}
+                            className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600"
+                          >
+                            {item.tipo_comida_nombre}: {item.cantidad}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="px-5 py-3">{mealBadges(s)}</td>
                   <td className="px-5 py-3">
@@ -348,7 +408,9 @@ export default function EscuelasPage() {
                     colSpan={canManage ? 8 : 7}
                     className="px-5 py-8 text-center text-gray-400"
                   >
-                    {tab === "activas"
+                    {normalizedSearch
+                      ? "No se encontraron escuelas con esa búsqueda."
+                      : tab === "activas"
                       ? "No hay escuelas activas."
                       : "No hay escuelas inactivas."}
                   </td>
@@ -362,7 +424,7 @@ export default function EscuelasPage() {
       {/* Create/edit modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto mx-4 p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-5">
               {modalMode === "create" ? "Nueva escuela" : "Editar escuela"}
             </h2>
@@ -473,8 +535,11 @@ export default function EscuelasPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Matrícula
+                  Matrícula general
                 </label>
+                <p className="text-xs text-gray-500 mb-1">
+                  Se conserva como referencia. El pedido usa la cantidad de cada servicio.
+                </p>
                 <input
                   type="number"
                   min={0}
@@ -491,36 +556,75 @@ export default function EscuelasPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Comidas que ofrece
+                  Cupos por servicio
                 </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  Indicá cuántos alumnos reciben cada servicio para calcular el pedido.
+                </p>
                 {tiposComida.length === 0 ? (
                   <p className="text-xs text-gray-400">
                     No hay tipos de comida activos. Creá uno en la sección &quot;Tipos de comida&quot;.
                   </p>
                 ) : (
-                  <div className="flex flex-wrap gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {tiposComida.map((tipo) => {
                       const checked = form.tipos_comida_ids.includes(tipo.id);
                       return (
-                        <label
+                        <div
                           key={tipo.id}
-                          className="flex items-center gap-2 cursor-pointer"
+                          className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2"
                         >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) =>
-                              setForm((f) => ({
-                                ...f,
-                                tipos_comida_ids: e.target.checked
-                                  ? [...f.tipos_comida_ids, tipo.id]
-                                  : f.tipos_comida_ids.filter((id) => id !== tipo.id),
-                              }))
-                            }
-                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">{tipo.nombre}</span>
-                        </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                setForm((f) => {
+                                  if (e.target.checked) {
+                                    return {
+                                      ...f,
+                                      tipos_comida_ids: [...f.tipos_comida_ids, tipo.id],
+                                      matriculas_por_tipo: {
+                                        ...f.matriculas_por_tipo,
+                                        [tipo.id]: f.matriculas_por_tipo[tipo.id] ?? f.matriculation,
+                                      },
+                                    };
+                                  }
+                                  return {
+                                    ...f,
+                                    tipos_comida_ids: f.tipos_comida_ids.filter((id) => id !== tipo.id),
+                                    matriculas_por_tipo: Object.fromEntries(
+                                      Object.entries(f.matriculas_por_tipo).filter(
+                                        ([id]) => Number(id) !== tipo.id,
+                                      ),
+                                    ),
+                                  };
+                                })
+                              }
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">{tipo.nombre}</span>
+                          </label>
+                          {checked && (
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              aria-label={`Cupos de ${tipo.nombre}`}
+                              value={form.matriculas_por_tipo[tipo.id] ?? 0}
+                              onChange={(e) =>
+                                setForm((f) => ({
+                                  ...f,
+                                  matriculas_por_tipo: {
+                                    ...f.matriculas_por_tipo,
+                                    [tipo.id]: Math.max(0, Number(e.target.value)),
+                                  },
+                                }))
+                              }
+                              className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          )}
+                        </div>
                       );
                     })}
                   </div>

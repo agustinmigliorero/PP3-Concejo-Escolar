@@ -168,7 +168,10 @@ def build_preview_snapshot(
     menu_rows = _load_menu_rows(db, data.opcion_menu_id, dias_habiles)
     schools = (
         db.query(School)
-        .options(selectinload(School.tipos_comida))
+        .options(
+            selectinload(School.tipos_comida),
+            selectinload(School.matriculas_por_tipo),
+        )
         .filter(School.active == True)
         .order_by(School.name)
         .all()
@@ -186,6 +189,10 @@ def build_preview_snapshot(
     for school in schools:
         base_by_ingredient: dict[int, dict] = {}
         offered_tipo_ids = {tipo.id for tipo in school.tipos_comida}
+        matriculas_por_tipo = {
+            row.tipo_comida_id: row.cantidad
+            for row in school.matriculas_por_tipo
+        }
 
         for row in menu_rows:
             if row.tipo_comida_id not in offered_tipo_ids:
@@ -206,7 +213,14 @@ def build_preview_snapshot(
                         "cantidad_base": Decimal("0"),
                     },
                 )
-                entry["cantidad_base"] += _dec(recipe_item.cantidad_por_porcion) * _dec(school.matriculation)
+                cantidad_alumnos = matriculas_por_tipo.get(
+                    row.tipo_comida_id,
+                    school.matriculation,
+                )
+                entry["cantidad_base"] += (
+                    _dec(recipe_item.cantidad_por_porcion)
+                    * _dec(cantidad_alumnos)
+                )
 
         school_items = []
         for ingredient_id, entry in sorted(
@@ -368,6 +382,17 @@ def build_preview_snapshot(
                 "localidad_id": school.locality_id,
                 "localidad_nombre": school.locality.nombre if school.locality else "",
                 "matricula": school.matriculation,
+                "matriculas_por_tipo": [
+                    {
+                        "tipo_comida_id": tipo.id,
+                        "tipo_comida_nombre": tipo.nombre,
+                        "cantidad": matriculas_por_tipo.get(
+                            tipo.id,
+                            school.matriculation,
+                        ),
+                    }
+                    for tipo in school.tipos_comida
+                ],
                 "ingredientes": school_items,
             }
         )

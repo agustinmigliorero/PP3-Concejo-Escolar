@@ -300,8 +300,20 @@ export interface SchoolRecord {
   phone: string | null;
   email: string | null;
   matriculation: number;
+  matriculas_por_tipo: MatriculaPorTipoRecord[];
   tipos_comida: TipoComidaRecord[];
   active: boolean;
+}
+
+export interface MatriculaPorTipoRecord {
+  tipo_comida_id: number;
+  tipo_comida_nombre: string;
+  cantidad: number;
+}
+
+export interface MatriculaPorTipoInput {
+  tipo_comida_id: number;
+  cantidad: number;
 }
 
 export async function apiGetSchools(
@@ -328,6 +340,7 @@ export async function apiCreateSchool(data: {
   email?: string | null;
   matriculation?: number;
   tipos_comida_ids?: number[];
+  matriculas_por_tipo?: MatriculaPorTipoInput[];
 }): Promise<SchoolRecord> {
   const res = await apiFetch("/schools", {
     method: "POST",
@@ -352,6 +365,7 @@ export async function apiUpdateSchool(
     email?: string | null;
     matriculation?: number;
     tipos_comida_ids?: number[];
+    matriculas_por_tipo?: MatriculaPorTipoInput[];
     active?: boolean;
   },
 ): Promise<SchoolRecord> {
@@ -384,12 +398,17 @@ export async function apiGetMySchool(): Promise<SchoolRecord> {
 }
 
 export async function apiUpdateMySchoolMatriculation(
-  matriculation: number,
+  data:
+    | number
+    | {
+        matriculation?: number;
+        matriculas_por_tipo?: MatriculaPorTipoInput[];
+      },
 ): Promise<SchoolRecord> {
   const res = await apiFetch("/schools/me/matriculation", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ matriculation }),
+    body: JSON.stringify(typeof data === "number" ? { matriculation: data } : data),
   });
   if (!res.ok) throw await buildApiError(res, "Error al actualizar la matricula");
   return res.json();
@@ -1038,4 +1057,3 @@ export async function apiDownloadPedidoExport(
   if (!res.ok) throw await buildApiError(res, "Error al descargar el pedido");
   return res.blob();
 }
-

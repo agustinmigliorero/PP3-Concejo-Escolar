@@ -40,6 +40,13 @@ def update_my_school_matriculation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if body.matriculas_por_tipo is not None:
+        return school_service.update_school_matriculas_for_user(
+            db,
+            current_user,
+            [item.model_dump() for item in body.matriculas_por_tipo],
+            body.matriculation,
+        )
     return school_service.update_school_matriculation_for_user(
         db,
         current_user,
@@ -86,6 +93,7 @@ def create_school(
         email=body.email,
         matriculation=body.matriculation,
         tipos_comida_ids=body.tipos_comida_ids,
+        matriculas_por_tipo=[item.model_dump() for item in body.matriculas_por_tipo],
     )
 
 
@@ -109,6 +117,11 @@ def update_school(
         email_provided="email" in body.model_fields_set,
         matriculation=body.matriculation,
         tipos_comida_ids=body.tipos_comida_ids,
+        matriculas_por_tipo=(
+            [item.model_dump() for item in body.matriculas_por_tipo]
+            if body.matriculas_por_tipo is not None
+            else None
+        ),
         active=body.active,
     )
 

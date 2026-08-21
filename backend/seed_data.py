@@ -27,6 +27,7 @@ from app.models.location_model import Localidad
 from app.models.proveedor_model import Proveedor
 from app.models.receta_model import Receta, RecetaIngrediente
 from app.models.school_model import School
+from app.models.school_matriculation_model import SchoolTipoComidaMatricula
 from app.models.temporada_model import DiaMenu, NombreTemporada, OpcionMenu, Temporada
 from app.models.tipo_comida_model import TipoComida
 
@@ -281,6 +282,29 @@ def _seed_schools(
         if comedor > 0:
             ofrecidos.append(tipos["ALMUERZO"])
         school.tipos_comida = ofrecidos
+        cantidades_por_tipo = {
+            tipos["DESAYUNO"].id: dmc,
+            tipos["ALMUERZO"].id: comedor,
+        }
+        existing_matriculas = {
+            row.tipo_comida_id: row
+            for row in school.matriculas_por_tipo
+        }
+        for row in list(school.matriculas_por_tipo):
+            if row.tipo_comida_id not in cantidades_por_tipo:
+                db.delete(row)
+        for tipo in ofrecidos:
+            row = existing_matriculas.get(tipo.id)
+            cantidad = cantidades_por_tipo.get(tipo.id, school.matriculation)
+            if row is None:
+                school.matriculas_por_tipo.append(
+                    SchoolTipoComidaMatricula(
+                        tipo_comida_id=tipo.id,
+                        cantidad=cantidad,
+                    )
+                )
+            else:
+                row.cantidad = cantidad
         school.active = True
     return created
 
