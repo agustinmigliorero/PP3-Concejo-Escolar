@@ -245,9 +245,29 @@ export default function EscuelaDetallePage() {
           <DetailField label="Telefono" value={school.phone ?? "—"} />
           <DetailField label="Email" value={school.email ?? "—"} />
           <DetailField
-            label="Matricula"
+            label="Matricula general"
             value={school.matriculation.toLocaleString("es-AR")}
           />
+          <div className="border border-gray-100 rounded-lg p-4 bg-gray-50">
+            <p className="text-xs uppercase tracking-wide font-medium text-gray-500 mb-2">
+              Cupos por servicio
+            </p>
+            <div className="space-y-1">
+              {(school.matriculas_por_tipo ?? []).length > 0 ? (
+                school.matriculas_por_tipo.map((item) => (
+                  <div
+                    key={item.tipo_comida_id}
+                    className="flex items-center justify-between gap-3 text-sm text-gray-700"
+                  >
+                    <span>{item.tipo_comida_nombre}</span>
+                    <span className="font-semibold">{item.cantidad.toLocaleString("es-AR")}</span>
+                  </div>
+                ))
+              ) : (
+                <span className="text-sm text-gray-400">Sin cupos cargados</span>
+              )}
+            </div>
+          </div>
           <div className="border border-gray-100 rounded-lg p-4 bg-gray-50 md:col-span-2">
             <p className="text-xs uppercase tracking-wide font-medium text-gray-500 mb-2">
               Comidas

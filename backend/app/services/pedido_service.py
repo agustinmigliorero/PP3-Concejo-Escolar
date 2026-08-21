@@ -197,15 +197,24 @@ def build_snapshot_from_demandas(
     provider_reference_date: date,
     header: dict,
 ) -> dict:
-    """Motor comun de calculo de pedidos.
+    dias_habiles = _validate_dias(data.dias_habiles)
+    opcion = _load_opcion(db, data.opcion_menu_id)
+    menu_rows = _load_menu_rows(db, data.opcion_menu_id, dias_habiles)
+    schools = (
+        db.query(School)
+        .options(
+            selectinload(School.tipos_comida),
+            selectinload(School.matriculas_por_tipo),
+        )
+        .filter(School.active == True)
+        .order_by(School.name)
+        .all()
+    )
+    if not schools:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No hay escuelas activas")
 
-    Recibe la demanda ya resuelta (por escuela: recetas y porciones) y produce
-    el snapshot con cantidades corregidas, descuento de stock, asignacion de
-    proveedor por localidad, agrupaciones y costos. Lo usan por igual el pedido
-    semanal (REGULAR), los patios (PATIO) y los eventos (EVENTO): solo cambia
-    quien arma `demandas` y el `header`.
-    """
-    stock_by_key = _stock_map(db, stock_overrides)
+    stock_by_key = _stock_map(db, data.stock_overrides)
+    provider_reference_date = data.semana_inicio
     advertencias: list[dict] = []
     escuelas_snapshot: list[dict] = []
     provider_groups: dict[str, dict] = {}
@@ -214,6 +223,11 @@ def build_snapshot_from_demandas(
     for demanda in demandas:
         school = demanda.school
         base_by_ingredient: dict[int, dict] = {}
+        offered_tipo_ids = {tipo.id for tipo in school.tipos_comida}
+        matriculas_por_tipo = {
+            row.tipo_comida_id: row.cantidad
+            for row in school.matriculas_por_tipo
+        }
 
         for receta, porciones in demanda.items:
             if receta is None or not receta.activo:
@@ -231,7 +245,14 @@ def build_snapshot_from_demandas(
                         "cantidad_base": Decimal("0"),
                     },
                 )
-                entry["cantidad_base"] += _dec(recipe_item.cantidad_por_porcion) * _dec(porciones)
+                cantidad_alumnos = matriculas_por_tipo.get(
+                    row.tipo_comida_id,
+                    school.matriculation,
+                )
+                entry["cantidad_base"] += (
+                    _dec(recipe_item.cantidad_por_porcion)
+                    * _dec(cantidad_alumnos)
+                )
 
         school_items = []
         for ingredient_id, entry in sorted(
@@ -393,7 +414,17 @@ def build_snapshot_from_demandas(
                 "localidad_id": school.locality_id,
                 "localidad_nombre": school.locality.nombre if school.locality else "",
                 "matricula": school.matriculation,
-                "comensales": int(demanda.comensales),
+                "matriculas_por_tipo": [
+                    {
+                        "tipo_comida_id": tipo.id,
+                        "tipo_comida_nombre": tipo.nombre,
+                        "cantidad": matriculas_por_tipo.get(
+                            tipo.id,
+                            school.matriculation,
+                        ),
+                    }
+                    for tipo in school.tipos_comida
+                ],
                 "ingredientes": school_items,
             }
         )

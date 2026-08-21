@@ -1,7 +1,7 @@
 import re
 from typing import Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.controllers.tipo_comida_controller import TipoComidaResponse
 
@@ -30,6 +30,35 @@ def _normalize_email(v: Optional[str]) -> Optional[str]:
     return v
 
 
+class MatriculaPorTipoRequest(BaseModel):
+    tipo_comida_id: int
+    cantidad: int = Field(..., ge=0)
+
+    @field_validator("tipo_comida_id")
+    @classmethod
+    def tipo_comida_valid(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("Tipo de comida inválido")
+        return v
+
+
+class MatriculaPorTipoResponse(BaseModel):
+    tipo_comida_id: int
+    tipo_comida_nombre: str
+    cantidad: int
+
+
+def _validate_matriculas_por_tipo(
+    value: list[MatriculaPorTipoRequest] | None,
+) -> list[MatriculaPorTipoRequest] | None:
+    if value is None:
+        return value
+    ids = [item.tipo_comida_id for item in value]
+    if len(ids) != len(set(ids)):
+        raise ValueError("No se puede repetir la matrícula de un tipo de comida")
+    return value
+
+
 class CreateSchoolRequest(BaseModel):
     name: str
     code: str
@@ -39,6 +68,7 @@ class CreateSchoolRequest(BaseModel):
     email: Optional[str] = None
     matriculation: int = 0
     tipos_comida_ids: list[int] = []
+    matriculas_por_tipo: list[MatriculaPorTipoRequest] = Field(default_factory=list)
 
     @field_validator("name")
     @classmethod
@@ -90,6 +120,14 @@ class CreateSchoolRequest(BaseModel):
             raise ValueError("No se puede repetir un tipo de comida")
         return v
 
+    @field_validator("matriculas_por_tipo")
+    @classmethod
+    def matriculas_valid(
+        cls,
+        v: list[MatriculaPorTipoRequest],
+    ) -> list[MatriculaPorTipoRequest]:
+        return _validate_matriculas_por_tipo(v) or []
+
 
 class UpdateSchoolRequest(BaseModel):
     name: Optional[str] = None
@@ -100,6 +138,7 @@ class UpdateSchoolRequest(BaseModel):
     email: Optional[str] = None
     matriculation: Optional[int] = None
     tipos_comida_ids: Optional[list[int]] = None
+    matriculas_por_tipo: Optional[list[MatriculaPorTipoRequest]] = None
     active: Optional[bool] = None
 
     @field_validator("name")
@@ -157,16 +196,33 @@ class UpdateSchoolRequest(BaseModel):
             raise ValueError("No se puede repetir un tipo de comida")
         return v
 
+    @field_validator("matriculas_por_tipo")
+    @classmethod
+    def matriculas_valid(
+        cls,
+        v: Optional[list[MatriculaPorTipoRequest]],
+    ) -> Optional[list[MatriculaPorTipoRequest]]:
+        return _validate_matriculas_por_tipo(v)
+
 
 class UpdateMySchoolMatriculationRequest(BaseModel):
-    matriculation: int
+    # Se mantiene matriculation para compatibilidad con clientes existentes.
+    matriculation: Optional[int] = Field(default=None, ge=0)
+    matriculas_por_tipo: Optional[list[MatriculaPorTipoRequest]] = None
 
-    @field_validator("matriculation")
+    @field_validator("matriculas_por_tipo")
     @classmethod
-    def matriculation_valid(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError("La matricula no puede ser negativa")
-        return v
+    def matriculas_valid(
+        cls,
+        v: Optional[list[MatriculaPorTipoRequest]],
+    ) -> Optional[list[MatriculaPorTipoRequest]]:
+        return _validate_matriculas_por_tipo(v)
+
+    @model_validator(mode="after")
+    def at_least_one_value(self):
+        if self.matriculation is None and self.matriculas_por_tipo is None:
+            raise ValueError("Debe informar la matrícula general o la matrícula por servicio")
+        return self
 
 
 class UpdateMySchoolContactRequest(BaseModel):
@@ -194,6 +250,7 @@ class SchoolResponse(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     matriculation: int
+    matriculas_por_tipo: list[MatriculaPorTipoResponse] = []
     tipos_comida: list[TipoComidaResponse] = []
     active: bool
 
