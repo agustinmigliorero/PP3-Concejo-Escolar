@@ -26,7 +26,9 @@ export default function DashboardLayout({
   const [user, setUser] = useState<UserInfo | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
+    General: false,
+  });
 
   useEffect(() => {
     const redirectToLogin = () => {
