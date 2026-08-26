@@ -113,8 +113,8 @@ export default function LocalidadesPage() {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Localidades</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Localidades</h1>
         {isAdmin && (
           <button
             onClick={openCreate}
@@ -167,9 +167,11 @@ export default function LocalidadesPage() {
         {loading ? (
           <p className="text-gray-400 text-sm p-6">Cargando...</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
+                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">ID</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
                 {isAdmin && (
@@ -185,8 +187,9 @@ export default function LocalidadesPage() {
                   key={loc.id}
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-5 py-3 font-medium text-gray-800">{loc.nombre}</td>
-                  <td className="px-5 py-3">
+                  <td data-label="ID" className="px-5 py-3 text-gray-400 hidden md:table-cell">{loc.id}</td>
+                  <td data-label="Nombre" className="px-5 py-3 font-medium text-gray-800">{loc.nombre}</td>
+                  <td data-label="Estado" className="px-5 py-3">
                     <span
                       className={`inline-block w-2 h-2 rounded-full mr-2 ${
                         loc.activo ? "bg-green-500" : "bg-gray-300"
@@ -195,8 +198,8 @@ export default function LocalidadesPage() {
                     {loc.activo ? "Activa" : "Inactiva"}
                   </td>
                   {isAdmin && (
-                    <td className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                    <td data-label="Acciones" className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
                         {loc.activo && (
                           <button
                             onClick={() => openEdit(loc)}
@@ -246,13 +249,14 @@ export default function LocalidadesPage() {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
       {/* Create/edit modal */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-5">
               {modalMode === "create" ? "Nueva localidad" : "Editar localidad"}
             </h2>
@@ -278,7 +282,7 @@ export default function LocalidadesPage() {
               </p>
             )}
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={() => setModalOpen(false)}
                 className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
@@ -299,8 +303,8 @@ export default function LocalidadesPage() {
 
       {/* Confirm toggle modal */}
       {confirmTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-2">
               {confirmTarget.activo ? "Desactivar localidad" : "Activar localidad"}
             </h2>
@@ -315,7 +319,7 @@ export default function LocalidadesPage() {
               </span>
               ?
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setConfirmTarget(null)}
                 disabled={toggling}

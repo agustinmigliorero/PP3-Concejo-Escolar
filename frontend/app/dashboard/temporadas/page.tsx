@@ -199,9 +199,9 @@ export default function TemporadasPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Temporadas</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Temporadas</h1>
           <p className="text-sm text-gray-500 mt-1">
             Esta pantalla administra temporadas. La asociación de recetas se hace desde recetas.
           </p>
@@ -271,11 +271,11 @@ export default function TemporadasPage() {
                     key={temporada.id}
                     className="border-b border-gray-50 transition-colors hover:bg-gray-50"
                   >
-                    <td className="px-5 py-3 font-medium text-gray-800">
+                    <td data-label="Temporada" className="px-5 py-3 font-medium text-gray-800">
                       {TEMPORADA_LABEL[temporada.nombre]}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{temporada.anio}</td>
-                    <td className="px-5 py-3">
+                    <td data-label="Año" className="px-5 py-3 text-gray-600">{temporada.anio}</td>
+                    <td data-label="Estado" className="px-5 py-3">
                       <span
                         className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium ${
                           temporada.activo
@@ -291,7 +291,7 @@ export default function TemporadasPage() {
                         {temporada.activo ? "Activa" : "Inactiva"}
                       </span>
                     </td>
-                    <td className="px-5 py-3">
+                    <td data-label="Acciones" className="px-5 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => openEdit(temporada)}
@@ -331,7 +331,7 @@ export default function TemporadasPage() {
 
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-5">
               {modalMode === "create" ? "Nueva temporada" : "Editar temporada"}
             </h2>
@@ -390,7 +390,7 @@ export default function TemporadasPage() {
                 </p>
               )}
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
                 <button
                   onClick={() => setModalOpen(false)}
                   className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
@@ -412,7 +412,7 @@ export default function TemporadasPage() {
 
       {confirmTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-3">
               {confirmTarget.activo ? "Desactivar temporada" : "Activar temporada"}
             </h2>
@@ -428,7 +428,7 @@ export default function TemporadasPage() {
                 Al activarla, cualquier otra temporada activa quedará inactiva.
               </p>
             )}
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-col sm:flex-row justify-end gap-3">
               <button
                 onClick={() => setConfirmTarget(null)}
                 disabled={toggling}

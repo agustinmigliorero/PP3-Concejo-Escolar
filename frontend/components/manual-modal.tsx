@@ -511,7 +511,7 @@ export function ManualModal({ role, onClose }: ManualModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6"
+      className="app-modal-backdrop fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="manual-title"
@@ -522,7 +522,7 @@ export function ManualModal({ role, onClose }: ManualModalProps) {
         aria-hidden="true"
       />
 
-      <div className="relative flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="app-modal-panel relative flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
