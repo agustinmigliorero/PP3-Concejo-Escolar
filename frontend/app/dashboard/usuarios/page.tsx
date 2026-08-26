@@ -240,7 +240,6 @@ export default function UsuariosPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">ID</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Usuario</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Rol</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Escuela</th>
@@ -253,9 +252,8 @@ export default function UsuariosPage() {
             <tbody>
               {visibleUsers.map((u) => (
                 <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td data-label="ID" className="px-5 py-3 text-gray-400 hidden md:table-cell">{u.id}</td>
-                  <td data-label="Usuario" className="px-5 py-3 font-medium text-gray-800">{u.username}</td>
-                  <td data-label="Rol" className="px-5 py-3">
+                  <td className="px-5 py-3 font-medium text-gray-800">{u.username}</td>
+                  <td className="px-5 py-3">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                       u.role === "admin"
                         ? "bg-purple-100 text-purple-700"
@@ -281,8 +279,8 @@ export default function UsuariosPage() {
                     )}
                   </td>
                   {isAdmin && (
-                    <td data-label="Acciones" className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => openEdit(u)}
                           className="text-blue-600 hover:text-blue-800 p-1.5 rounded hover:bg-blue-50 transition-colors"

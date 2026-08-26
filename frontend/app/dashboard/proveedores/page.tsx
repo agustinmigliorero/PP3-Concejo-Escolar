@@ -197,10 +197,9 @@ export default function ProveedoresPage() {
                   key={p.id}
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
-                  <td data-label="ID" className="px-5 py-3 text-gray-400 hidden md:table-cell">{p.id}</td>
-                  <td data-label="Nombre" className="px-5 py-3 font-medium text-gray-800">{p.nombre}</td>
-                  <td data-label="Contacto" className="px-5 py-3 text-gray-600">{p.contacto}</td>
-                  <td data-label="Estado" className="px-5 py-3">
+                  <td className="px-5 py-3 font-medium text-gray-800">{p.nombre}</td>
+                  <td className="px-5 py-3 text-gray-600">{p.contacto}</td>
+                  <td className="px-5 py-3">
                     <span
                       className={`inline-block w-2 h-2 rounded-full mr-2 ${
                         p.activo ? "bg-green-500" : "bg-gray-300"
@@ -209,8 +208,8 @@ export default function ProveedoresPage() {
                     {p.activo ? "Activo" : "Inactivo"}
                   </td>
                   {isAdmin && (
-                    <td data-label="Acciones" className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
                         {p.activo && (
                           <button
                             onClick={() => openEdit(p)}

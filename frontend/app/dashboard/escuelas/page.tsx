@@ -221,7 +221,7 @@ export default function EscuelasPage() {
                   key={s.id}
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
-                  <td data-label="Nombre" className="px-5 py-3 font-medium text-gray-800">
+                  <td className="px-5 py-3 font-medium text-gray-800">
                     <Link
                       href={`/dashboard/escuelas/${s.id}`}
                       className="text-blue-700 hover:text-blue-900 hover:underline"
@@ -256,8 +256,8 @@ export default function EscuelasPage() {
                     {s.active ? "Activa" : "Inactiva"}
                   </td>
                   {canManage && (
-                    <td data-label="Acciones" className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
                         <Link
                           href={`/dashboard/escuelas/${s.id}`}
                           className="text-slate-600 hover:text-slate-900 font-medium p-1.5 rounded hover:bg-slate-100 transition-colors"

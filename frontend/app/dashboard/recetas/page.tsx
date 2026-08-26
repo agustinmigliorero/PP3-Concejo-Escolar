@@ -389,9 +389,8 @@ export default function RecetasPage() {
                     key={receta.id}
                     className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                   >
-                    <td data-label="ID" className="px-5 py-3 text-gray-400">{receta.id}</td>
-                    <td data-label="Nombre" className="px-5 py-3 font-medium text-gray-800">{receta.nombre}</td>
-                    <td data-label="Tipo de comida" className="px-5 py-3">
+                    <td className="px-5 py-3 font-medium text-gray-800">{receta.nombre}</td>
+                    <td className="px-5 py-3">
                       <div className="flex flex-wrap gap-1">
                         {receta.tipos_comida.length > 0 ? (
                           receta.tipos_comida.map((tipo) => (
@@ -440,8 +439,8 @@ export default function RecetasPage() {
                       />
                       {receta.activo ? "Activa" : "Inactiva"}
                     </td>
-                    <td data-label="Acciones" className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
                         {receta.activo && (
                           <button
                             onClick={() => openEdit(receta)}

@@ -194,7 +194,6 @@ export default function IngredientesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">ID</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Unidad</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Contenido/Unidad</th>
@@ -213,10 +212,9 @@ export default function IngredientesPage() {
                     key={ing.id}
                     className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                   >
-                    <td data-label="ID" className="px-5 py-3 text-gray-400 hidden md:table-cell">{ing.id}</td>
-                    <td data-label="Nombre" className="px-5 py-3 font-medium text-gray-800">{ing.nombre}</td>
-                    <td data-label="Unidad" className="px-5 py-3 text-gray-600 hidden lg:table-cell">{ing.unidad_medida}</td>
-                    <td data-label="Contenido/Unidad" className="px-5 py-3 text-gray-600 hidden lg:table-cell">
+                    <td className="px-5 py-3 font-medium text-gray-800">{ing.nombre}</td>
+                    <td className="px-5 py-3 text-gray-600">{ing.unidad_medida}</td>
+                    <td className="px-5 py-3 text-gray-600">
                       {ing.unidad_medida === "unidades" && ing.contenido_por_unidad
                         ? `${ing.contenido_por_unidad} ${ing.unidad_contenido || ""}`
                         : "-"}
@@ -231,8 +229,8 @@ export default function IngredientesPage() {
                       {ing.activo ? "Activo" : "Inactivo"}
                     </td>
                     {isAdmin && (
-                      <td data-label="Acciones" className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-5 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           {ing.activo && (
                             <button
                               onClick={() => openEdit(ing)}
