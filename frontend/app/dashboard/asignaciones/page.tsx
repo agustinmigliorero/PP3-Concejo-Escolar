@@ -216,8 +216,8 @@ export default function AsignacionesPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
           Asignaciones de proveedores
         </h1>
         <button
@@ -296,6 +296,7 @@ export default function AsignacionesPage() {
         {loading ? (
           <p className="text-gray-400 text-sm p-6">Cargando...</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
@@ -311,7 +312,7 @@ export default function AsignacionesPage() {
                 <th className="text-right px-5 py-3 font-medium text-gray-500">
                   Precio unit.
                 </th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">
+                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">
                   Desde
                 </th>
                 <th className="text-right px-5 py-3 font-medium text-gray-500">
@@ -325,7 +326,7 @@ export default function AsignacionesPage() {
                   key={a.id}
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-5 py-3 font-medium text-gray-800">
+                  <td data-label="Ingrediente" className="px-5 py-3 font-medium text-gray-800">
                     {a.ingrediente_nombre}
                     {a.unidad_medida && (
                       <span className="text-gray-400 font-normal">
@@ -334,19 +335,19 @@ export default function AsignacionesPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-gray-600">
+                  <td data-label="Localidad" className="px-5 py-3 text-gray-600">
                     {a.localidad_nombre}
                   </td>
-                  <td className="px-5 py-3 text-gray-600">
+                  <td data-label="Proveedor" className="px-5 py-3 text-gray-600">
                     {a.proveedor_nombre}
                   </td>
-                  <td className="px-5 py-3 text-right text-gray-800">
+                  <td data-label="Precio unitario" className="px-5 py-3 text-right text-gray-800">
                     {fmtPrecio(a.precio_unitario)}
                   </td>
-                  <td className="px-5 py-3 text-gray-600">
+                  <td data-label="Desde" className="px-5 py-3 text-gray-600 hidden md:table-cell">
                     {fmtFecha(a.fecha_desde)}
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td data-label="Acciones" className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => openEdit(a)}
@@ -376,13 +377,14 @@ export default function AsignacionesPage() {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
       {/* Modal crear */}
       {createOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-5">
               Nueva asignación
             </h2>
@@ -481,7 +483,7 @@ export default function AsignacionesPage() {
               </p>
             )}
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={() => setCreateOpen(false)}
                 className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
@@ -502,8 +504,8 @@ export default function AsignacionesPage() {
 
       {/* Modal editar precio */}
       {editTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-1">
               Editar precio
             </h2>
@@ -528,7 +530,7 @@ export default function AsignacionesPage() {
                 {editError}
               </p>
             )}
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={() => setEditTarget(null)}
                 className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
@@ -549,8 +551,8 @@ export default function AsignacionesPage() {
 
       {/* Modal historial */}
       {histTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-1">Historial</h2>
             <p className="text-sm text-gray-500 mb-4">
               {histTarget.ingrediente_nombre} · {histTarget.localidad_nombre}

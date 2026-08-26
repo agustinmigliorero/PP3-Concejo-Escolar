@@ -136,8 +136,8 @@ export default function IngredientesPage() {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Ingredientes</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Ingredientes</h1>
         {isAdmin && (
           <button
             onClick={openCreate}
@@ -195,9 +195,9 @@ export default function IngredientesPage() {
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Unidad</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Contenido/Unidad</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Índice Corr.</th>
+                  <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Unidad</th>
+                  <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Contenido/Unidad</th>
+                  <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Índice Corr.</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
                   {isAdmin && (
                     <th className="text-right px-5 py-3 font-medium text-gray-500">
@@ -219,8 +219,8 @@ export default function IngredientesPage() {
                         ? `${ing.contenido_por_unidad} ${ing.unidad_contenido || ""}`
                         : "-"}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{ing.indice_correccion}</td>
-                    <td className="px-5 py-3">
+                    <td data-label="Índice corr." className="px-5 py-3 text-gray-600 hidden lg:table-cell">{ing.indice_correccion}</td>
+                    <td data-label="Estado" className="px-5 py-3">
                       <span
                         className={`inline-block w-2 h-2 rounded-full mr-2 ${
                           ing.activo ? "bg-green-500" : "bg-gray-300"
@@ -287,7 +287,7 @@ export default function IngredientesPage() {
       {/* Create/edit modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-gray-800 mb-5">
               {modalMode === "create" ? "Nuevo ingrediente" : "Editar ingrediente"}
             </h2>
@@ -327,7 +327,7 @@ export default function IngredientesPage() {
               </div>
 
               {unidadMedida === "unidades" && (
-                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                <div className="grid grid-cols-1 gap-4 rounded-lg border border-gray-100 bg-gray-50 p-4 sm:grid-cols-2">
                   <div className="col-span-2">
                     <p className="text-xs text-gray-500 mb-2">
                       Para ingredientes por unidad, definí cuánto trae cada unidad comercial.
@@ -389,7 +389,7 @@ export default function IngredientesPage() {
               </p>
             )}
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={() => setModalOpen(false)}
                 className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
@@ -411,7 +411,7 @@ export default function IngredientesPage() {
       {/* Confirm toggle modal */}
       {confirmTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-2">
               {confirmTarget.activo ? "Desactivar ingrediente" : "Activar ingrediente"}
             </h2>
@@ -426,7 +426,7 @@ export default function IngredientesPage() {
               </span>
               ?
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setConfirmTarget(null)}
                 disabled={toggling}

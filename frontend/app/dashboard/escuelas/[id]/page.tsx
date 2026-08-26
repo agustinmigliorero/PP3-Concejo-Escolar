@@ -7,11 +7,16 @@ import {
   apiGetSchool,
   apiGetSchoolStock,
   apiUpdateSchoolStock,
+  apiGetLocalidades,
+  apiGetTiposComida,
+  type LocalidadRecord,
   type SchoolRecord,
   type StockPrevioItem,
+  type TipoComidaRecord,
 } from "@/lib/api";
 import { showSuccessToast } from "@/components/toast";
 import { useUser } from "@/app/dashboard/user-context";
+import { SchoolFormModal } from "@/components/school-form-modal";
 
 function DetailField({
   label,
@@ -58,10 +63,13 @@ export default function EscuelaDetallePage() {
   const schoolId = Number(params.id);
 
   const [school, setSchool] = useState<SchoolRecord | null>(null);
+  const [localidades, setLocalidades] = useState<LocalidadRecord[]>([]);
+  const [tiposComida, setTiposComida] = useState<TipoComidaRecord[]>([]);
   const [stockItems, setStockItems] = useState<StockPrevioItem[]>([]);
   const [stockDraft, setStockDraft] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [stockSaving, setStockSaving] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -75,11 +83,15 @@ export default function EscuelaDetallePage() {
       setLoading(true);
       setError(null);
       try {
-        const [schoolData, stockData] = await Promise.all([
+        const [schoolData, stockData, localidadesData, tiposData] = await Promise.all([
           apiGetSchool(schoolId),
           apiGetSchoolStock(schoolId),
+          apiGetLocalidades(),
+          apiGetTiposComida(),
         ]);
         setSchool(schoolData);
+        setLocalidades(localidadesData.filter((localidad) => localidad.activo));
+        setTiposComida(tiposData);
         setStockItems(stockData.items);
         setStockDraft(
           Object.fromEntries(
@@ -197,22 +209,33 @@ export default function EscuelaDetallePage() {
         Volver a escuelas
       </Link>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{school.name}</h1>
           <p className="text-sm text-gray-500 mt-1">
             {school.code} - {school.locality_name}
           </p>
         </div>
-        <span
-          className={`w-fit text-xs font-medium px-2 py-1 rounded-full ${
-            school.active
-              ? "bg-green-100 text-green-700"
-              : "bg-gray-100 text-gray-500"
-          }`}
-        >
-          {school.active ? "Activa" : "Inactiva"}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {school.active && (
+            <button
+              type="button"
+              onClick={() => setEditModalOpen(true)}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              Editar escuela
+            </button>
+          )}
+          <span
+            className={`w-fit rounded-full px-2 py-1 text-xs font-medium ${
+              school.active
+                ? "bg-green-100 text-green-700"
+                : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            {school.active ? "Activa" : "Inactiva"}
+          </span>
+        </div>
       </div>
 
       {error && (
@@ -227,14 +250,8 @@ export default function EscuelaDetallePage() {
       )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-        <div className="flex items-center justify-between gap-3 mb-5">
+        <div className="mb-5 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-800">Informacion general</h2>
-          <Link
-            href="/dashboard/escuelas"
-            className="text-sm font-medium text-blue-700 hover:text-blue-900"
-          >
-            Editar datos desde listado
-          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -332,7 +349,7 @@ export default function EscuelaDetallePage() {
                     const recent = canManage && Number(stockDraft[item.ingrediente_id] ?? "0") > 0 && (Number(item.previous_cantidad) !== Number(stockDraft[item.ingrediente_id]));
                     return (
                     <tr key={item.ingrediente_id} className={recent ? "bg-amber-50/60" : ""}>
-                    <td className="px-4 py-3 text-gray-800 font-medium">
+                    <td data-label="Ingrediente" className="px-4 py-3 text-gray-800 font-medium">
                       <span className="flex items-center gap-2">
                         {item.ingrediente_nombre}
                         {recent && (
@@ -342,11 +359,11 @@ export default function EscuelaDetallePage() {
                         )}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{item.unidad_medida}</td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td data-label="Unidad" className="px-4 py-3 text-gray-500">{item.unidad_medida}</td>
+                    <td data-label="Última carga" className="px-4 py-3 text-gray-500">
                       {formatDate(item.cargado_at)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Cantidad" className="px-4 py-3">
                       <input
                         type="number"
                         min={0}
@@ -370,6 +387,22 @@ export default function EscuelaDetallePage() {
           </div>
         )}
       </div>
+
+      {editModalOpen && (
+        <SchoolFormModal
+          key={school.id}
+          mode="edit"
+          school={school}
+          localidades={localidades}
+          tiposComida={tiposComida}
+          onClose={() => setEditModalOpen(false)}
+          onSaved={(updated) => {
+            setSchool(updated);
+            setError(null);
+            setSuccess("Datos de la escuela actualizados correctamente");
+          }}
+        />
+      )}
     </div>
   );
 }
