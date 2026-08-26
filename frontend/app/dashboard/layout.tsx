@@ -26,8 +26,8 @@ export default function DashboardLayout({
   const [user, setUser] = useState<UserInfo | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
-    General: false,
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    General: true,
   });
 
   useEffect(() => {
@@ -112,9 +112,9 @@ export default function DashboardLayout({
     return groups;
   }, {});
   const toggleGroup = (group: string) => {
-    setCollapsedGroups((current) => ({
+    setOpenGroups((current) => ({
       ...current,
-      [group]: !current[group],
+      [group]: current[group] !== true,
     }));
   };
   const isSessionReady = authReady && user !== null;
@@ -143,7 +143,7 @@ export default function DashboardLayout({
                 <button
                   type="button"
                   onClick={() => toggleGroup(group)}
-                  aria-expanded={collapsedGroups[group] !== true}
+                  aria-expanded={openGroups[group] === true}
                   aria-controls={`sidebar-group-${group}`}
                   className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
                 >
@@ -155,7 +155,7 @@ export default function DashboardLayout({
                     fill="none"
                     aria-hidden="true"
                     className={`transition-transform duration-200 ${
-                      collapsedGroups[group] === true ? "-rotate-90" : ""
+                      openGroups[group] !== true ? "-rotate-90" : ""
                     }`}
                   >
                     <path
@@ -169,7 +169,7 @@ export default function DashboardLayout({
                 </button>
                 <div
                   id={`sidebar-group-${group}`}
-                  hidden={collapsedGroups[group] === true}
+                  hidden={openGroups[group] !== true}
                   className="mt-1 space-y-1"
                 >
                   {links.map((link) => {
