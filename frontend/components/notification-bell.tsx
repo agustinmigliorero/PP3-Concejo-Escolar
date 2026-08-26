@@ -55,14 +55,22 @@ export function NotificationBell() {
   };
 
   useEffect(() => {
-    fetchUnread();
+    const initialLoad = window.setTimeout(() => {
+      void fetchUnread();
+    }, 0);
     const interval = setInterval(fetchUnread, POLL_INTERVAL);
-    return () => clearInterval(interval);
+    return () => {
+      window.clearTimeout(initialLoad);
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
     if (!open) return;
-    fetchNotifications();
+    const loadNotifications = window.setTimeout(() => {
+      void fetchNotifications();
+    }, 0);
+    return () => window.clearTimeout(loadNotifications);
   }, [open]);
 
   useEffect(() => {

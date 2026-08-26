@@ -530,14 +530,14 @@ function MensualDetalle({ reporte }: { reporte: ReporteMensual }) {
             <tbody className="divide-y divide-gray-100">
               {reporte.resumen.map((row, index) => (
                 <tr key={`${row.ingrediente_id}-${row.localidad_id}-${row.proveedor_id}-${index}`}>
-                  <td className="px-4 py-3 font-medium text-gray-800">{row.ingrediente_nombre}</td>
-                  <td className="px-4 py-3 text-gray-600">{row.localidad_nombre}</td>
-                  <td className="px-4 py-3 text-gray-600">{row.proveedor_nombre}</td>
-                  <td className="px-4 py-3 text-right text-gray-700">
+                  <td data-label="Ingrediente" className="px-4 py-3 font-medium text-gray-800">{row.ingrediente_nombre}</td>
+                  <td data-label="Localidad" className="px-4 py-3 text-gray-600">{row.localidad_nombre}</td>
+                  <td data-label="Proveedor" className="px-4 py-3 text-gray-600">{row.proveedor_nombre}</td>
+                  <td data-label="Cantidad" className="px-4 py-3 text-right text-gray-700">
                     {row.cantidad_total} {row.unidad}
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-700">{money(row.precio_promedio)}</td>
-                  <td className="px-4 py-3 text-right text-gray-800">{money(row.costo_total)}</td>
+                  <td data-label="Precio prom." className="px-4 py-3 text-right text-gray-700">{money(row.precio_promedio)}</td>
+                  <td data-label="Costo" className="px-4 py-3 text-right text-gray-800">{money(row.costo_total)}</td>
                 </tr>
               ))}
               {reporte.resumen.length === 0 && (
@@ -590,13 +590,13 @@ function MensualDetalle({ reporte }: { reporte: ReporteMensual }) {
             <tbody className="divide-y divide-gray-100">
               {reporte.por_escuela.map((row) => (
                 <tr key={row.escuela_id}>
-                  <td className="px-4 py-3 font-medium text-gray-800">
+                  <td data-label="Escuela" className="px-4 py-3 font-medium text-gray-800">
                     {row.codigo ? `${row.codigo} - ` : ""}
                     {row.nombre}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{row.localidad_nombre}</td>
-                  <td className="px-4 py-3 text-right text-gray-800">{money(row.costo_total)}</td>
-                  <td className="px-4 py-3 text-right text-gray-500">{row.porcentaje}%</td>
+                  <td data-label="Localidad" className="px-4 py-3 text-gray-600">{row.localidad_nombre}</td>
+                  <td data-label="Costo" className="px-4 py-3 text-right text-gray-800">{money(row.costo_total)}</td>
+                  <td data-label="% del mes" className="px-4 py-3 text-right text-gray-500">{row.porcentaje}%</td>
                 </tr>
               ))}
               {reporte.por_escuela.length === 0 && (
@@ -625,10 +625,10 @@ function MensualDetalle({ reporte }: { reporte: ReporteMensual }) {
             <tbody className="divide-y divide-gray-100">
               {reporte.pedidos.map((pedido) => (
                 <tr key={pedido.id}>
-                  <td className="px-4 py-3 font-medium text-gray-800">{pedido.fecha}</td>
-                  <td className="px-4 py-3 text-gray-600">{pedido.tipo_label}</td>
-                  <td className="px-4 py-3 text-gray-600">{pedido.detalle}</td>
-                  <td className="px-4 py-3 text-right text-gray-800">{money(pedido.costo_total)}</td>
+                  <td data-label="Fecha" className="px-4 py-3 font-medium text-gray-800">{pedido.fecha}</td>
+                  <td data-label="Tipo" className="px-4 py-3 text-gray-600">{pedido.tipo_label}</td>
+                  <td data-label="Detalle" className="px-4 py-3 text-gray-600">{pedido.detalle}</td>
+                  <td data-label="Costo" className="px-4 py-3 text-right text-gray-800">{money(pedido.costo_total)}</td>
                 </tr>
               ))}
             </tbody>

@@ -407,11 +407,11 @@ export default function MiEscuelaPage() {
               <tbody className="divide-y divide-gray-100">
                 {stockItems.map((item) => (
                   <tr key={item.ingrediente_id}>
-                    <td className="px-4 py-3 text-gray-800 font-medium">
+                    <td data-label="Ingrediente" className="px-4 py-3 text-gray-800 font-medium">
                       {item.ingrediente_nombre}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{item.unidad_medida}</td>
-                    <td className="px-4 py-3">
+                    <td data-label="Unidad" className="px-4 py-3 text-gray-500">{item.unidad_medida}</td>
+                    <td data-label="Cantidad" className="px-4 py-3">
                       <input
                         type="number"
                         min={0}

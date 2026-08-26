@@ -45,8 +45,8 @@ function StockDetailModal({
   const items = (notification.details as StockItem[]) ?? [];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 sm:p-6">
         <h2 className="text-lg font-bold text-gray-800 mb-1">Detalle de carga</h2>
         <p className="text-sm text-gray-500 mb-4">
           {notification.escuela_nombre ?? "Escuela"} · {formatDateTime(notification.created_at)}
@@ -126,7 +126,7 @@ export default function HistorialPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Historial</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6">Historial</h1>
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
@@ -140,20 +140,21 @@ export default function HistorialPage() {
         ) : notifications.length === 0 ? (
           <p className="text-gray-400 text-sm p-6">No hay modificaciones registradas.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Tipo</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Detalle</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Escuela</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Usuario</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">Usuario</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Fecha</th>
               </tr>
             </thead>
             <tbody>
               {notifications.map((n) => (
                 <tr key={n.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3">
+                  <td data-label="Tipo" className="px-5 py-3">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                       n.type === "stock_cargado"
                         ? "bg-blue-100 text-blue-700"
@@ -162,7 +163,7 @@ export default function HistorialPage() {
                       {TYPE_LABEL[n.type] ?? n.type}
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-gray-700 max-w-md">
+                  <td data-label="Detalle" className="px-5 py-3 text-gray-700 max-w-md">
                     {n.type === "stock_cargado" ? (
                       <button
                         onClick={() => setDetailTarget(n)}
@@ -184,7 +185,7 @@ export default function HistorialPage() {
                       <span className="truncate block">{n.message}</span>
                     )}
                   </td>
-                  <td className="px-5 py-3">
+                  <td data-label="Escuela" className="px-5 py-3">
                     {n.escuela_id ? (
                       <Link
                         href={`/dashboard/escuelas/${n.escuela_id}`}
@@ -196,16 +197,17 @@ export default function HistorialPage() {
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-gray-600">
+                  <td data-label="Usuario" className="px-5 py-3 text-gray-600 hidden md:table-cell">
                     {n.cargado_por_username ?? "—"}
                   </td>
-                  <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
+                  <td data-label="Fecha" className="px-5 py-3 text-gray-500 whitespace-nowrap">
                     {formatDateTime(n.created_at)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
