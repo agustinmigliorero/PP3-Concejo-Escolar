@@ -271,11 +271,11 @@ export default function TemporadasPage() {
                     key={temporada.id}
                     className="border-b border-gray-50 transition-colors hover:bg-gray-50"
                   >
-                    <td className="px-5 py-3 font-medium text-gray-800">
+                    <td data-label="Temporada" className="px-5 py-3 font-medium text-gray-800">
                       {TEMPORADA_LABEL[temporada.nombre]}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{temporada.anio}</td>
-                    <td className="px-5 py-3">
+                    <td data-label="Año" className="px-5 py-3 text-gray-600">{temporada.anio}</td>
+                    <td data-label="Estado" className="px-5 py-3">
                       <span
                         className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium ${
                           temporada.activo
@@ -291,7 +291,7 @@ export default function TemporadasPage() {
                         {temporada.activo ? "Activa" : "Inactiva"}
                       </span>
                     </td>
-                    <td className="px-5 py-3">
+                    <td data-label="Acciones" className="px-5 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => openEdit(temporada)}

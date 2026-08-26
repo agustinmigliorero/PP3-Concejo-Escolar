@@ -253,9 +253,9 @@ export default function UsuariosPage() {
             <tbody>
               {visibleUsers.map((u) => (
                 <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3 text-gray-400 hidden md:table-cell">{u.id}</td>
-                  <td className="px-5 py-3 font-medium text-gray-800">{u.username}</td>
-                  <td className="px-5 py-3">
+                  <td data-label="ID" className="px-5 py-3 text-gray-400 hidden md:table-cell">{u.id}</td>
+                  <td data-label="Usuario" className="px-5 py-3 font-medium text-gray-800">{u.username}</td>
+                  <td data-label="Rol" className="px-5 py-3">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                       u.role === "admin"
                         ? "bg-purple-100 text-purple-700"
@@ -266,12 +266,12 @@ export default function UsuariosPage() {
                       {ROLE_LABEL[u.role] ?? u.role}
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-gray-600 hidden lg:table-cell">
+                  <td data-label="Escuela" className="px-5 py-3 text-gray-600 hidden lg:table-cell">
                     {u.role === "escuela" && u.school_id
                       ? schoolNameById.get(u.school_id) ?? `Escuela #${u.school_id}`
                       : "No aplica"}
                   </td>
-                  <td className="px-5 py-3">
+                  <td data-label="Estado" className="px-5 py-3">
                     <span className={`inline-block w-2 h-2 rounded-full mr-2 ${u.active ? "bg-green-500" : "bg-gray-300"}`} />
                     {u.active ? "Activo" : "Inactivo"}
                     {u.is_protected_admin && (
@@ -281,7 +281,7 @@ export default function UsuariosPage() {
                     )}
                   </td>
                   {isAdmin && (
-                    <td className="px-5 py-3 text-right">
+                    <td data-label="Acciones" className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => openEdit(u)}

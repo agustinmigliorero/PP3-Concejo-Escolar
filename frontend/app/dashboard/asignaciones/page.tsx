@@ -326,7 +326,7 @@ export default function AsignacionesPage() {
                   key={a.id}
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-5 py-3 font-medium text-gray-800">
+                  <td data-label="Ingrediente" className="px-5 py-3 font-medium text-gray-800">
                     {a.ingrediente_nombre}
                     {a.unidad_medida && (
                       <span className="text-gray-400 font-normal">
@@ -335,19 +335,19 @@ export default function AsignacionesPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-gray-600">
+                  <td data-label="Localidad" className="px-5 py-3 text-gray-600">
                     {a.localidad_nombre}
                   </td>
-                  <td className="px-5 py-3 text-gray-600">
+                  <td data-label="Proveedor" className="px-5 py-3 text-gray-600">
                     {a.proveedor_nombre}
                   </td>
-                  <td className="px-5 py-3 text-right text-gray-800">
+                  <td data-label="Precio unitario" className="px-5 py-3 text-right text-gray-800">
                     {fmtPrecio(a.precio_unitario)}
                   </td>
-                  <td className="px-5 py-3 text-gray-600 hidden md:table-cell">
+                  <td data-label="Desde" className="px-5 py-3 text-gray-600 hidden md:table-cell">
                     {fmtFecha(a.fecha_desde)}
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td data-label="Acciones" className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => openEdit(a)}

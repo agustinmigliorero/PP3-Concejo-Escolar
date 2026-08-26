@@ -154,7 +154,7 @@ export default function HistorialPage() {
             <tbody>
               {notifications.map((n) => (
                 <tr key={n.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3">
+                  <td data-label="Tipo" className="px-5 py-3">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                       n.type === "stock_cargado"
                         ? "bg-blue-100 text-blue-700"
@@ -163,7 +163,7 @@ export default function HistorialPage() {
                       {TYPE_LABEL[n.type] ?? n.type}
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-gray-700 max-w-md">
+                  <td data-label="Detalle" className="px-5 py-3 text-gray-700 max-w-md">
                     {n.type === "stock_cargado" ? (
                       <button
                         onClick={() => setDetailTarget(n)}
@@ -185,7 +185,7 @@ export default function HistorialPage() {
                       <span className="truncate block">{n.message}</span>
                     )}
                   </td>
-                  <td className="px-5 py-3">
+                  <td data-label="Escuela" className="px-5 py-3">
                     {n.escuela_id ? (
                       <Link
                         href={`/dashboard/escuelas/${n.escuela_id}`}
@@ -197,10 +197,10 @@ export default function HistorialPage() {
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-gray-600 hidden md:table-cell">
+                  <td data-label="Usuario" className="px-5 py-3 text-gray-600 hidden md:table-cell">
                     {n.cargado_por_username ?? "—"}
                   </td>
-                  <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
+                  <td data-label="Fecha" className="px-5 py-3 text-gray-500 whitespace-nowrap">
                     {formatDateTime(n.created_at)}
                   </td>
                 </tr>

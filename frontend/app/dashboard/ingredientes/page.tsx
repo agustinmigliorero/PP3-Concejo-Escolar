@@ -213,16 +213,16 @@ export default function IngredientesPage() {
                     key={ing.id}
                     className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                   >
-                    <td className="px-5 py-3 text-gray-400 hidden md:table-cell">{ing.id}</td>
-                    <td className="px-5 py-3 font-medium text-gray-800">{ing.nombre}</td>
-                    <td className="px-5 py-3 text-gray-600 hidden lg:table-cell">{ing.unidad_medida}</td>
-                    <td className="px-5 py-3 text-gray-600 hidden lg:table-cell">
+                    <td data-label="ID" className="px-5 py-3 text-gray-400 hidden md:table-cell">{ing.id}</td>
+                    <td data-label="Nombre" className="px-5 py-3 font-medium text-gray-800">{ing.nombre}</td>
+                    <td data-label="Unidad" className="px-5 py-3 text-gray-600 hidden lg:table-cell">{ing.unidad_medida}</td>
+                    <td data-label="Contenido/Unidad" className="px-5 py-3 text-gray-600 hidden lg:table-cell">
                       {ing.unidad_medida === "unidades" && ing.contenido_por_unidad
                         ? `${ing.contenido_por_unidad} ${ing.unidad_contenido || ""}`
                         : "-"}
                     </td>
-                    <td className="px-5 py-3 text-gray-600 hidden lg:table-cell">{ing.indice_correccion}</td>
-                    <td className="px-5 py-3">
+                    <td data-label="Índice corr." className="px-5 py-3 text-gray-600 hidden lg:table-cell">{ing.indice_correccion}</td>
+                    <td data-label="Estado" className="px-5 py-3">
                       <span
                         className={`inline-block w-2 h-2 rounded-full mr-2 ${
                           ing.activo ? "bg-green-500" : "bg-gray-300"
@@ -231,7 +231,7 @@ export default function IngredientesPage() {
                       {ing.activo ? "Activo" : "Inactivo"}
                     </td>
                     {isAdmin && (
-                      <td className="px-5 py-3 text-right">
+                      <td data-label="Acciones" className="px-5 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           {ing.activo && (
                             <button
@@ -317,7 +317,7 @@ export default function IngredientesPage() {
               </div>
 
               {unidadMedida === "unidades" && (
-                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                <div className="grid grid-cols-1 gap-4 rounded-lg border border-gray-100 bg-gray-50 p-4 sm:grid-cols-2">
                   <div className="col-span-2">
                     <p className="text-xs text-gray-500 mb-2">
                       Para ingredientes por unidad, definí cuánto trae cada unidad comercial.

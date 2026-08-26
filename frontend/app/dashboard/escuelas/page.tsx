@@ -336,8 +336,8 @@ export default function EscuelasPage() {
                   key={s.id}
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-5 py-3 text-gray-400 hidden md:table-cell">{s.id}</td>
-                  <td className="px-5 py-3 font-medium text-gray-800">
+                  <td data-label="ID" className="px-5 py-3 text-gray-400 hidden md:table-cell">{s.id}</td>
+                  <td data-label="Nombre" className="px-5 py-3 font-medium text-gray-800">
                     <Link
                       href={`/dashboard/escuelas/${s.id}`}
                       className="text-blue-700 hover:text-blue-900 hover:underline"
@@ -345,9 +345,9 @@ export default function EscuelasPage() {
                       {s.name}
                     </Link>
                   </td>
-                  <td className="px-5 py-3 text-gray-600 font-mono hidden md:table-cell">{s.code}</td>
-                  <td className="px-5 py-3 text-gray-600 hidden md:table-cell">{s.locality_name}</td>
-                  <td className="px-5 py-3 text-gray-800">
+                  <td data-label="Código" className="px-5 py-3 text-gray-600 font-mono hidden md:table-cell">{s.code}</td>
+                  <td data-label="Localidad" className="px-5 py-3 text-gray-600 hidden md:table-cell">{s.locality_name}</td>
+                  <td data-label="Matrículas" className="px-5 py-3 text-gray-800">
                     <span>{s.matriculation.toLocaleString()} total</span>
                     {s.matriculas_por_tipo?.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -362,8 +362,8 @@ export default function EscuelasPage() {
                       </div>
                     )}
                   </td>
-                  <td className="px-5 py-3">{mealBadges(s)}</td>
-                  <td className="px-5 py-3">
+                  <td data-label="Comidas" className="px-5 py-3">{mealBadges(s)}</td>
+                  <td data-label="Estado" className="px-5 py-3">
                     <span
                       className={`inline-block w-2 h-2 rounded-full mr-2 ${
                         s.active ? "bg-green-500" : "bg-gray-300"
@@ -372,7 +372,7 @@ export default function EscuelasPage() {
                     {s.active ? "Activa" : "Inactiva"}
                   </td>
                   {canManage && (
-                    <td className="px-5 py-3 text-right">
+                    <td data-label="Acciones" className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Link
                           href={`/dashboard/escuelas/${s.id}`}
@@ -426,7 +426,7 @@ export default function EscuelasPage() {
       {/* Create/edit modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-5">
               {modalMode === "create" ? "Nueva escuela" : "Editar escuela"}
             </h2>

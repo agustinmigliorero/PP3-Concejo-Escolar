@@ -674,7 +674,7 @@ export default function PedidosPage() {
               </div>
 
               {stockRecords.length > 0 && (
-                <div className="mt-4 overflow-x-auto rounded-lg border border-gray-100">
+                <div className="table-scroll mt-4 overflow-x-auto rounded-lg border border-gray-100">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 text-gray-500">
                       <tr>
@@ -850,12 +850,12 @@ export default function PedidosPage() {
               <tbody className="divide-y divide-gray-100">
                 {snapshot.resumen_global.map((row, index) => (
                   <tr key={`${row.ingrediente_id}-${row.localidad_nombre}-${index}`}>
-                    <td className="px-5 py-3 font-medium text-gray-800">
+                    <td data-label="Ingrediente" className="px-5 py-3 font-medium text-gray-800">
                       {row.ingrediente_nombre}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{row.localidad_nombre}</td>
-                    <td className="px-5 py-3 text-gray-600">{row.proveedor_nombre}</td>
-                    <td className="px-5 py-3 text-right text-gray-700">
+                    <td data-label="Localidad" className="px-5 py-3 text-gray-600">{row.localidad_nombre}</td>
+                    <td data-label="Proveedor" className="px-5 py-3 text-gray-600">{row.proveedor_nombre}</td>
+                    <td data-label="Cantidad" className="px-5 py-3 text-right text-gray-700">
                       <span className="block">
                         {row.cantidad_total} {row.unidad}
                       </span>
@@ -868,7 +868,7 @@ export default function PedidosPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-right text-gray-800">
+                    <td data-label="Costo" className="px-5 py-3 text-right text-gray-800">
                       {money(row.costo_total)}
                     </td>
                   </tr>
@@ -1000,19 +1000,19 @@ export default function PedidosPage() {
               <tbody className="divide-y divide-gray-100">
                 {filteredPedidos.map((pedido) => (
                   <tr key={pedido.id}>
-                    <td className="px-5 py-3 font-medium text-gray-800">
+                    <td data-label="Semana" className="px-5 py-3 font-medium text-gray-800">
                       {pedido.semana_inicio}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">
+                    <td data-label="Menú" className="px-5 py-3 text-gray-600">
                       Opcion {pedido.datos_snapshot.opcion_menu.numero_opcion}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">
+                    <td data-label="Días" className="px-5 py-3 text-gray-600">
                       {pedido.dias_habiles.join(", ")}
                     </td>
-                    <td className="px-5 py-3 text-right text-gray-800">
+                    <td data-label="Costo filtrado" className="px-5 py-3 text-right text-gray-800">
                       {money(filteredPedidoCost(pedido, historyFilters))}
                     </td>
-                    <td className="px-5 py-3">
+                    <td data-label="PDFs" className="px-5 py-3">
                       <div className="flex flex-wrap justify-end gap-2">
                         <button
                           type="button"
@@ -1044,7 +1044,7 @@ export default function PedidosPage() {
                         </button>
                       </div>
                     </td>
-                    <td className="px-5 py-3">
+                    <td data-label="Excel" className="px-5 py-3">
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"

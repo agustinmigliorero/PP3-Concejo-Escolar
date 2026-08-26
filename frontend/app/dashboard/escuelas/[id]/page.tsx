@@ -332,7 +332,7 @@ export default function EscuelaDetallePage() {
                     const recent = canManage && Number(stockDraft[item.ingrediente_id] ?? "0") > 0 && (Number(item.previous_cantidad) !== Number(stockDraft[item.ingrediente_id]));
                     return (
                     <tr key={item.ingrediente_id} className={recent ? "bg-amber-50/60" : ""}>
-                    <td className="px-4 py-3 text-gray-800 font-medium">
+                    <td data-label="Ingrediente" className="px-4 py-3 text-gray-800 font-medium">
                       <span className="flex items-center gap-2">
                         {item.ingrediente_nombre}
                         {recent && (
@@ -342,11 +342,11 @@ export default function EscuelaDetallePage() {
                         )}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{item.unidad_medida}</td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td data-label="Unidad" className="px-4 py-3 text-gray-500">{item.unidad_medida}</td>
+                    <td data-label="Última carga" className="px-4 py-3 text-gray-500">
                       {formatDate(item.cargado_at)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td data-label="Cantidad" className="px-4 py-3">
                       <input
                         type="number"
                         min={0}

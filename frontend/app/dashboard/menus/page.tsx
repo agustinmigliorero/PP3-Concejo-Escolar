@@ -233,7 +233,7 @@ export default function MenusPage() {
             </h2>
             <p className="text-sm text-gray-500">{opcion.descripcion}</p>
           </div>
-          <div className="overflow-x-auto">
+          <div className="table-scroll overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500">
                 <tr>

@@ -390,9 +390,9 @@ export default function RecetasPage() {
                     key={receta.id}
                     className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                   >
-                    <td className="px-5 py-3 text-gray-400">{receta.id}</td>
-                    <td className="px-5 py-3 font-medium text-gray-800">{receta.nombre}</td>
-                    <td className="px-5 py-3">
+                    <td data-label="ID" className="px-5 py-3 text-gray-400">{receta.id}</td>
+                    <td data-label="Nombre" className="px-5 py-3 font-medium text-gray-800">{receta.nombre}</td>
+                    <td data-label="Tipo de comida" className="px-5 py-3">
                       <div className="flex flex-wrap gap-1">
                         {receta.tipos_comida.length > 0 ? (
                           receta.tipos_comida.map((tipo) => (
@@ -408,12 +408,12 @@ export default function RecetasPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-gray-600">
+                    <td data-label="Temporada" className="px-5 py-3 text-gray-600">
                       {receta.temporada_nombre && receta.temporada_anio
                         ? `${receta.temporada_nombre === "VERANO" ? "Verano" : "Invierno"} ${receta.temporada_anio}`
                         : "Sin temporada"}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">
+                    <td data-label="Ingredientes" className="px-5 py-3 text-gray-600">
                       <div className="max-w-md">
                         <p className="font-medium text-gray-700 mb-1">
                           {receta.ingredientes.length} ingrediente{receta.ingredientes.length !== 1 ? "s" : ""}
@@ -433,7 +433,7 @@ export default function RecetasPage() {
                         </p>
                       </div>
                     </td>
-                    <td className="px-5 py-3">
+                    <td data-label="Estado" className="px-5 py-3">
                       <span
                         className={`inline-block w-2 h-2 rounded-full mr-2 ${
                           receta.activo ? "bg-green-500" : "bg-gray-300"
@@ -441,7 +441,7 @@ export default function RecetasPage() {
                       />
                       {receta.activo ? "Activa" : "Inactiva"}
                     </td>
-                    <td className="px-5 py-3 text-right">
+                    <td data-label="Acciones" className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         {receta.activo && (
                           <button
