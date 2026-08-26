@@ -45,8 +45,8 @@ function StockDetailModal({
   const items = (notification.details as StockItem[]) ?? [];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 sm:p-6">
         <h2 className="text-lg font-bold text-gray-800 mb-1">Detalle de carga</h2>
         <p className="text-sm text-gray-500 mb-4">
           {notification.escuela_nombre ?? "Escuela"} · {formatDateTime(notification.created_at)}
@@ -126,7 +126,7 @@ export default function HistorialPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Historial</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6">Historial</h1>
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
@@ -140,13 +140,14 @@ export default function HistorialPage() {
         ) : notifications.length === 0 ? (
           <p className="text-gray-400 text-sm p-6">No hay modificaciones registradas.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Tipo</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Detalle</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Escuela</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Usuario</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">Usuario</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Fecha</th>
               </tr>
             </thead>
@@ -196,7 +197,7 @@ export default function HistorialPage() {
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-gray-600">
+                  <td className="px-5 py-3 text-gray-600 hidden md:table-cell">
                     {n.cargado_por_username ?? "—"}
                   </td>
                   <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
@@ -206,6 +207,7 @@ export default function HistorialPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

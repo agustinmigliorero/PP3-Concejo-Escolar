@@ -177,8 +177,8 @@ export default function UsuariosPage() {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Usuarios</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Usuarios</h1>
         {isAdmin && (
           <button
             onClick={openCreate}
@@ -236,13 +236,14 @@ export default function UsuariosPage() {
         {loading ? (
           <p className="text-gray-400 text-sm p-6">Cargando...</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3 font-medium text-gray-500">ID</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">ID</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Usuario</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Rol</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Escuela</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Escuela</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
                 {isAdmin && (
                   <th className="text-right px-5 py-3 font-medium text-gray-500">Acciones</th>
@@ -252,7 +253,7 @@ export default function UsuariosPage() {
             <tbody>
               {visibleUsers.map((u) => (
                 <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3 text-gray-400">{u.id}</td>
+                  <td className="px-5 py-3 text-gray-400 hidden md:table-cell">{u.id}</td>
                   <td className="px-5 py-3 font-medium text-gray-800">{u.username}</td>
                   <td className="px-5 py-3">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -265,7 +266,7 @@ export default function UsuariosPage() {
                       {ROLE_LABEL[u.role] ?? u.role}
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-gray-600">
+                  <td className="px-5 py-3 text-gray-600 hidden lg:table-cell">
                     {u.role === "escuela" && u.school_id
                       ? schoolNameById.get(u.school_id) ?? `Escuela #${u.school_id}`
                       : "No aplica"}
@@ -320,13 +321,14 @@ export default function UsuariosPage() {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
       {/* Create/edit modal */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-5">
               {modalMode === "create" ? "Nuevo usuario" : "Editar usuario"}
             </h2>
@@ -401,7 +403,7 @@ export default function UsuariosPage() {
               </p>
             )}
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={() => setModalOpen(false)}
                 className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
@@ -422,8 +424,8 @@ export default function UsuariosPage() {
 
       {/* Confirm toggle modal */}
       {confirmTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-2">
               {confirmTarget.active ? "Desactivar usuario" : "Activar usuario"}
             </h2>

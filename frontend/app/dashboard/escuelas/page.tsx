@@ -243,8 +243,8 @@ export default function EscuelasPage() {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Escuelas</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Escuelas</h1>
         {canManage && (
           <button
             onClick={openCreate}
@@ -312,13 +312,14 @@ export default function EscuelasPage() {
         {loading ? (
           <p className="text-gray-400 text-sm p-6">Cargando...</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3 font-medium text-gray-500">ID</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">ID</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Código</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Localidad</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">Código</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">Localidad</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Matrículas</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Comidas</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
@@ -335,7 +336,7 @@ export default function EscuelasPage() {
                   key={s.id}
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-5 py-3 text-gray-400">{s.id}</td>
+                  <td className="px-5 py-3 text-gray-400 hidden md:table-cell">{s.id}</td>
                   <td className="px-5 py-3 font-medium text-gray-800">
                     <Link
                       href={`/dashboard/escuelas/${s.id}`}
@@ -344,8 +345,8 @@ export default function EscuelasPage() {
                       {s.name}
                     </Link>
                   </td>
-                  <td className="px-5 py-3 text-gray-600 font-mono">{s.code}</td>
-                  <td className="px-5 py-3 text-gray-600">{s.locality_name}</td>
+                  <td className="px-5 py-3 text-gray-600 font-mono hidden md:table-cell">{s.code}</td>
+                  <td className="px-5 py-3 text-gray-600 hidden md:table-cell">{s.locality_name}</td>
                   <td className="px-5 py-3 text-gray-800">
                     <span>{s.matriculation.toLocaleString()} total</span>
                     {s.matriculas_por_tipo?.length > 0 && (
@@ -418,19 +419,20 @@ export default function EscuelasPage() {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
       {/* Create/edit modal */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto mx-4 p-6">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-5">
               {modalMode === "create" ? "Nueva escuela" : "Editar escuela"}
             </h2>
 
             <div className="flex flex-col gap-4">
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nombre
@@ -487,7 +489,7 @@ export default function EscuelasPage() {
                 </select>
               </div>
 
-<div className="flex gap-3">
+<div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Dirección
@@ -502,7 +504,7 @@ export default function EscuelasPage() {
                     placeholder="Ej: Av. San Martín 123"
                   />
                 </div>
-                <div className="w-44">
+                <div className="sm:w-44">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Teléfono <span className="text-gray-400 font-normal">(opcional)</span>
                   </label>
@@ -638,7 +640,7 @@ export default function EscuelasPage() {
               </p>
             )}
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
                 onClick={() => setModalOpen(false)}
                 className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
@@ -659,8 +661,8 @@ export default function EscuelasPage() {
 
       {/* Confirm toggle modal */}
       {confirmTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-2">
               {confirmTarget.active ? "Desactivar escuela" : "Activar escuela"}
             </h2>

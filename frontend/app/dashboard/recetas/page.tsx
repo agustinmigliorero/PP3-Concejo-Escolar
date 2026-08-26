@@ -315,9 +315,9 @@ export default function RecetasPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Recetas</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Recetas</h1>
           <p className="text-sm text-gray-500 mt-1">
             Cada receta consume ingredientes y queda lista para asociarse a temporadas y menús.
           </p>
@@ -483,7 +483,7 @@ export default function RecetasPage() {
 
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-gray-800 mb-5">
               {modalMode === "create" ? "Nueva receta" : "Editar receta"}
             </h2>
@@ -668,7 +668,7 @@ export default function RecetasPage() {
                 </p>
               )}
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
                 <button
                   onClick={() => setModalOpen(false)}
                   className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
@@ -690,7 +690,7 @@ export default function RecetasPage() {
 
       {confirmTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-3">
               {confirmTarget.activo ? "Desactivar receta" : "Activar receta"}
             </h2>
@@ -698,7 +698,7 @@ export default function RecetasPage() {
               ¿Querés {confirmTarget.activo ? "desactivar" : "activar"} la receta{" "}
               <span className="font-medium text-gray-800">{confirmTarget.nombre}</span>?
             </p>
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-col sm:flex-row justify-end gap-3">
               <button
                 onClick={() => setConfirmTarget(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
