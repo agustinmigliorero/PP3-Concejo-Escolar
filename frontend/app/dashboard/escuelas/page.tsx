@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   apiGetSchools,
-  apiCreateSchool,
-  apiUpdateSchool,
   apiToggleSchoolActive,
   apiGetLocalidades,
   apiGetTiposComida,
@@ -15,33 +13,9 @@ import {
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
 import { showSuccessToast } from "@/components/toast";
+import { SchoolFormModal } from "@/components/school-form-modal";
 
 type Tab = "activas" | "inactivas";
-type ModalMode = "create" | "edit";
-
-interface FormState {
-  name: string;
-  code: string;
-  locality_id: number | null;
-  address: string;
-  phone: string;
-  email: string;
-  matriculation: number;
-  matriculas_por_tipo: Record<number, number>;
-  tipos_comida_ids: number[];
-}
-
-const EMPTY_FORM: FormState = {
-  name: "",
-  code: "",
-  locality_id: null,
-  address: "",
-  phone: "",
-  email: "",
-  matriculation: 0,
-  matriculas_por_tipo: {},
-  tipos_comida_ids: [],
-};
 
 function normalizeSearchText(value: string): string {
   return value
@@ -64,11 +38,8 @@ export default function EscuelasPage() {
 
   // Create/edit modal
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<ModalMode>("create");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+  const [editingSchool, setEditingSchool] = useState<SchoolRecord | null>(null);
 
   // Confirm toggle modal
   const [confirmTarget, setConfirmTarget] = useState<SchoolRecord | null>(null);
@@ -98,100 +69,15 @@ export default function EscuelasPage() {
   }, []);
 
   function openCreate() {
-    setForm(EMPTY_FORM);
-    setFormError(null);
     setModalMode("create");
-    setEditingId(null);
+    setEditingSchool(null);
     setModalOpen(true);
   }
 
   function openEdit(s: SchoolRecord) {
-    const savedMatriculas = new Map(
-      (s.matriculas_por_tipo ?? []).map((item) => [item.tipo_comida_id, item.cantidad]),
-    );
-    setForm({
-      name: s.name,
-      code: s.code,
-      locality_id: s.locality_id,
-      address: s.address,
-      phone: s.phone ?? "",
-      email: s.email ?? "",
-      matriculation: s.matriculation,
-      matriculas_por_tipo: Object.fromEntries(
-        s.tipos_comida.map((tipo) => [tipo.id, savedMatriculas.get(tipo.id) ?? s.matriculation]),
-      ),
-      tipos_comida_ids: s.tipos_comida.map((tipo) => tipo.id),
-    });
-    setFormError(null);
     setModalMode("edit");
-    setEditingId(s.id);
+    setEditingSchool(s);
     setModalOpen(true);
-  }
-
-  async function handleSave() {
-    setFormError(null);
-    if (!form.name.trim()) {
-      setFormError("El nombre es obligatorio");
-      return;
-    }
-    if (!form.code.trim()) {
-      setFormError("El código es obligatorio");
-      return;
-    }
-    if (!form.locality_id) {
-      setFormError("Debe seleccionar una localidad");
-      return;
-    }
-    if (!form.address.trim()) {
-      setFormError("La dirección es obligatoria");
-      return;
-    }
-    const matriculasPorTipo = form.tipos_comida_ids.map((tipoComidaId) => ({
-      tipo_comida_id: tipoComidaId,
-      cantidad: form.matriculas_por_tipo[tipoComidaId] ?? form.matriculation,
-    }));
-    if (matriculasPorTipo.some((item) => !Number.isInteger(item.cantidad) || item.cantidad < 0)) {
-      setFormError("Las matrículas por servicio deben ser números enteros mayores o iguales a 0");
-      return;
-    }
-    setSaving(true);
-    try {
-      const contacto = {
-        phone: form.phone.trim() || null,
-        email: form.email.trim() || null,
-        tipos_comida_ids: form.tipos_comida_ids,
-      };
-      if (modalMode === "create") {
-        await apiCreateSchool({
-          name: form.name,
-          code: form.code,
-          locality_id: form.locality_id,
-          address: form.address,
-          matriculation: form.matriculation,
-          matriculas_por_tipo: matriculasPorTipo,
-          ...contacto,
-        });
-        showSuccessToast("Escuela creada correctamente");
-      } else if (editingId !== null) {
-        await apiUpdateSchool(editingId, {
-          name: form.name,
-          code: form.code,
-          locality_id: form.locality_id,
-          address: form.address,
-          matriculation: form.matriculation,
-          matriculas_por_tipo: matriculasPorTipo,
-          ...contacto,
-        });
-        showSuccessToast("Escuela actualizada correctamente");
-      }
-      setModalOpen(false);
-      setError(null);
-      await loadData();
-    } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : "Error al guardar");
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function handleConfirmToggle() {
@@ -316,7 +202,6 @@ export default function EscuelasPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">ID</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">Código</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">Localidad</th>
@@ -336,7 +221,6 @@ export default function EscuelasPage() {
                   key={s.id}
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                 >
-                  <td data-label="ID" className="px-5 py-3 text-gray-400 hidden md:table-cell">{s.id}</td>
                   <td data-label="Nombre" className="px-5 py-3 font-medium text-gray-800">
                     <Link
                       href={`/dashboard/escuelas/${s.id}`}
@@ -406,7 +290,7 @@ export default function EscuelasPage() {
               {visible.length === 0 && (
                 <tr>
                   <td
-                    colSpan={canManage ? 8 : 7}
+                    colSpan={canManage ? 7 : 6}
                     className="px-5 py-8 text-center text-gray-400"
                   >
                     {normalizedSearch
@@ -425,238 +309,17 @@ export default function EscuelasPage() {
 
       {/* Create/edit modal */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 sm:p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-5">
-              {modalMode === "create" ? "Nueva escuela" : "Editar escuela"}
-            </h2>
-
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, name: e.target.value }))
-                    }
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ej: EP 1"
-                    autoFocus
-                  />
-                </div>
-                <div className="w-28">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Código
-                  </label>
-                  <input
-                    type="text"
-                    value={form.code}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, code: e.target.value }))
-                    }
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                    placeholder="EP1"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Localidad
-                </label>
-                <select
-                  value={form.locality_id ?? ""}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      locality_id: e.target.value ? Number(e.target.value) : null,
-                    }))
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="">Seleccionar localidad...</option>
-                  {localidades
-                    .filter((l) => l.activo)
-                    .map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.nombre}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-<div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Dirección
-                  </label>
-                  <input
-                    type="text"
-                    value={form.address}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, address: e.target.value }))
-                    }
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ej: Av. San Martín 123"
-                  />
-                </div>
-                <div className="sm:w-44">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Teléfono <span className="text-gray-400 font-normal">(opcional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.phone}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, phone: e.target.value }))
-                    }
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ej: 2281-123456"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email <span className="text-gray-400 font-normal">(opcional)</span>
-                </label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, email: e.target.value }))
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ej: escuela@dominio.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Matrícula general
-                </label>
-                <p className="text-xs text-gray-500 mb-1">
-                  Se conserva como referencia. El pedido usa la cantidad de cada servicio.
-                </p>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.matriculation}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      matriculation: Math.max(0, Number(e.target.value)),
-                    }))
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cupos por servicio
-                </label>
-                <p className="text-xs text-gray-500 mb-3">
-                  Indicá cuántos alumnos reciben cada servicio para calcular el pedido.
-                </p>
-                {tiposComida.length === 0 ? (
-                  <p className="text-xs text-gray-400">
-                    No hay tipos de comida activos. Creá uno en la sección &quot;Tipos de comida&quot;.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {tiposComida.map((tipo) => {
-                      const checked = form.tipos_comida_ids.includes(tipo.id);
-                      return (
-                        <div
-                          key={tipo.id}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2"
-                        >
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) =>
-                                setForm((f) => {
-                                  if (e.target.checked) {
-                                    return {
-                                      ...f,
-                                      tipos_comida_ids: [...f.tipos_comida_ids, tipo.id],
-                                      matriculas_por_tipo: {
-                                        ...f.matriculas_por_tipo,
-                                        [tipo.id]: f.matriculas_por_tipo[tipo.id] ?? f.matriculation,
-                                      },
-                                    };
-                                  }
-                                  return {
-                                    ...f,
-                                    tipos_comida_ids: f.tipos_comida_ids.filter((id) => id !== tipo.id),
-                                    matriculas_por_tipo: Object.fromEntries(
-                                      Object.entries(f.matriculas_por_tipo).filter(
-                                        ([id]) => Number(id) !== tipo.id,
-                                      ),
-                                    ),
-                                  };
-                                })
-                              }
-                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">{tipo.nombre}</span>
-                          </label>
-                          {checked && (
-                            <input
-                              type="number"
-                              min={0}
-                              step={1}
-                              aria-label={`Cupos de ${tipo.nombre}`}
-                              value={form.matriculas_por_tipo[tipo.id] ?? 0}
-                              onChange={(e) =>
-                                setForm((f) => ({
-                                  ...f,
-                                  matriculas_por_tipo: {
-                                    ...f.matriculas_por_tipo,
-                                    [tipo.id]: Math.max(0, Number(e.target.value)),
-                                  },
-                                }))
-                              }
-                              className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {formError && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-4">
-                {formError}
-              </p>
-            )}
-
-            <div className="flex flex-col sm:flex-row gap-3 mt-6">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 rounded-lg text-sm transition-colors"
-              >
-                {saving ? "Guardando..." : "Guardar"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <SchoolFormModal
+          key={`${modalMode}-${editingSchool?.id ?? "new"}`}
+          mode={modalMode}
+          school={editingSchool}
+          localidades={localidades}
+          tiposComida={tiposComida}
+          onClose={() => setModalOpen(false)}
+          onSaved={() => {
+            void loadData();
+          }}
+        />
       )}
 
       {/* Confirm toggle modal */}
