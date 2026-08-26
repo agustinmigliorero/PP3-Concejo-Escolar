@@ -194,7 +194,6 @@ export default function IngredientesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">ID</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Unidad</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Contenido/Unidad</th>
@@ -213,10 +212,9 @@ export default function IngredientesPage() {
                     key={ing.id}
                     className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
                   >
-                    <td data-label="ID" className="px-5 py-3 text-gray-400 hidden md:table-cell">{ing.id}</td>
-                    <td data-label="Nombre" className="px-5 py-3 font-medium text-gray-800">{ing.nombre}</td>
-                    <td data-label="Unidad" className="px-5 py-3 text-gray-600 hidden lg:table-cell">{ing.unidad_medida}</td>
-                    <td data-label="Contenido/Unidad" className="px-5 py-3 text-gray-600 hidden lg:table-cell">
+                    <td className="px-5 py-3 font-medium text-gray-800">{ing.nombre}</td>
+                    <td className="px-5 py-3 text-gray-600">{ing.unidad_medida}</td>
+                    <td className="px-5 py-3 text-gray-600">
                       {ing.unidad_medida === "unidades" && ing.contenido_por_unidad
                         ? `${ing.contenido_por_unidad} ${ing.unidad_contenido || ""}`
                         : "-"}
@@ -231,25 +229,37 @@ export default function IngredientesPage() {
                       {ing.activo ? "Activo" : "Inactivo"}
                     </td>
                     {isAdmin && (
-                      <td data-label="Acciones" className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-5 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           {ing.activo && (
                             <button
                               onClick={() => openEdit(ing)}
-                              className="text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                              className="text-blue-600 hover:text-blue-800 p-1.5 rounded hover:bg-blue-50 transition-colors"
+                              title="Editar"
                             >
-                              Editar
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                              </svg>
                             </button>
                           )}
                           <button
                             onClick={() => setConfirmTarget(ing)}
-                            className={`font-medium px-2 py-1 rounded transition-colors ${
+                            className={`p-1.5 rounded transition-colors ${
                               ing.activo
                                 ? "text-red-500 hover:text-red-700 hover:bg-red-50"
                                 : "text-green-600 hover:text-green-800 hover:bg-green-50"
                             }`}
+                            title={ing.activo ? "Desactivar" : "Activar"}
                           >
-                            {ing.activo ? "Desactivar" : "Activar"}
+                            {ing.activo ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
+                              </svg>
+                            )}
                           </button>
                         </div>
                       </td>
@@ -259,7 +269,7 @@ export default function IngredientesPage() {
                 {visible.length === 0 && (
                   <tr>
                     <td
-                      colSpan={isAdmin ? 7 : 6}
+                      colSpan={isAdmin ? 6 : 5}
                       className="px-5 py-8 text-center text-gray-400"
                     >
                       {tab === "activos"
