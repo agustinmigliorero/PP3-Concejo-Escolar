@@ -26,6 +26,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<UserInfo | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const redirectToLogin = () => {
@@ -108,6 +109,12 @@ export default function DashboardLayout({
     groups[link.group] = [...(groups[link.group] ?? []), link];
     return groups;
   }, {});
+  const toggleGroup = (group: string) => {
+    setCollapsedGroups((current) => ({
+      ...current,
+      [group]: !current[group],
+    }));
+  };
   const isSessionReady = authReady && user !== null;
 
   return (
@@ -131,10 +138,38 @@ export default function DashboardLayout({
           <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Navegación principal">
             {Object.entries(navGroups).map(([group, links]) => (
               <div key={group} className="mb-5">
-                <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">
-                  {group}
-                </p>
-                <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group)}
+                  aria-expanded={collapsedGroups[group] !== true}
+                  aria-controls={`sidebar-group-${group}`}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
+                >
+                  <span>{group}</span>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                    className={`transition-transform duration-200 ${
+                      collapsedGroups[group] === true ? "-rotate-90" : ""
+                    }`}
+                  >
+                    <path
+                      d="m5 7.5 5 5 5-5"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <div
+                  id={`sidebar-group-${group}`}
+                  hidden={collapsedGroups[group] === true}
+                  className="mt-1 space-y-1"
+                >
                   {links.map((link) => {
                     const active = isLinkActive(link.href);
                     return (
