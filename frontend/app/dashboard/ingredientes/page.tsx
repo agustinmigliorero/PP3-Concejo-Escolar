@@ -1,15 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  apiGetIngredientes,
   apiCreateIngrediente,
-  apiUpdateIngrediente,
+  apiGetIngredientes,
   apiToggleIngredienteActive,
+  apiUpdateIngrediente,
   type IngredienteRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
 import { showSuccessToast } from "@/components/toast";
+import { PageHeader } from "@/components/page-header";
+import { StatusBanner } from "@/components/status-banner";
+import { TabsWithCounters } from "@/components/tabs-with-counters";
+import { TableState } from "@/components/table-state";
+import { CrudFormModal } from "@/components/crud-form-modal";
+import { ConfirmToggleModal } from "@/components/confirm-toggle-modal";
+import { useCrud } from "@/hooks/use-crud";
+import { useConfirmToggle } from "@/hooks/use-confirm-toggle";
 
 type Tab = "activos" | "inactivos";
 type ModalMode = "create" | "edit";
@@ -18,17 +26,30 @@ export default function IngredientesPage() {
   const { user: currentUser } = useUser();
   const isAdmin = currentUser?.role === "admin";
 
-  const [ingredientes, setIngredientes] = useState<IngredienteRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("activos");
+  const {
+    items: ingredientes,
+    loading,
+    error,
+    create,
+    update,
+    toggleActive,
+  } = useCrud<IngredienteRecord>({
+    list: () => apiGetIngredientes(true),
+    create: (data) =>
+      apiCreateIngrediente(data as Parameters<typeof apiCreateIngrediente>[0]),
+    update: (id, data) =>
+      apiUpdateIngrediente(id, data as Parameters<typeof apiUpdateIngrediente>[1]),
+    toggleKey: "activo",
+    toggle: apiToggleIngredienteActive,
+  });
 
-  // Create/edit modal
+  const [tab, setTab] = useState<Tab>("activos");
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>("create");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   // Form fields
   const [nombre, setNombre] = useState("");
@@ -37,23 +58,16 @@ export default function IngredientesPage() {
   const [unidadContenido, setUnidadContenido] = useState("");
   const [indiceCorreccion, setIndiceCorreccion] = useState("1.0");
 
-  // Confirm toggle modal
-  const [confirmTarget, setConfirmTarget] = useState<IngredienteRecord | null>(null);
-  const [toggling, setToggling] = useState(false);
-
-  async function loadIngredientes() {
-    setLoading(true);
-    setError(null);
-    try {
-      setIngredientes(await apiGetIngredientes(true));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al cargar ingredientes");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { loadIngredientes(); }, []);
+  const confirmToggle = useConfirmToggle<IngredienteRecord>({
+    toggle: toggleActive,
+    onSuccess: (updated) =>
+      showSuccessToast(
+        updated?.activo
+          ? "Ingrediente activado correctamente"
+          : "Ingrediente desactivado correctamente",
+      ),
+    onError: () => setPageError("Error al cambiar el estado del ingrediente"),
+  });
 
   function openCreate() {
     setNombre("");
@@ -82,26 +96,27 @@ export default function IngredientesPage() {
   async function handleSave() {
     setFormError(null);
     setSaving(true);
-    
+
     try {
       const data = {
         nombre,
         unidad_medida: unidadMedida,
-        contenido_por_unidad: contenidoPorUnidad ? parseFloat(contenidoPorUnidad) : null,
+        contenido_por_unidad: contenidoPorUnidad
+          ? parseFloat(contenidoPorUnidad)
+          : null,
         unidad_contenido: unidadContenido || null,
-        indice_correccion: parseFloat(indiceCorreccion) || 1.0
+        indice_correccion: parseFloat(indiceCorreccion) || 1.0,
       };
 
       if (modalMode === "create") {
-        await apiCreateIngrediente(data);
+        await create(data);
         showSuccessToast("Ingrediente creado correctamente");
       } else if (editingId !== null) {
-        await apiUpdateIngrediente(editingId, data);
+        await update(editingId, data);
         showSuccessToast("Ingrediente actualizado correctamente");
       }
       setModalOpen(false);
-      setError(null);
-      await loadIngredientes();
+      setPageError(null);
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : "Error al guardar");
     } finally {
@@ -109,35 +124,25 @@ export default function IngredientesPage() {
     }
   }
 
-  async function handleConfirmToggle() {
-    if (!confirmTarget) return;
-    setToggling(true);
-    try {
-      const updated = await apiToggleIngredienteActive(confirmTarget.id);
-      setIngredientes((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
-      setConfirmTarget(null);
-      showSuccessToast(
-        updated.activo
-          ? "Ingrediente activado correctamente"
-          : "Ingrediente desactivado correctamente",
-      );
-    } catch {
-      setError("Error al cambiar el estado del ingrediente");
-      setConfirmTarget(null);
-    } finally {
-      setToggling(false);
-    }
-  }
-
   const visible = ingredientes.filter((i) =>
-    tab === "activos" ? i.activo : !i.activo
+    tab === "activos" ? i.activo : !i.activo,
   );
+  const tabs = [
+    {
+      key: "activos",
+      label: "Activos",
+      count: ingredientes.filter((i) => i.activo).length,
+    },
+    {
+      key: "inactivos",
+      label: "Inactivos",
+      count: ingredientes.filter((i) => !i.activo).length,
+    },
+  ];
 
   return (
     <div className="max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Ingredientes</h1>
+      <PageHeader title="Ingredientes">
         {isAdmin && (
           <button
             onClick={openCreate}
@@ -146,312 +151,254 @@ export default function IngredientesPage() {
             + Nuevo ingrediente
           </button>
         )}
-      </div>
+      </PageHeader>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
-          {error}
-        </p>
+      {(error || pageError) && (
+        <StatusBanner kind="error">{error || pageError}</StatusBanner>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200">
-        {(["activos", "inactivos"] as Tab[]).map((t) => {
-          const count = ingredientes.filter((i) =>
-            t === "activos" ? i.activo : !i.activo
-          ).length;
-          return (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                tab === t
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-              <span
-                className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-                  tab === t
-                    ? "bg-blue-100 text-blue-600"
-                    : "bg-gray-100 text-gray-500"
-                }`}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <TabsWithCounters
+        tabs={tabs}
+        active={tab}
+        onChange={(key) => setTab(key as Tab)}
+      />
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {loading ? (
-          <p className="text-gray-400 text-sm p-6">Cargando...</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Unidad</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Contenido/Unidad</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Índice Corr.</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
-                  {isAdmin && (
-                    <th className="text-right px-5 py-3 font-medium text-gray-500">
-                      Acciones
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((ing) => (
-                  <tr
-                    key={ing.id}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-5 py-3 font-medium text-gray-800">{ing.nombre}</td>
-                    <td className="px-5 py-3 text-gray-600">{ing.unidad_medida}</td>
-                    <td className="px-5 py-3 text-gray-600">
-                      {ing.unidad_medida === "unidades" && ing.contenido_por_unidad
-                        ? `${ing.contenido_por_unidad} ${ing.unidad_contenido || ""}`
-                        : "-"}
-                    </td>
-                    <td data-label="Índice corr." className="px-5 py-3 text-gray-600 hidden lg:table-cell">{ing.indice_correccion}</td>
-                    <td data-label="Estado" className="px-5 py-3">
-                      <span
-                        className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                          ing.activo ? "bg-green-500" : "bg-gray-300"
-                        }`}
-                      />
-                      {ing.activo ? "Activo" : "Inactivo"}
-                    </td>
-                    {isAdmin && (
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {ing.activo && (
-                            <button
-                              onClick={() => openEdit(ing)}
-                              className="text-blue-600 hover:text-blue-800 p-1.5 rounded hover:bg-blue-50 transition-colors"
-                              title="Editar"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                              </svg>
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setConfirmTarget(ing)}
-                            className={`p-1.5 rounded transition-colors ${
-                              ing.activo
-                                ? "text-red-500 hover:text-red-700 hover:bg-red-50"
-                                : "text-green-600 hover:text-green-800 hover:bg-green-50"
-                            }`}
-                            title={ing.activo ? "Desactivar" : "Activar"}
-                          >
-                            {ing.activo ? (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                            ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                {visible.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={isAdmin ? 6 : 5}
-                      className="px-5 py-8 text-center text-gray-400"
-                    >
-                      {tab === "activos"
-                        ? "No hay ingredientes activos."
-                        : "No hay ingredientes inactivos."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Create/edit modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-gray-800 mb-5">
-              {modalMode === "create" ? "Nuevo ingrediente" : "Editar ingrediente"}
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ej: Fideos tirabuzón, Pollo con hueso"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Unidad de medida
-                </label>
-                <select
-                  value={unidadMedida}
-                  onChange={(e) => setUnidadMedida(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="kg">kg</option>
-                  <option value="gs">gs</option>
-                  <option value="litros">litros</option>
-                  <option value="ml">ml</option>
-                  <option value="cc">cc</option>
-                  <option value="unidades">unidades</option>
-                  <option value="docenas">docenas</option>
-                </select>
-              </div>
-
-              {unidadMedida === "unidades" && (
-                <div className="grid grid-cols-1 gap-4 rounded-lg border border-gray-100 bg-gray-50 p-4 sm:grid-cols-2">
-                  <div className="col-span-2">
-                    <p className="text-xs text-gray-500 mb-2">
-                      Para ingredientes por unidad, definí cuánto trae cada unidad comercial.
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Contenido
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={contenidoPorUnidad}
-                      onChange={(e) => setContenidoPorUnidad(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Ej: 900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Unidad del contenido
-                    </label>
-                    <select
-                      value={unidadContenido}
-                      onChange={(e) => setUnidadContenido(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Seleccionar...</option>
-                      <option value="ml">ml</option>
-                      <option value="gs">gs</option>
-                      <option value="cc">cc</option>
-                    </select>
-                  </div>
-                </div>
+      <TableState
+        loading={loading}
+        empty={visible.length === 0}
+        emptyText={
+          tab === "activos"
+            ? "No hay ingredientes activos."
+            : "No hay ingredientes inactivos."
+        }
+        colSpan={isAdmin ? 6 : 5}
+      >
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 bg-gray-50">
+              <th className="text-left px-5 py-3 font-medium text-gray-500">
+                Nombre
+              </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">
+                Unidad
+              </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">
+                Contenido/Unidad
+              </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">
+                Índice Corr.
+              </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500">
+                Estado
+              </th>
+              {isAdmin && (
+                <th className="text-right px-5 py-3 font-medium text-gray-500">
+                  Acciones
+                </th>
               )}
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((ing) => (
+              <tr
+                key={ing.id}
+                className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+              >
+                <td className="px-5 py-3 font-medium text-gray-800">
+                  {ing.nombre}
+                </td>
+                <td className="px-5 py-3 text-gray-600">{ing.unidad_medida}</td>
+                <td className="px-5 py-3 text-gray-600">
+                  {ing.unidad_medida === "unidades" && ing.contenido_por_unidad
+                    ? `${ing.contenido_por_unidad} ${ing.unidad_contenido || ""}`
+                    : "-"}
+                </td>
+                <td
+                  data-label="Índice corr."
+                  className="px-5 py-3 text-gray-600 hidden lg:table-cell"
+                >
+                  {ing.indice_correccion}
+                </td>
+                <td data-label="Estado" className="px-5 py-3">
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                      ing.activo ? "bg-green-500" : "bg-gray-300"
+                    }`}
+                  />
+                  {ing.activo ? "Activo" : "Inactivo"}
+                </td>
+                {isAdmin && (
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      {ing.activo && (
+                        <button
+                          onClick={() => openEdit(ing)}
+                          className="text-blue-600 hover:text-blue-800 p-1.5 rounded hover:bg-blue-50 transition-colors"
+                          title="Editar"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                          </svg>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => confirmToggle.confirm(ing)}
+                        className={`p-1.5 rounded transition-colors ${
+                          ing.activo
+                            ? "text-red-500 hover:text-red-700 hover:bg-red-50"
+                            : "text-green-600 hover:text-green-800 hover:bg-green-50"
+                        }`}
+                        title={ing.activo ? "Desactivar" : "Activar"}
+                      >
+                        {ing.activo ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableState>
 
+      <CrudFormModal
+        open={modalOpen}
+        title={modalMode === "create" ? "Nuevo ingrediente" : "Editar ingrediente"}
+        error={formError}
+        saving={saving}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleSave}
+        width="max-w-md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre
+            </label>
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ej: Fideos tirabuzón, Pollo con hueso"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Unidad de medida
+            </label>
+            <select
+              value={unidadMedida}
+              onChange={(e) => setUnidadMedida(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="kg">kg</option>
+              <option value="gs">gs</option>
+              <option value="litros">litros</option>
+              <option value="ml">ml</option>
+              <option value="cc">cc</option>
+              <option value="unidades">unidades</option>
+              <option value="docenas">docenas</option>
+            </select>
+          </div>
+
+          {unidadMedida === "unidades" && (
+            <div className="grid grid-cols-1 gap-4 rounded-lg border border-gray-100 bg-gray-50 p-4 sm:grid-cols-2">
+              <div className="col-span-2">
+                <p className="text-xs text-gray-500 mb-2">
+                  Para ingredientes por unidad, definí cuánto trae cada unidad
+                  comercial.
+                </p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Índice de corrección (desperdicios)
+                  Contenido
                 </label>
                 <input
                   type="number"
                   step="0.01"
-                  min="0.01"
-                  value={indiceCorreccion}
-                  onChange={(e) => setIndiceCorreccion(e.target.value)}
+                  value={contenidoPorUnidad}
+                  onChange={(e) => setContenidoPorUnidad(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ej: 1.0 (sin desperdicio), 1.68 (pollo)"
+                  placeholder="Ej: 900"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Por defecto es 1.0. Se multiplica por la cantidad base a pedir.
-                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unidad del contenido
+                </label>
+                <select
+                  value={unidadContenido}
+                  onChange={(e) => setUnidadContenido(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Seleccionar...</option>
+                  <option value="ml">ml</option>
+                  <option value="gs">gs</option>
+                  <option value="cc">cc</option>
+                </select>
               </div>
             </div>
+          )}
 
-            {formError && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-4">
-                {formError}
-              </p>
-            )}
-
-            <div className="flex flex-col sm:flex-row gap-3 mt-6">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 rounded-lg text-sm transition-colors"
-              >
-                {saving ? "Guardando..." : "Guardar"}
-              </button>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Índice de corrección (desperdicios)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={indiceCorreccion}
+              onChange={(e) => setIndiceCorreccion(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ej: 1.0 (sin desperdicio), 1.68 (pollo)"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Por defecto es 1.0. Se multiplica por la cantidad base a pedir.
+            </p>
           </div>
         </div>
-      )}
+      </CrudFormModal>
 
-      {/* Confirm toggle modal */}
-      {confirmTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 sm:p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-2">
-              {confirmTarget.activo ? "Desactivar ingrediente" : "Activar ingrediente"}
-            </h2>
-            <p className="text-sm text-gray-600 mb-6">
+      {confirmToggle.target && (
+        <ConfirmToggleModal
+          title={
+            confirmToggle.target.activo
+              ? "Desactivar ingrediente"
+              : "Activar ingrediente"
+          }
+          message={
+            <>
               ¿Confirmás que querés{" "}
               <span className="font-medium">
-                {confirmTarget.activo ? "desactivar" : "activar"}
+                {confirmToggle.target.activo ? "desactivar" : "activar"}
               </span>{" "}
               el ingrediente{" "}
               <span className="font-semibold text-gray-800">
-                {confirmTarget.nombre}
+                {confirmToggle.target.nombre}
               </span>
               ?
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => setConfirmTarget(null)}
-                disabled={toggling}
-                className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmToggle}
-                disabled={toggling}
-                className={`flex-1 font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50 text-white ${
-                  confirmTarget.activo
-                    ? "bg-red-500 hover:bg-red-600"
-                    : "bg-green-600 hover:bg-green-700"
-                }`}
-              >
-                {toggling
-                  ? "Guardando..."
-                  : confirmTarget.activo
-                  ? "Desactivar"
-                  : "Activar"}
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          confirmLabel={
+            confirmToggle.target.activo ? "Desactivar" : "Activar"
+          }
+          busy={confirmToggle.toggling}
+          destructive={confirmToggle.target.activo}
+          onCancel={confirmToggle.close}
+          onConfirm={confirmToggle.handleConfirm}
+        />
       )}
     </div>
   );

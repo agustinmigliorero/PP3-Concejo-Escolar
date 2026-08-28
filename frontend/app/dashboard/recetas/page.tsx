@@ -21,22 +21,18 @@ import {
   toRecipeQuantity,
   toStoredQuantity,
 } from "@/lib/units";
+import { PageHeader } from "@/components/page-header";
+import { StatusBanner } from "@/components/status-banner";
+import { TabsWithCounters } from "@/components/tabs-with-counters";
+import { TableState } from "@/components/table-state";
+import {
+  RecipeFormModal,
+  type FormIngredient,
+  type FormState,
+  type ModalMode,
+} from "./recipe-form-modal";
 
 type Tab = "activas" | "inactivas";
-type ModalMode = "create" | "edit";
-
-interface FormIngredient {
-  tempId: string;
-  ingrediente_id: string;
-  cantidad_por_porcion: string;
-}
-
-interface FormState {
-  nombre: string;
-  tipos_comida_ids: number[];
-  temporada_id: string;
-  ingredientes: FormIngredient[];
-}
 
 function createTempId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -206,16 +202,6 @@ export default function RecetasPage() {
     }));
   }
 
-  function recipeUnitFor(ingredienteId: string): string | null {
-    const ingrediente = ingredientesById.get(Number(ingredienteId));
-    return ingrediente ? getRecipeUnitConfig(ingrediente).recipeUnit : null;
-  }
-
-  function orderUnitFor(ingredienteId: string): string | null {
-    const ingrediente = ingredientesById.get(Number(ingredienteId));
-    return ingrediente ? getRecipeUnitConfig(ingrediente).orderUnit : null;
-  }
-
   async function handleSave() {
     setFormError(null);
 
@@ -315,388 +301,163 @@ export default function RecetasPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Recetas</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Cada receta consume ingredientes y queda lista para asociarse a temporadas y menús.
-          </p>
-        </div>
+      <PageHeader
+        title="Recetas"
+        description="Cada receta consume ingredientes y queda lista para asociarse a temporadas y menús."
+      >
         <button
           onClick={openCreate}
           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
           + Nueva receta
         </button>
-      </div>
+      </PageHeader>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      {error && <StatusBanner kind="error">{error}</StatusBanner>}
 
-      <div className="flex gap-1 mb-4 border-b border-gray-200">
-        {(["activas", "inactivas"] as Tab[]).map((currentTab) => {
-          const count = recetas.filter((receta) =>
-            currentTab === "activas" ? receta.activo : !receta.activo,
-          ).length;
+      <TabsWithCounters
+        tabs={[
+          { key: "activas", label: "Activas", count: recetas.filter((receta) => receta.activo).length },
+          { key: "inactivas", label: "Inactivas", count: recetas.filter((receta) => !receta.activo).length },
+        ]}
+        active={tab}
+        onChange={(key) => setTab(key as Tab)}
+      />
 
-          return (
-            <button
-              key={currentTab}
-              onClick={() => setTab(currentTab)}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                tab === currentTab
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {currentTab === "activas" ? "Activas" : "Inactivas"}
-              <span
-                className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-                  tab === currentTab
-                    ? "bg-blue-100 text-blue-600"
-                    : "bg-gray-100 text-gray-500"
-                }`}
+      <TableState loading={loading}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 bg-gray-50">
+              <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500">Tipo de comida</th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500">Temporada</th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500">Ingredientes</th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
+              <th className="text-right px-5 py-3 font-medium text-gray-500">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleRecetas.map((receta) => (
+              <tr
+                key={receta.id}
+                className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
               >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {loading ? (
-          <p className="text-gray-400 text-sm p-6">Cargando...</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Nombre</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Tipo de comida</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Temporada</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Ingredientes</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
-                  <th className="text-right px-5 py-3 font-medium text-gray-500">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleRecetas.map((receta) => (
-                  <tr
-                    key={receta.id}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-5 py-3 font-medium text-gray-800">{receta.nombre}</td>
-                    <td className="px-5 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {receta.tipos_comida.length > 0 ? (
-                          receta.tipos_comida.map((tipo) => (
-                            <span
-                              key={tipo.id}
-                              className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1"
-                            >
-                              {tipo.nombre}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs text-gray-400">Sin tipos</span>
-                        )}
-                      </div>
-                    </td>
-                    <td data-label="Temporada" className="px-5 py-3 text-gray-600">
-                      {receta.temporada_nombre && receta.temporada_anio
-                        ? `${receta.temporada_nombre === "VERANO" ? "Verano" : "Invierno"} ${receta.temporada_anio}`
-                        : "Sin temporada"}
-                    </td>
-                    <td data-label="Ingredientes" className="px-5 py-3 text-gray-600">
-                      <div className="max-w-md">
-                        <p className="font-medium text-gray-700 mb-1">
-                          {receta.ingredientes.length} ingrediente{receta.ingredientes.length !== 1 ? "s" : ""}
-                        </p>
-                        <p className="text-xs text-gray-500 line-clamp-2">
-                          {receta.ingredientes
-                            .map((item) => {
-                              const ingrediente = ingredientesById.get(item.ingrediente_id) ?? item;
-                              const { recipeUnit } = getRecipeUnitConfig(ingrediente);
-                              const cantidad = toRecipeQuantity(
-                                Number(item.cantidad_por_porcion),
-                                ingrediente,
-                              );
-                              return `${item.ingrediente_nombre} (${cantidad} ${recipeUnit})`;
-                            })
-                            .join(" · ")}
-                        </p>
-                      </div>
-                    </td>
-                    <td data-label="Estado" className="px-5 py-3">
-                      <span
-                        className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                          receta.activo ? "bg-green-500" : "bg-gray-300"
-                        }`}
-                      />
-                      {receta.activo ? "Activa" : "Inactiva"}
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {receta.activo && (
-                          <button
-                            onClick={() => openEdit(receta)}
-                            className="text-blue-600 hover:text-blue-800 p-1.5 rounded hover:bg-blue-50 transition-colors"
-                            title="Editar"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                            </svg>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setConfirmTarget(receta)}
-                          className={`p-1.5 rounded transition-colors ${
-                            receta.activo
-                              ? "text-red-500 hover:text-red-700 hover:bg-red-50"
-                              : "text-green-600 hover:text-green-800 hover:bg-green-50"
-                          }`}
-                          title={receta.activo ? "Desactivar" : "Activar"}
-                        >
-                          {receta.activo ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-
-                {visibleRecetas.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
-                      {tab === "activas"
-                        ? "No hay recetas activas."
-                        : "No hay recetas inactivas."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {modalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-gray-800 mb-5">
-              {modalMode === "create" ? "Nueva receta" : "Editar receta"}
-            </h2>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={form.nombre}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, nombre: event.target.value }))
-                    }
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ej: Fideos con estofado"
-                    autoFocus
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Temporada
-                  </label>
-                  <select
-                    value={form.temporada_id}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        temporada_id: event.target.value,
-                      }))
-                    }
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seleccionar temporada</option>
-                    {temporadas.map((temporada) => (
-                      <option key={temporada.id} value={temporada.id}>
-                        {(temporada.nombre === "VERANO" ? "Verano" : "Invierno")} {temporada.anio}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipos de comida
-                </label>
-                {tiposComida.length === 0 ? (
-                  <p className="text-xs text-gray-400">
-                    No hay tipos de comida activos. Creá uno en la sección &quot;Tipos de comida&quot;.
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-3">
-                    {tiposComida.map((tipo) => {
-                      const checked = form.tipos_comida_ids.includes(tipo.id);
-                      return (
-                        <label
+                <td className="px-5 py-3 font-medium text-gray-800">{receta.nombre}</td>
+                <td className="px-5 py-3">
+                  <div className="flex flex-wrap gap-1">
+                    {receta.tipos_comida.length > 0 ? (
+                      receta.tipos_comida.map((tipo) => (
+                        <span
                           key={tipo.id}
-                          className="flex items-center gap-2 cursor-pointer border border-gray-200 rounded-lg px-3 py-2"
+                          className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1"
                         >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(event) =>
-                              setForm((prev) => ({
-                                ...prev,
-                                tipos_comida_ids: event.target.checked
-                                  ? [...prev.tipos_comida_ids, tipo.id]
-                                  : prev.tipos_comida_ids.filter((id) => id !== tipo.id),
-                              }))
-                            }
-                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">{tipo.nombre}</span>
-                        </label>
-                      );
-                    })}
+                          {tipo.nombre}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-gray-400">Sin tipos</span>
+                    )}
                   </div>
-                )}
-              </div>
-
-              <div className="border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-800">
-                      Ingredientes de la receta
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Cargá la cantidad por porción estándar para cada ingrediente.
+                </td>
+                <td data-label="Temporada" className="px-5 py-3 text-gray-600">
+                  {receta.temporada_nombre && receta.temporada_anio
+                    ? `${receta.temporada_nombre === "VERANO" ? "Verano" : "Invierno"} ${receta.temporada_anio}`
+                    : "Sin temporada"}
+                </td>
+                <td data-label="Ingredientes" className="px-5 py-3 text-gray-600">
+                  <div className="max-w-md">
+                    <p className="font-medium text-gray-700 mb-1">
+                      {receta.ingredientes.length} ingrediente{receta.ingredientes.length !== 1 ? "s" : ""}
+                    </p>
+                    <p className="text-xs text-gray-500 line-clamp-2">
+                      {receta.ingredientes
+                        .map((item) => {
+                          const ingrediente = ingredientesById.get(item.ingrediente_id) ?? item;
+                          const { recipeUnit } = getRecipeUnitConfig(ingrediente);
+                          const cantidad = toRecipeQuantity(
+                            Number(item.cantidad_por_porcion),
+                            ingrediente,
+                          );
+                          return `${item.ingrediente_nombre} (${cantidad} ${recipeUnit})`;
+                        })
+                        .join(" · ")}
                     </p>
                   </div>
-                  <button
-                    onClick={addIngredientRow}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    + Agregar ingrediente
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {form.ingredientes.map((item, index) => (
-                    <div
-                      key={item.tempId}
-                      className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_200px_88px] gap-3 items-end"
-                    >
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">
-                          Ingrediente {index + 1}
-                        </label>
-                        <select
-                          value={item.ingrediente_id}
-                          onChange={(event) =>
-                            updateIngredientRow(item.tempId, {
-                              ingrediente_id: event.target.value,
-                              cantidad_por_porcion: "",
-                            })
-                          }
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Seleccionar ingrediente</option>
-                          {ingredientes.map((ingrediente) => (
-                            <option
-                              key={ingrediente.id}
-                              value={ingrediente.id}
-                              disabled={!ingrediente.activo}
-                            >
-                              {ingrediente.nombre} (receta: {getRecipeUnitConfig(ingrediente).recipeUnit}; pedido: {getRecipeUnitConfig(ingrediente).orderUnit}){ingrediente.activo ? "" : " - inactivo"}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">
-                          Cantidad por porción
-                        </label>
-                        <div className="flex rounded-lg border border-gray-300 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            value={item.cantidad_por_porcion}
-                            onChange={(event) =>
-                              updateIngredientRow(item.tempId, {
-                                cantidad_por_porcion: event.target.value,
-                              })
-                            }
-                            className="w-full min-w-0 rounded-l-lg px-3 py-2 text-sm focus:outline-none"
-                            placeholder="0"
-                          />
-                          <span className="flex items-center border-l border-gray-200 bg-gray-50 px-3 text-sm text-gray-500 rounded-r-lg">
-                            {recipeUnitFor(item.ingrediente_id) ?? "unidad"}
-                          </span>
-                        </div>
-                        {recipeUnitFor(item.ingrediente_id) &&
-                          recipeUnitFor(item.ingrediente_id) !== orderUnitFor(item.ingrediente_id) && (
-                            <p className="text-[11px] text-gray-400 mt-1">
-                              El pedido se calcula en {orderUnitFor(item.ingrediente_id)}.
-                            </p>
-                          )}
-                      </div>
-
+                </td>
+                <td data-label="Estado" className="px-5 py-3">
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                      receta.activo ? "bg-green-500" : "bg-gray-300"
+                    }`}
+                  />
+                  {receta.activo ? "Activa" : "Inactiva"}
+                </td>
+                <td className="px-5 py-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    {receta.activo && (
                       <button
-                        type="button"
-                        onClick={() => removeIngredientRow(item.tempId)}
-                        disabled={form.ingredientes.length === 1}
-                        className="h-10 text-sm font-medium text-red-500 hover:text-red-700 disabled:text-gray-300 disabled:cursor-not-allowed"
+                        onClick={() => openEdit(receta)}
+                        className="text-blue-600 hover:text-blue-800 p-1.5 rounded hover:bg-blue-50 transition-colors"
+                        title="Editar"
                       >
-                        Quitar
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
                       </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                    )}
+                    <button
+                      onClick={() => setConfirmTarget(receta)}
+                      className={`p-1.5 rounded transition-colors ${
+                        receta.activo
+                          ? "text-red-500 hover:text-red-700 hover:bg-red-50"
+                          : "text-green-600 hover:text-green-800 hover:bg-green-50"
+                      }`}
+                      title={receta.activo ? "Desactivar" : "Activar"}
+                    >
+                      {receta.activo ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
 
-              {formError && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
-                  {formError}
-                </p>
-              )}
+            {visibleRecetas.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                  {tab === "activas"
+                    ? "No hay recetas activas."
+                    : "No hay recetas inactivas."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </TableState>
 
-              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
-                <button
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-                >
-                  {saving ? "Guardando..." : "Guardar"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <RecipeFormModal
+        open={modalOpen}
+        mode={modalMode}
+        form={form}
+        saving={saving}
+        formError={formError}
+        ingredientes={ingredientes}
+        temporadas={temporadas}
+        tiposComida={tiposComida}
+        setForm={setForm}
+        onUpdateIngredientRow={updateIngredientRow}
+        onAddIngredientRow={addIngredientRow}
+        onRemoveIngredientRow={removeIngredientRow}
+        onClose={() => setModalOpen(false)}
+        onSave={handleSave}
+      />
 
       {confirmTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

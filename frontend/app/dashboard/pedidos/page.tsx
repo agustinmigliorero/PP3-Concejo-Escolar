@@ -18,14 +18,8 @@ import {
 } from "@/lib/api";
 import { showSuccessToast } from "@/components/toast";
 import { formatContextQuantity } from "@/lib/units";
-
-const DAYS = [
-  { id: 1, label: "Lun", name: "Lunes" },
-  { id: 2, label: "Mar", name: "Martes" },
-  { id: 3, label: "Mie", name: "Miercoles" },
-  { id: 4, label: "Jue", name: "Jueves" },
-  { id: 5, label: "Vie", name: "Viernes" },
-];
+import { DAYS } from "@/lib/constants";
+import { formatLocalDate, formatMoney } from "@/lib/format";
 
 type PedidoExportScope = "resumen" | "proveedores" | "localidades" | "escuelas";
 
@@ -34,13 +28,6 @@ type PedidoFilters = {
   proveedor_id?: number | null;
   escuela_id?: number | null;
 };
-
-function formatLocalDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function nextWeekMondayIso(date = new Date()): string {
   const dayOfWeek = date.getDay();
@@ -54,16 +41,6 @@ function isMondayIso(value: string): boolean {
   if (!value) return false;
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day).getDay() === 1;
-}
-
-function money(value: string): string {
-  const n = Number(value);
-  if (Number.isNaN(n)) return value;
-  return n.toLocaleString("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    minimumFractionDigits: 2,
-  });
 }
 
 function seasonLabel(temporada: TemporadaRecord): string {
@@ -772,7 +749,7 @@ export default function PedidosPage() {
                 </p>
                 <p className="mt-1">
                   {snapshot
-                    ? `Costo estimado: ${money(snapshot.costo_total)}. Ya podes confirmar el pedido.`
+                    ? `Costo estimado: ${formatMoney(snapshot.costo_total)}. Ya podes confirmar el pedido.`
                     : "Primero revisa el calculo para habilitar la confirmacion."}
                 </p>
               </div>
@@ -816,7 +793,7 @@ export default function PedidosPage() {
             <div>
               <h2 className="text-lg font-semibold text-gray-800">Previsualizacion</h2>
               <p className="text-sm text-gray-500">
-                {snapshot.resumen_global.length} filas de resumen - Costo total {money(snapshot.costo_total)}
+                {snapshot.resumen_global.length} filas de resumen - Costo total {formatMoney(snapshot.costo_total)}
               </p>
             </div>
           </div>
@@ -869,7 +846,7 @@ export default function PedidosPage() {
                       )}
                     </td>
                     <td data-label="Costo" className="px-5 py-3 text-right text-gray-800">
-                      {money(row.costo_total)}
+                      {formatMoney(row.costo_total)}
                     </td>
                   </tr>
                 ))}
@@ -1010,7 +987,7 @@ export default function PedidosPage() {
                       {pedido.dias_habiles.join(", ")}
                     </td>
                     <td data-label="Costo filtrado" className="px-5 py-3 text-right text-gray-800">
-                      {money(filteredPedidoCost(pedido, historyFilters))}
+                      {formatMoney(filteredPedidoCost(pedido, historyFilters))}
                     </td>
                     <td data-label="PDFs" className="px-5 py-3">
                       <div className="flex flex-wrap justify-end gap-2">

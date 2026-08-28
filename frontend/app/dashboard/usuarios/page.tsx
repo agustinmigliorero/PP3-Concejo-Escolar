@@ -1,26 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  apiGetUsers,
   apiCreateUser,
-  apiUpdateUser,
-  apiToggleUserActive,
   apiGetSchools,
+  apiGetUsers,
+  apiToggleUserActive,
+  apiUpdateUser,
   type SchoolRecord,
   type UserRecord,
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
 import { showSuccessToast } from "@/components/toast";
 import { PasswordInput } from "@/components/password-input";
+import { PageHeader } from "@/components/page-header";
+import { StatusBanner } from "@/components/status-banner";
+import { TabsWithCounters } from "@/components/tabs-with-counters";
+import { TableState } from "@/components/table-state";
+import { CrudFormModal } from "@/components/crud-form-modal";
+import { ConfirmToggleModal } from "@/components/confirm-toggle-modal";
+import { ROLE_LABEL } from "@/lib/constants";
+import { useCrud } from "@/hooks/use-crud";
+import { useAsyncData } from "@/hooks/use-async-data";
+import { useConfirmToggle } from "@/hooks/use-confirm-toggle";
 
 const ROLES = ["admin", "gestor", "escuela"] as const;
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Administrador",
-  gestor: "Gestor",
-  escuela: "Escuela",
-};
-
 type ModalMode = "create" | "edit";
 type Tab = "activos" | "inactivos";
 
@@ -42,13 +46,26 @@ export default function UsuariosPage() {
   const { user: currentUser } = useUser();
   const isAdmin = currentUser?.role === "admin";
 
-  const [users, setUsers] = useState<UserRecord[]>([]);
-  const [schools, setSchools] = useState<SchoolRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("activos");
+  const {
+    items: users,
+    loading,
+    error,
+    create,
+    update,
+    toggleActive,
+  } = useCrud<UserRecord>({
+    list: apiGetUsers,
+    create: (data) => apiCreateUser(data as Parameters<typeof apiCreateUser>[0]),
+    update: (id, data) =>
+      apiUpdateUser(id, data as Parameters<typeof apiUpdateUser>[1]),
+    toggleKey: "active",
+    toggle: apiToggleUserActive,
+  });
 
-  // Create/edit modal
+  const { data: schoolsData } = useAsyncData<SchoolRecord[]>(apiGetSchools);
+  const schools = schoolsData ?? [];
+
+  const [tab, setTab] = useState<Tab>("activos");
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>("create");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -56,26 +73,21 @@ export default function UsuariosPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editingProtectedAdmin, setEditingProtectedAdmin] = useState(false);
-  const [confirmTarget, setConfirmTarget] = useState<UserRecord | null>(null);
-  const [toggling, setToggling] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
 
-  async function loadUsers() {
-    setLoading(true);
-    try {
-      const [usersData, schoolsData] = await Promise.all([
-        apiGetUsers(),
-        apiGetSchools(),
-      ]);
-      setUsers(usersData);
-      setSchools(schoolsData);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al cargar usuarios");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { loadUsers(); }, []);
+  const confirmToggle = useConfirmToggle<UserRecord>({
+    toggle: toggleActive,
+    onSuccess: (updated) =>
+      showSuccessToast(
+        updated?.active
+          ? "Usuario activado correctamente"
+          : "Usuario desactivado correctamente",
+      ),
+    onError: (e) =>
+      setPageError(
+        e instanceof Error ? e.message : "Error al cambiar el estado del usuario",
+      ),
+  });
 
   function openCreate() {
     setForm(EMPTY_FORM);
@@ -111,8 +123,11 @@ export default function UsuariosPage() {
       }
 
       if (modalMode === "create") {
-        if (!form.password) { setFormError("La contraseña es obligatoria"); return; }
-        await apiCreateUser({
+        if (!form.password) {
+          setFormError("La contraseña es obligatoria");
+          return;
+        }
+        await create({
           username: form.username,
           password: form.password,
           role: form.role,
@@ -131,11 +146,10 @@ export default function UsuariosPage() {
           school_id: schoolId,
         };
         if (form.password) payload.password = form.password;
-        await apiUpdateUser(editingId, payload);
+        await update(editingId, payload);
         showSuccessToast("Usuario actualizado correctamente");
       }
       setModalOpen(false);
-      await loadUsers();
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : "Error al guardar");
     } finally {
@@ -143,42 +157,33 @@ export default function UsuariosPage() {
     }
   }
 
-  async function handleConfirmToggle() {
-    if (!confirmTarget) return;
-    setToggling(true);
-    try {
-      const updated = await apiToggleUserActive(confirmTarget.id);
-      setUsers((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
-      setConfirmTarget(null);
-      showSuccessToast(
-        updated.active
-          ? "Usuario activado correctamente"
-          : "Usuario desactivado correctamente",
-      );
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al cambiar el estado del usuario");
-      setConfirmTarget(null);
-    } finally {
-      setToggling(false);
-    }
-  }
-
   const visibleUsers = users.filter((u) =>
-    tab === "activos" ? u.active : !u.active
+    tab === "activos" ? u.active : !u.active,
   );
   const schoolNameById = new Map(
-    schools.map((school) => [
-      school.id,
-      `${school.code} - ${school.name}`,
-    ]),
+    schools.map((school) => [school.id, `${school.code} - ${school.name}`]),
   );
   const activeSchools = schools.filter((school) => school.active);
+  const tabs = [
+    {
+      key: "activos",
+      label: "Activos",
+      count: users.filter((u) => u.active).length,
+    },
+    ...(isAdmin
+      ? [
+          {
+            key: "inactivos",
+            label: "Inactivos",
+            count: users.filter((u) => !u.active).length,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div className="max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Usuarios</h1>
+      <PageHeader title="Usuarios">
         {isAdmin && (
           <button
             onClick={openCreate}
@@ -187,294 +192,248 @@ export default function UsuariosPage() {
             + Nuevo usuario
           </button>
         )}
-      </div>
+      </PageHeader>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
-          {error}
-        </p>
+      {(error || pageError) && (
+        <StatusBanner kind="error">{error || pageError}</StatusBanner>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200">
-        <button
-          onClick={() => setTab("activos")}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-            tab === "activos"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Activos
-          <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-            tab === "activos" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"
-          }`}>
-            {users.filter((u) => u.active).length}
-          </span>
-        </button>
-        {isAdmin && (
-          <button
-            onClick={() => setTab("inactivos")}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              tab === "inactivos"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Inactivos
-            <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-              tab === "inactivos" ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"
-            }`}>
-              {users.filter((u) => !u.active).length}
-            </span>
-          </button>
-        )}
-      </div>
+      <TabsWithCounters
+        tabs={tabs}
+        active={tab}
+        onChange={(key) => setTab(key as Tab)}
+      />
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {loading ? (
-          <p className="text-gray-400 text-sm p-6">Cargando...</p>
-        ) : (
-          <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Usuario</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Rol</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">Escuela</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
-                {isAdmin && (
-                  <th className="text-right px-5 py-3 font-medium text-gray-500">Acciones</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {visibleUsers.map((u) => (
-                <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3 font-medium text-gray-800">{u.username}</td>
-                  <td className="px-5 py-3">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+      <TableState
+        loading={loading}
+        empty={visibleUsers.length === 0}
+        emptyText={
+          tab === "activos" ? "No hay usuarios activos." : "No hay usuarios inactivos."
+        }
+        colSpan={isAdmin ? 5 : 4}
+      >
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 bg-gray-50">
+              <th className="text-left px-5 py-3 font-medium text-gray-500">
+                Usuario
+              </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500">
+                Rol
+              </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500 hidden lg:table-cell">
+                Escuela
+              </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500">
+                Estado
+              </th>
+              {isAdmin && (
+                <th className="text-right px-5 py-3 font-medium text-gray-500">
+                  Acciones
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {visibleUsers.map((u) => (
+              <tr
+                key={u.id}
+                className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+              >
+                <td className="px-5 py-3 font-medium text-gray-800">
+                  {u.username}
+                </td>
+                <td className="px-5 py-3">
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                       u.role === "admin"
                         ? "bg-purple-100 text-purple-700"
                         : u.role === "gestor"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-green-100 text-green-700"
-                    }`}>
-                      {ROLE_LABEL[u.role] ?? u.role}
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-green-100 text-green-700"
+                    }`}
+                  >
+                    {ROLE_LABEL[u.role] ?? u.role}
+                  </span>
+                </td>
+                <td
+                  data-label="Escuela"
+                  className="px-5 py-3 text-gray-600 hidden lg:table-cell"
+                >
+                  {u.role === "escuela" && u.school_id
+                    ? schoolNameById.get(u.school_id) ?? `Escuela #${u.school_id}`
+                    : "No aplica"}
+                </td>
+                <td data-label="Estado" className="px-5 py-3">
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full mr-2 ${u.active ? "bg-green-500" : "bg-gray-300"}`}
+                  />
+                  {u.active ? "Activo" : "Inactivo"}
+                  {u.is_protected_admin && (
+                    <span className="ml-2 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                      Protegido
                     </span>
-                  </td>
-                  <td data-label="Escuela" className="px-5 py-3 text-gray-600 hidden lg:table-cell">
-                    {u.role === "escuela" && u.school_id
-                      ? schoolNameById.get(u.school_id) ?? `Escuela #${u.school_id}`
-                      : "No aplica"}
-                  </td>
-                  <td data-label="Estado" className="px-5 py-3">
-                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${u.active ? "bg-green-500" : "bg-gray-300"}`} />
-                    {u.active ? "Activo" : "Inactivo"}
-                    {u.is_protected_admin && (
-                      <span className="ml-2 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-                        Protegido
-                      </span>
-                    )}
-                  </td>
-                  {isAdmin && (
-                    <td className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => openEdit(u)}
-                          className="text-blue-600 hover:text-blue-800 p-1.5 rounded hover:bg-blue-50 transition-colors"
-                          title="Editar"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => setConfirmTarget(u)}
-                          disabled={u.is_protected_admin && u.active}
-                          title={
-                            u.is_protected_admin && u.active
-                              ? "El administrador principal no se puede desactivar"
-                              : u.active ? "Desactivar" : "Activar"
-                          }
-                          className={`p-1.5 rounded transition-colors ${
-                            u.is_protected_admin && u.active
-                              ? "text-gray-300 cursor-not-allowed"
-                              : u.active
+                  )}
+                </td>
+                {isAdmin && (
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => openEdit(u)}
+                        className="text-blue-600 hover:text-blue-800 p-1.5 rounded hover:bg-blue-50 transition-colors"
+                        title="Editar"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => confirmToggle.confirm(u)}
+                        disabled={u.is_protected_admin && u.active}
+                        title={
+                          u.is_protected_admin && u.active
+                            ? "El administrador principal no se puede desactivar"
+                            : u.active
+                              ? "Desactivar"
+                              : "Activar"
+                        }
+                        className={`p-1.5 rounded transition-colors ${
+                          u.is_protected_admin && u.active
+                            ? "text-gray-300 cursor-not-allowed"
+                            : u.active
                               ? "text-red-500 hover:text-red-700 hover:bg-red-50"
                               : "text-green-600 hover:text-green-800 hover:bg-green-50"
-                          }`}
-                        >
-                          {u.active ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {visibleUsers.length === 0 && (
-                <tr>
-                  <td colSpan={isAdmin ? 5 : 4} className="px-5 py-8 text-center text-gray-400">
-                    {tab === "activos" ? "No hay usuarios activos." : "No hay usuarios inactivos."}
+                        }`}
+                      >
+                        {u.active ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          </div>
-        )}
-      </div>
-
-      {/* Create/edit modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 sm:p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-5">
-              {modalMode === "create" ? "Nuevo usuario" : "Editar usuario"}
-            </h2>
-
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre de usuario
-                </label>
-                <input
-                  type="text"
-                  value={form.username}
-                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="nombre_usuario"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Contraseña {modalMode === "edit" && <span className="text-gray-400 font-normal">(dejar vacío para no cambiar)</span>}
-                </label>
-                <PasswordInput
-                  value={form.password}
-                  onChange={(v) => setForm((f) => ({ ...f, password: v }))}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
-                <select
-                  value={form.role}
-                  onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-                  disabled={editingProtectedAdmin}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:text-gray-500"
-                >
-                  {ROLES.map((r) => (
-                    <option key={r} value={r}>{ROLE_LABEL[r]}</option>
-                  ))}
-                </select>
-                {editingProtectedAdmin && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    El administrador principal debe conservar el rol administrador.
-                  </p>
                 )}
-              </div>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableState>
 
-              {form.role === "escuela" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Escuela asociada
-                  </label>
-                  <select
-                    value={form.school_id}
-                    onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="">Seleccionar escuela...</option>
-                    {activeSchools.map((school) => (
-                      <option key={school.id} value={school.id}>
-                        {school.code} - {school.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+      <CrudFormModal
+        open={modalOpen}
+        title={modalMode === "create" ? "Nuevo usuario" : "Editar usuario"}
+        error={formError}
+        saving={saving}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleSave}
+      >
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre de usuario
+            </label>
+            <input
+              type="text"
+              value={form.username}
+              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="nombre_usuario"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Contraseña{" "}
+              {modalMode === "edit" && (
+                <span className="text-gray-400 font-normal">
+                  (dejar vacío para no cambiar)
+                </span>
               )}
-            </div>
+            </label>
+            <PasswordInput
+              value={form.password}
+              onChange={(v) => setForm((f) => ({ ...f, password: v }))}
+            />
+          </div>
 
-            {formError && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-4">
-                {formError}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Rol
+            </label>
+            <select
+              value={form.role}
+              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+              disabled={editingProtectedAdmin}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:text-gray-500"
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABEL[r]}
+                </option>
+              ))}
+            </select>
+            {editingProtectedAdmin && (
+              <p className="text-xs text-gray-500 mt-1">
+                El administrador principal debe conservar el rol administrador.
               </p>
             )}
-
-            <div className="flex flex-col sm:flex-row gap-3 mt-6">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 rounded-lg text-sm transition-colors"
-              >
-                {saving ? "Guardando..." : "Guardar"}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
 
-      {/* Confirm toggle modal */}
-      {confirmTarget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 sm:p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-2">
-              {confirmTarget.active ? "Desactivar usuario" : "Activar usuario"}
-            </h2>
-            <p className="text-sm text-gray-600 mb-6">
+          {form.role === "escuela" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Escuela asociada
+              </label>
+              <select
+                value={form.school_id}
+                onChange={(e) => setForm((f) => ({ ...f, school_id: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">Seleccionar escuela...</option>
+                {activeSchools.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.code} - {school.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      </CrudFormModal>
+
+      {confirmToggle.target && (
+        <ConfirmToggleModal
+          title={
+            confirmToggle.target.active
+              ? "Desactivar usuario"
+              : "Activar usuario"
+          }
+          message={
+            <>
               Confirmas que queres{" "}
               <span className="font-medium">
-                {confirmTarget.active ? "desactivar" : "activar"}
+                {confirmToggle.target.active ? "desactivar" : "activar"}
               </span>{" "}
               el usuario{" "}
               <span className="font-semibold text-gray-800">
-                {confirmTarget.username}
+                {confirmToggle.target.username}
               </span>
               ?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmTarget(null)}
-                disabled={toggling}
-                className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmToggle}
-                disabled={toggling}
-                className={`flex-1 font-medium py-2 rounded-lg text-sm transition-colors disabled:opacity-50 text-white ${
-                  confirmTarget.active
-                    ? "bg-red-500 hover:bg-red-600"
-                    : "bg-green-600 hover:bg-green-700"
-                }`}
-              >
-                {toggling
-                  ? "Guardando..."
-                  : confirmTarget.active
-                    ? "Desactivar"
-                    : "Activar"}
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          confirmLabel={
+            confirmToggle.target.active ? "Desactivar" : "Activar"
+          }
+          busy={confirmToggle.toggling}
+          destructive={confirmToggle.target.active}
+          onCancel={confirmToggle.close}
+          onConfirm={confirmToggle.handleConfirm}
+        />
       )}
     </div>
   );

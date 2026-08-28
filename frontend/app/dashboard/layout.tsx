@@ -9,12 +9,7 @@ import { ToastViewport } from "@/components/toast";
 import { ManualModal } from "@/components/manual-modal";
 import { NotificationBell } from "@/components/notification-bell";
 import { UserContext } from "./user-context";
-
-const ROLE_LABEL: Record<UserInfo["role"], string> = {
-  admin: "Administrador",
-  gestor: "Gestor",
-  escuela: "Escuela",
-};
+import { ROLE_LABEL } from "@/lib/constants";
 
 export default function DashboardLayout({
   children,

@@ -12,23 +12,8 @@ import {
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
 import { showSuccessToast } from "@/components/toast";
-
-function DetailField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="border border-gray-100 rounded-lg p-4 bg-gray-50">
-      <p className="text-xs uppercase tracking-wide font-medium text-gray-500 mb-1">
-        {label}
-      </p>
-      <p className="text-sm font-medium text-gray-800">{value}</p>
-    </div>
-  );
-}
+import { DetailField } from "@/components/detail-field";
+import { StatusBanner } from "@/components/status-banner";
 
 export default function MiEscuelaPage() {
   const { user } = useUser();
@@ -235,16 +220,8 @@ export default function MiEscuelaPage() {
         </span>
       </div>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
-          {error}
-        </p>
-      )}
-      {success && (
-        <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 mb-4">
-          {success}
-        </p>
-      )}
+      {error && <StatusBanner kind="error">{error}</StatusBanner>}
+      {success && <StatusBanner kind="success">{success}</StatusBanner>}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

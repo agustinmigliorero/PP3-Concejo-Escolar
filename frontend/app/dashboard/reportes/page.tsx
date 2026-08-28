@@ -13,6 +13,9 @@ import {
   type ReportePedidoTipo,
 } from "@/lib/api";
 import { DonutChart, RankingBars, TrendBars } from "@/components/charts";
+import { KpiCard } from "@/components/kpi-card";
+import { ChartCard } from "@/components/chart-card";
+import { formatMoney, formatMoneyShort } from "@/lib/format";
 
 const TIPO_FILTERS: Array<{ value: ReportePedidoTipo; label: string }> = [
   { value: "", label: "Todos los tipos" },
@@ -20,26 +23,6 @@ const TIPO_FILTERS: Array<{ value: ReportePedidoTipo; label: string }> = [
   { value: "PATIO", label: "Patios" },
   { value: "EVENTO", label: "Eventos" },
 ];
-
-function money(value: string | number): string {
-  const n = Number(value);
-  if (Number.isNaN(n)) return String(value);
-  return n.toLocaleString("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    minimumFractionDigits: 2,
-  });
-}
-
-function moneyShort(value: number): string {
-  if (!Number.isFinite(value)) return "$0";
-  return value.toLocaleString("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  });
-}
 
 function mesKey(item: { anio: number; mes: number }): string {
   return `${item.anio}-${item.mes}`;
@@ -289,24 +272,24 @@ export default function ReportesPage() {
           ) : totales && totales.num_pedidos > 0 ? (
             <>
               <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <KpiCard label="Gasto total" value={money(totales.costo_total)} accent />
+                <KpiCard label="Gasto total" value={formatMoney(totales.costo_total)} accent />
                 <KpiCard label="Pedidos generados" value={String(totales.num_pedidos)} />
                 <KpiCard label="Escuelas atendidas" value={String(totales.num_escuelas)} />
-                <KpiCard label="Promedio por pedido" value={money(totales.costo_promedio_pedido)} />
+                <KpiCard label="Promedio por pedido" value={formatMoney(totales.costo_promedio_pedido)} />
                 <KpiCard label="Proveedores" value={String(totales.num_proveedores)} />
                 <KpiCard label="Localidades" value={String(totales.num_localidades)} />
                 {totales.mes_pico_etiqueta && (
                   <KpiCard
                     label="Mes de mayor gasto"
                     value={totales.mes_pico_etiqueta}
-                    caption={totales.mes_pico_costo ? money(totales.mes_pico_costo) : undefined}
+                    caption={totales.mes_pico_costo ? formatMoney(totales.mes_pico_costo) : undefined}
                     className="col-span-2"
                   />
                 )}
               </section>
 
               <ChartCard title="Gasto mensual" subtitle="Costo total de pedidos por mes">
-                <TrendBars data={trendData} formatValue={moneyShort} />
+                <TrendBars data={trendData} formatValue={formatMoneyShort} />
               </ChartCard>
 
               <div className="grid gap-6 lg:grid-cols-2">
@@ -317,7 +300,7 @@ export default function ReportesPage() {
                       value: Number(row.costo_total),
                       percent: row.porcentaje,
                     }))}
-                    formatValue={(value) => money(value)}
+                    formatValue={(value) => formatMoney(value)}
                   />
                 </ChartCard>
                 <ChartCard title="Costo por proveedor">
@@ -328,7 +311,7 @@ export default function ReportesPage() {
                       hint: row.localidades,
                       percent: row.porcentaje,
                     }))}
-                    formatValue={(value) => money(value)}
+                    formatValue={(value) => formatMoney(value)}
                   />
                 </ChartCard>
               </div>
@@ -341,7 +324,7 @@ export default function ReportesPage() {
                       value: Number(row.costo_total),
                       percent: row.porcentaje,
                     }))}
-                    formatValue={(value) => money(value)}
+                    formatValue={(value) => formatMoney(value)}
                   />
                 </ChartCard>
                 <ChartCard title="Distribución por tipo de pedido">
@@ -350,7 +333,7 @@ export default function ReportesPage() {
                       label: row.tipo_label,
                       value: Number(row.costo_total),
                     }))}
-                    formatValue={moneyShort}
+                    formatValue={formatMoneyShort}
                   />
                 </ChartCard>
               </div>
@@ -380,7 +363,7 @@ export default function ReportesPage() {
                     {meses.length === 0 && <option value="">Sin meses disponibles</option>}
                     {meses.map((item) => (
                       <option key={mesKey(item)} value={mesKey(item)}>
-                        {item.etiqueta} · {item.num_pedidos} ped. · {money(item.costo_total)}
+                        {item.etiqueta} · {item.num_pedidos} ped. · {formatMoney(item.costo_total)}
                       </option>
                     ))}
                   </select>
@@ -438,52 +421,10 @@ export default function ReportesPage() {
   );
 }
 
-function KpiCard({
-  label,
-  value,
-  caption,
-  accent,
-  className,
-}: {
-  label: string;
-  value: string;
-  caption?: string;
-  accent?: boolean;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 shadow-sm ${
-        accent ? "border-blue-100 bg-blue-50" : "border-gray-100 bg-white"
-      } ${className ?? ""}`}
-    >
-      <p className="text-xs font-bold uppercase tracking-[0.06em] text-slate-500">{label}</p>
-      <p className={`mt-2 text-xl font-bold ${accent ? "text-blue-800" : "text-slate-900"}`}>{value}</p>
-      {caption && <p className="mt-1 text-sm text-slate-500">{caption}</p>}
-    </div>
-  );
-}
-
-function ChartCard({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <div className="mb-4">
-        <h2 className="text-base font-bold text-slate-900">{title}</h2>
-        {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
-      </div>
-      {children}
-    </section>
-  );
-}
-
+// Banners nativos: el ErrorBanner de reportes es `px-4 py-2` SIN mb-4 dentro de
+// un contenedor `space-y-6`; StatusBanner fija `px-4 py-2 mb-4` (su mb-4
+// colisionaría con el margin-block-end que ya aporta space-y-6 en Tailwind v4),
+// así que se conserva el marcado local byte-a-byte.
 function ErrorBanner({ message }: { message: string }) {
   return (
     <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
@@ -508,7 +449,7 @@ function MensualDetalle({ reporte }: { reporte: ReporteMensual }) {
   return (
     <div className="space-y-6">
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Costo total del mes" value={money(reporte.costo_total)} accent className="col-span-2 lg:col-span-1" />
+        <KpiCard label="Costo total del mes" value={formatMoney(reporte.costo_total)} accent className="col-span-2 lg:col-span-1" />
         <KpiCard label="Pedidos incluidos" value={String(reporte.num_pedidos)} />
         <KpiCard label="Proveedores" value={String(reporte.por_proveedor.length)} />
         <KpiCard label="Localidades" value={String(reporte.por_localidad.length)} />
@@ -536,8 +477,8 @@ function MensualDetalle({ reporte }: { reporte: ReporteMensual }) {
                   <td data-label="Cantidad" className="px-4 py-3 text-right text-gray-700">
                     {row.cantidad_total} {row.unidad}
                   </td>
-                  <td data-label="Precio prom." className="px-4 py-3 text-right text-gray-700">{money(row.precio_promedio)}</td>
-                  <td data-label="Costo" className="px-4 py-3 text-right text-gray-800">{money(row.costo_total)}</td>
+                  <td data-label="Precio prom." className="px-4 py-3 text-right text-gray-700">{formatMoney(row.precio_promedio)}</td>
+                  <td data-label="Costo" className="px-4 py-3 text-right text-gray-800">{formatMoney(row.costo_total)}</td>
                 </tr>
               ))}
               {reporte.resumen.length === 0 && (
@@ -561,7 +502,7 @@ function MensualDetalle({ reporte }: { reporte: ReporteMensual }) {
               hint: row.localidades,
               percent: row.porcentaje,
             }))}
-            formatValue={(value) => money(value)}
+            formatValue={(value) => formatMoney(value)}
           />
         </ChartCard>
         <ChartCard title="Costo por localidad">
@@ -571,7 +512,7 @@ function MensualDetalle({ reporte }: { reporte: ReporteMensual }) {
               value: Number(row.costo_total),
               percent: row.porcentaje,
             }))}
-            formatValue={(value) => money(value)}
+            formatValue={(value) => formatMoney(value)}
           />
         </ChartCard>
       </div>
@@ -595,7 +536,7 @@ function MensualDetalle({ reporte }: { reporte: ReporteMensual }) {
                     {row.nombre}
                   </td>
                   <td data-label="Localidad" className="px-4 py-3 text-gray-600">{row.localidad_nombre}</td>
-                  <td data-label="Costo" className="px-4 py-3 text-right text-gray-800">{money(row.costo_total)}</td>
+                  <td data-label="Costo" className="px-4 py-3 text-right text-gray-800">{formatMoney(row.costo_total)}</td>
                   <td data-label="% del mes" className="px-4 py-3 text-right text-gray-500">{row.porcentaje}%</td>
                 </tr>
               ))}
@@ -628,7 +569,7 @@ function MensualDetalle({ reporte }: { reporte: ReporteMensual }) {
                   <td data-label="Fecha" className="px-4 py-3 font-medium text-gray-800">{pedido.fecha}</td>
                   <td data-label="Tipo" className="px-4 py-3 text-gray-600">{pedido.tipo_label}</td>
                   <td data-label="Detalle" className="px-4 py-3 text-gray-600">{pedido.detalle}</td>
-                  <td data-label="Costo" className="px-4 py-3 text-right text-gray-800">{money(pedido.costo_total)}</td>
+                  <td data-label="Costo" className="px-4 py-3 text-right text-gray-800">{formatMoney(pedido.costo_total)}</td>
                 </tr>
               ))}
             </tbody>

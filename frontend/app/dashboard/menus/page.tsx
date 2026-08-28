@@ -14,14 +14,7 @@ import {
   type TipoComidaRecord,
 } from "@/lib/api";
 import { showSuccessToast } from "@/components/toast";
-
-const DAYS = [
-  { id: 1, label: "Lunes" },
-  { id: 2, label: "Martes" },
-  { id: 3, label: "Miercoles" },
-  { id: 4, label: "Jueves" },
-  { id: 5, label: "Viernes" },
-];
+import { DAYS } from "@/lib/constants";
 
 type SelectionMap = Record<string, string>;
 
@@ -248,7 +241,7 @@ export default function MenusPage() {
               <tbody className="divide-y divide-gray-100">
                 {DAYS.map((day) => (
                   <tr key={day.id}>
-                    <td className="px-4 py-3 font-medium text-gray-700">{day.label}</td>
+                    <td className="px-4 py-3 font-medium text-gray-700">{day.name}</td>
                     {tiposComida.map((tipo) => (
                       <td key={tipo.id} className="px-4 py-3 min-w-64">
                         <select

@@ -6,26 +6,13 @@ import {
   type NotificationRecord,
   apiGetNotifications,
 } from "@/lib/api";
+import { StatusBanner } from "@/components/status-banner";
+import { formatDate } from "@/lib/format";
 
 const TYPE_LABEL: Record<string, string> = {
   stock_cargado: "Stock sobrante",
   matricula_actualizada: "Matrícula",
 };
-
-function parseAsUTC(value: string): Date {
-  if (value.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(value)) {
-    return new Date(value);
-  }
-  return new Date(value + "Z");
-}
-
-function formatDateTime(value: string) {
-  const date = parseAsUTC(value);
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
-}
 
 interface StockItem {
   nombre: string;
@@ -49,7 +36,7 @@ function StockDetailModal({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 sm:p-6">
         <h2 className="text-lg font-bold text-gray-800 mb-1">Detalle de carga</h2>
         <p className="text-sm text-gray-500 mb-4">
-          {notification.escuela_nombre ?? "Escuela"} · {formatDateTime(notification.created_at)}
+          {notification.escuela_nombre ?? "Escuela"} · {formatDate(notification.created_at)}
         </p>
         <div className="max-h-80 overflow-y-auto">
           <table className="w-full text-sm">
@@ -128,11 +115,7 @@ export default function HistorialPage() {
     <div className="max-w-5xl mx-auto">
       <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6">Historial</h1>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      {error && <StatusBanner kind="error">{error}</StatusBanner>}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
@@ -201,7 +184,7 @@ export default function HistorialPage() {
                     {n.cargado_por_username ?? "—"}
                   </td>
                   <td data-label="Fecha" className="px-5 py-3 text-gray-500 whitespace-nowrap">
-                    {formatDateTime(n.created_at)}
+                    {formatDate(n.created_at)}
                   </td>
                 </tr>
               ))}

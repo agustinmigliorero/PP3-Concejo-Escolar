@@ -17,43 +17,12 @@ import {
 import { showSuccessToast } from "@/components/toast";
 import { useUser } from "@/app/dashboard/user-context";
 import { SchoolFormModal } from "@/components/school-form-modal";
-
-function DetailField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="border border-gray-100 rounded-lg p-4 bg-gray-50">
-      <p className="text-xs uppercase tracking-wide font-medium text-gray-500 mb-1">
-        {label}
-      </p>
-      <p className="text-sm font-medium text-gray-800">{value}</p>
-    </div>
-  );
-}
+import { DetailField } from "@/components/detail-field";
+import { StatusBanner } from "@/components/status-banner";
+import { formatDate } from "@/lib/format";
 
 function formatStockValue(value: string) {
   return String(Number(value));
-}
-
-function parseAsUTC(value: string): Date {
-  if (value.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(value)) {
-    return new Date(value);
-  }
-  return new Date(value + "Z");
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "Sin carga";
-  const date = parseAsUTC(value);
-  if (Number.isNaN(date.getTime())) return "Sin carga";
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
 }
 
 export default function EscuelaDetallePage() {
@@ -238,16 +207,8 @@ export default function EscuelaDetallePage() {
         </div>
       </div>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
-          {error}
-        </p>
-      )}
-      {success && (
-        <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 mb-4">
-          {success}
-        </p>
-      )}
+      {error && <StatusBanner kind="error">{error}</StatusBanner>}
+      {success && <StatusBanner kind="success">{success}</StatusBanner>}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
         <div className="mb-5 flex items-center justify-between gap-3">

@@ -3,13 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiGetMySchool, type SchoolRecord } from "@/lib/api";
+import { ROLE_LABEL } from "@/lib/constants";
 import { useUser } from "./user-context";
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: "Administrador",
-  gestor: "Gestor",
-  escuela: "Escuela",
-};
 
 const ACTIONS_BY_ROLE: Record<
   string,

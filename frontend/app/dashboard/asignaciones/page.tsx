@@ -16,17 +16,15 @@ import {
 } from "@/lib/api";
 import { useUser } from "@/app/dashboard/user-context";
 import { showSuccessToast } from "@/components/toast";
+import { StatusBanner } from "@/components/status-banner";
+import { PageHeader } from "@/components/page-header";
+import { TableState } from "@/components/table-state";
+import { CrudFormModal } from "@/components/crud-form-modal";
+import { formatMoney } from "@/lib/format";
 
-function fmtPrecio(v: string): string {
-  const n = Number(v);
-  if (Number.isNaN(n)) return v;
-  return n.toLocaleString("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    minimumFractionDigits: 2,
-  });
-}
-
+// Fecha local solo-fecha (DD/MM/YYYY, "—" si falta). NO es formatDate de
+// lib/format (esa es fecha+hora es-AR con "Sin carga"); se conserva local para
+// mantener la salida byte-idéntica.
 function fmtFecha(v: string | null): string {
   if (!v) return "—";
   // v viene como YYYY-MM-DD; evitamos desfasajes de timezone.
@@ -216,17 +214,14 @@ export default function AsignacionesPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
-          Asignaciones de proveedores
-        </h1>
+      <PageHeader title="Asignaciones de proveedores">
         <button
           onClick={openCreate}
           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
           + Nueva asignación
         </button>
-      </div>
+      </PageHeader>
 
       <p className="text-sm text-gray-500 mb-4">
         Quién provee cada ingrediente en cada localidad y a qué precio. Solo se
@@ -234,11 +229,7 @@ export default function AsignacionesPage() {
         automáticamente la anterior de esa combinación.
       </p>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      {error && <StatusBanner kind="error">{error}</StatusBanner>}
 
       {/* Filtros */}
       <div className="flex flex-wrap gap-3 mb-4">
@@ -292,215 +283,187 @@ export default function AsignacionesPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {loading ? (
-          <p className="text-gray-400 text-sm p-6">Cargando...</p>
-        ) : (
-          <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3 font-medium text-gray-500">
-                  Ingrediente
-                </th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">
-                  Localidad
-                </th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">
-                  Proveedor
-                </th>
-                <th className="text-right px-5 py-3 font-medium text-gray-500">
-                  Precio unit.
-                </th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">
-                  Desde
-                </th>
-                <th className="text-right px-5 py-3 font-medium text-gray-500">
-                  Acciones
-                </th>
+      <TableState loading={loading}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 bg-gray-50">
+              <th className="text-left px-5 py-3 font-medium text-gray-500">
+                Ingrediente
+              </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500">
+                Localidad
+              </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500">
+                Proveedor
+              </th>
+              <th className="text-right px-5 py-3 font-medium text-gray-500">
+                Precio unit.
+              </th>
+              <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">
+                Desde
+              </th>
+              <th className="text-right px-5 py-3 font-medium text-gray-500">
+                Acciones
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {asignaciones.map((a) => (
+              <tr
+                key={a.id}
+                className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+              >
+                <td data-label="Ingrediente" className="px-5 py-3 font-medium text-gray-800">
+                  {a.ingrediente_nombre}
+                  {a.unidad_medida && (
+                    <span className="text-gray-400 font-normal">
+                      {" "}
+                      ({a.unidad_medida})
+                    </span>
+                  )}
+                </td>
+                <td data-label="Localidad" className="px-5 py-3 text-gray-600">
+                  {a.localidad_nombre}
+                </td>
+                <td data-label="Proveedor" className="px-5 py-3 text-gray-600">
+                  {a.proveedor_nombre}
+                </td>
+                <td data-label="Precio unitario" className="px-5 py-3 text-right text-gray-800">
+                  {formatMoney(a.precio_unitario)}
+                </td>
+                <td data-label="Desde" className="px-5 py-3 text-gray-600 hidden md:table-cell">
+                  {fmtFecha(a.fecha_desde)}
+                </td>
+                <td data-label="Acciones" className="px-5 py-3 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => openEdit(a)}
+                      className="text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                    >
+                      Editar precio
+                    </button>
+                    <button
+                      onClick={() => openHistorial(a)}
+                      className="text-gray-500 hover:text-gray-700 font-medium px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+                    >
+                      Historial
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {asignaciones.map((a) => (
-                <tr
-                  key={a.id}
-                  className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+            ))}
+            {asignaciones.length === 0 && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-5 py-8 text-center text-gray-400"
                 >
-                  <td data-label="Ingrediente" className="px-5 py-3 font-medium text-gray-800">
-                    {a.ingrediente_nombre}
-                    {a.unidad_medida && (
-                      <span className="text-gray-400 font-normal">
-                        {" "}
-                        ({a.unidad_medida})
-                      </span>
-                    )}
-                  </td>
-                  <td data-label="Localidad" className="px-5 py-3 text-gray-600">
-                    {a.localidad_nombre}
-                  </td>
-                  <td data-label="Proveedor" className="px-5 py-3 text-gray-600">
-                    {a.proveedor_nombre}
-                  </td>
-                  <td data-label="Precio unitario" className="px-5 py-3 text-right text-gray-800">
-                    {fmtPrecio(a.precio_unitario)}
-                  </td>
-                  <td data-label="Desde" className="px-5 py-3 text-gray-600 hidden md:table-cell">
-                    {fmtFecha(a.fecha_desde)}
-                  </td>
-                  <td data-label="Acciones" className="px-5 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEdit(a)}
-                        className="text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
-                      >
-                        Editar precio
-                      </button>
-                      <button
-                        onClick={() => openHistorial(a)}
-                        className="text-gray-500 hover:text-gray-700 font-medium px-2 py-1 rounded hover:bg-gray-100 transition-colors"
-                      >
-                        Historial
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {asignaciones.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-5 py-8 text-center text-gray-400"
-                  >
-                    No hay asignaciones vigentes con esos filtros.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          </div>
-        )}
-      </div>
+                  No hay asignaciones vigentes con esos filtros.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </TableState>
 
       {/* Modal crear */}
-      {createOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 sm:p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-5">
-              Nueva asignación
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ingrediente
-                </label>
-                <select
-                  value={cIngrediente}
-                  onChange={(e) => setCIngrediente(e.target.value)}
-                  className={`w-full ${selectCls}`}
-                  autoFocus
-                >
-                  <option value="">Seleccionar...</option>
-                  {ingredientes
-                    .filter((i) => i.activo)
-                    .map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.nombre} ({i.unidad_medida})
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Localidad
-                </label>
-                <select
-                  value={cLocalidad}
-                  onChange={(e) => setCLocalidad(e.target.value)}
-                  className={`w-full ${selectCls}`}
-                >
-                  <option value="">Seleccionar...</option>
-                  {localidades
-                    .filter((l) => l.activo)
-                    .map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.nombre}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Proveedor
-                </label>
-                <select
-                  value={cProveedor}
-                  onChange={(e) => setCProveedor(e.target.value)}
-                  className={`w-full ${selectCls}`}
-                >
-                  <option value="">Seleccionar...</option>
-                  {proveedores
-                    .filter((p) => p.activo)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Precio unitario
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={cPrecio}
-                    onChange={(e) => setCPrecio(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ej: 1900.00"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fecha desde
-                  </label>
-                  <input
-                    type="date"
-                    value={cFecha}
-                    onChange={(e) => setCFecha(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Vacío = hoy</p>
-                </div>
-              </div>
+      <CrudFormModal
+        open={createOpen}
+        title="Nueva asignación"
+        error={formError}
+        saving={saving}
+        onClose={() => setCreateOpen(false)}
+        onSubmit={handleCreate}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ingrediente
+            </label>
+            <select
+              value={cIngrediente}
+              onChange={(e) => setCIngrediente(e.target.value)}
+              className={`w-full ${selectCls}`}
+              autoFocus
+            >
+              <option value="">Seleccionar...</option>
+              {ingredientes
+                .filter((i) => i.activo)
+                .map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.nombre} ({i.unidad_medida})
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Localidad
+            </label>
+            <select
+              value={cLocalidad}
+              onChange={(e) => setCLocalidad(e.target.value)}
+              className={`w-full ${selectCls}`}
+            >
+              <option value="">Seleccionar...</option>
+              {localidades
+                .filter((l) => l.activo)
+                .map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nombre}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Proveedor
+            </label>
+            <select
+              value={cProveedor}
+              onChange={(e) => setCProveedor(e.target.value)}
+              className={`w-full ${selectCls}`}
+            >
+              <option value="">Seleccionar...</option>
+              {proveedores
+                .filter((p) => p.activo)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Precio unitario
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={cPrecio}
+                onChange={(e) => setCPrecio(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ej: 1900.00"
+              />
             </div>
-
-            {formError && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-4">
-                {formError}
-              </p>
-            )}
-
-            <div className="flex flex-col sm:flex-row gap-3 mt-6">
-              <button
-                onClick={() => setCreateOpen(false)}
-                className="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={saving}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 rounded-lg text-sm transition-colors"
-              >
-                {saving ? "Guardando..." : "Guardar"}
-              </button>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fecha desde
+              </label>
+              <input
+                type="date"
+                value={cFecha}
+                onChange={(e) => setCFecha(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">Vacío = hoy</p>
             </div>
           </div>
         </div>
-      )}
+      </CrudFormModal>
 
       {/* Modal editar precio */}
       {editTarget && (
@@ -582,7 +545,7 @@ export default function AsignacionesPage() {
                           )}
                         </td>
                         <td className="py-2 text-right text-gray-700">
-                          {fmtPrecio(h.precio_unitario)}
+                          {formatMoney(h.precio_unitario)}
                         </td>
                         <td className="py-2 pl-3 text-gray-600">
                           {fmtFecha(h.fecha_desde)}
