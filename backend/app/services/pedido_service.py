@@ -206,6 +206,10 @@ def build_snapshot_from_demandas(
     for demanda in demandas:
         school = demanda.school
         base_by_ingredient: dict[int, dict] = {}
+        matriculas_por_tipo = {
+            row.tipo_comida_id: row.cantidad
+            for row in school.matriculas_por_tipo
+        }
 
         for receta, porciones in demanda.items:
             if receta is None or not receta.activo:
