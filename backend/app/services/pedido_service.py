@@ -197,24 +197,7 @@ def build_snapshot_from_demandas(
     provider_reference_date: date,
     header: dict,
 ) -> dict:
-    dias_habiles = _validate_dias(data.dias_habiles)
-    opcion = _load_opcion(db, data.opcion_menu_id)
-    menu_rows = _load_menu_rows(db, data.opcion_menu_id, dias_habiles)
-    schools = (
-        db.query(School)
-        .options(
-            selectinload(School.tipos_comida),
-            selectinload(School.matriculas_por_tipo),
-        )
-        .filter(School.active == True)
-        .order_by(School.name)
-        .all()
-    )
-    if not schools:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No hay escuelas activas")
-
-    stock_by_key = _stock_map(db, data.stock_overrides)
-    provider_reference_date = data.semana_inicio
+    stock_by_key = _stock_map(db, stock_overrides)
     advertencias: list[dict] = []
     escuelas_snapshot: list[dict] = []
     provider_groups: dict[str, dict] = {}
@@ -223,11 +206,6 @@ def build_snapshot_from_demandas(
     for demanda in demandas:
         school = demanda.school
         base_by_ingredient: dict[int, dict] = {}
-        offered_tipo_ids = {tipo.id for tipo in school.tipos_comida}
-        matriculas_por_tipo = {
-            row.tipo_comida_id: row.cantidad
-            for row in school.matriculas_por_tipo
-        }
 
         for receta, porciones in demanda.items:
             if receta is None or not receta.activo:
@@ -245,13 +223,9 @@ def build_snapshot_from_demandas(
                         "cantidad_base": Decimal("0"),
                     },
                 )
-                cantidad_alumnos = matriculas_por_tipo.get(
-                    row.tipo_comida_id,
-                    school.matriculation,
-                )
                 entry["cantidad_base"] += (
                     _dec(recipe_item.cantidad_por_porcion)
-                    * _dec(cantidad_alumnos)
+                    * _dec(porciones)
                 )
 
         school_items = []
@@ -536,7 +510,10 @@ def load_recetas_con_ingredientes(
 def load_active_schools(db: Session) -> list[School]:
     schools = (
         db.query(School)
-        .options(selectinload(School.tipos_comida))
+        .options(
+            selectinload(School.tipos_comida),
+            selectinload(School.matriculas_por_tipo),
+        )
         .filter(School.active == True)
         .order_by(School.name)
         .all()
@@ -582,8 +559,15 @@ def build_preview_snapshot(
     demandas: list[DemandaEscuela] = []
     for school in schools:
         offered_tipo_ids = {tipo.id for tipo in school.tipos_comida}
+        matriculas_por_tipo = {
+            row.tipo_comida_id: row.cantidad
+            for row in school.matriculas_por_tipo
+        }
         items = [
-            DemandaReceta(row.receta, _dec(school.matriculation))
+            DemandaReceta(
+                row.receta,
+                _dec(matriculas_por_tipo.get(row.tipo_comida_id, school.matriculation)),
+            )
             for row in menu_rows
             if row.tipo_comida_id in offered_tipo_ids
         ]
