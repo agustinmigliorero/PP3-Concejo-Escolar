@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.controllers.asignacion_proveedor_controller import (
     AsignacionResponse,
     CreateAsignacionRequest,
+    CreateAsignacionesLoteRequest,
     UpdatePrecioRequest,
 )
 from app.models.asignacion_proveedor_model import AsignacionProveedor
@@ -85,7 +86,9 @@ def get_historial(
     return [_to_response(r) for r in rows]
 
 
-def create_asignacion(db: Session, data: CreateAsignacionRequest) -> AsignacionResponse:
+def _prepare_asignacion(
+    db: Session, data: CreateAsignacionRequest
+) -> tuple[AsignacionProveedor, Optional[AsignacionProveedor]]:
     proveedor = db.query(Proveedor).filter(Proveedor.id == data.proveedor_id).first()
     if not proveedor:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proveedor no encontrado")
@@ -114,12 +117,9 @@ def create_asignacion(db: Session, data: CreateAsignacionRequest) -> AsignacionR
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
                     "La fecha desde no puede ser anterior al inicio de la asignación "
-                    f"vigente ({actual.fecha_desde.isoformat()})"
+                    f"vigente en {localidad.nombre} ({actual.fecha_desde.isoformat()})"
                 ),
             )
-        # fecha_hasta es exclusiva: la anterior queda vigente hasta el día en que
-        # empieza la nueva.
-        actual.fecha_hasta = fecha_desde
 
     nueva = AsignacionProveedor(
         proveedor_id=data.proveedor_id,
@@ -129,10 +129,46 @@ def create_asignacion(db: Session, data: CreateAsignacionRequest) -> AsignacionR
         fecha_desde=fecha_desde,
         fecha_hasta=None,
     )
-    db.add(nueva)
-    db.commit()
-    db.refresh(nueva)
-    return _to_response(nueva)
+    return nueva, actual
+
+
+def _create_asignaciones(
+    db: Session, entries: list[CreateAsignacionRequest]
+) -> list[AsignacionResponse]:
+    try:
+        # Validar todo antes de cerrar vigencias o insertar filas.
+        prepared = [_prepare_asignacion(db, entry) for entry in entries]
+        for nueva, actual in prepared:
+            if actual is not None:
+                # Fecha de cierre exclusiva: la anterior termina al iniciar la nueva.
+                actual.fecha_hasta = nueva.fecha_desde
+            db.add(nueva)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return [_to_response(nueva) for nueva, _ in prepared]
+
+
+def create_asignacion(db: Session, data: CreateAsignacionRequest) -> AsignacionResponse:
+    return _create_asignaciones(db, [data])[0]
+
+
+def create_asignaciones_lote(
+    db: Session, data: CreateAsignacionesLoteRequest
+) -> list[AsignacionResponse]:
+    fecha_desde = data.fecha_desde or date.today()
+    return _create_asignaciones(db, [
+        CreateAsignacionRequest(
+            proveedor_id=data.proveedor_id,
+            ingrediente_id=data.ingrediente_id,
+            localidad_id=localidad.localidad_id,
+            precio_unitario=localidad.precio_unitario,
+            fecha_desde=fecha_desde,
+        )
+        for localidad in data.localidades
+    ])
 
 
 def update_precio(db: Session, asignacion_id: int, data: UpdatePrecioRequest) -> AsignacionResponse:

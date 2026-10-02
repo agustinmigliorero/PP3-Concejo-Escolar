@@ -258,6 +258,11 @@ function buildSections(role: Role): ManualSection[] {
             <strong>ingrediente en una localidad</strong>, qué <strong>proveedor</strong> lo
             provee y a qué <strong>precio unitario</strong>, con su vigencia (desde / hasta).
           </p>
+          <p className="mt-3 text-sm leading-6 text-slate-700">
+            En <strong>Nueva asignación</strong> podés cargar el mismo ingrediente en varias
+            localidades a la vez: elegí el proveedor, marcá las localidades y completá el
+            precio de cada una. La fecha de vigencia se aplica a todas las seleccionadas.
+          </p>
           <Tip>
             Por cada combinación (ingrediente + localidad) hay <strong>una sola</strong>{" "}
             asignación vigente. Cuando cargás una nueva (por ejemplo, una nueva licitación), la

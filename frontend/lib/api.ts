@@ -1086,6 +1086,21 @@ export async function apiCreateAsignacion(data: {
   return res.json();
 }
 
+export async function apiCreateAsignacionesLote(data: {
+  proveedor_id: number;
+  ingrediente_id: number;
+  fecha_desde?: string | null;
+  localidades: Array<{ localidad_id: number; precio_unitario: number }>;
+}): Promise<AsignacionRecord[]> {
+  const res = await apiFetch("/asignaciones/lote", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al crear las asignaciones");
+  return res.json();
+}
+
 export async function apiUpdateAsignacionPrecio(
   id: number,
   precio_unitario: number,

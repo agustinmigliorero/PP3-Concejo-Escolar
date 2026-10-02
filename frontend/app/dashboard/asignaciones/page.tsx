@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  apiCreateAsignacion,
+  apiCreateAsignacionesLote,
   apiGetAsignaciones,
   apiGetAsignacionHistorial,
   apiGetIngredientes,
@@ -52,8 +52,8 @@ export default function AsignacionesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [cProveedor, setCProveedor] = useState<string>("");
   const [cIngrediente, setCIngrediente] = useState<string>("");
-  const [cLocalidad, setCLocalidad] = useState<string>("");
-  const [cPrecio, setCPrecio] = useState<string>("");
+  const [cLocalidades, setCLocalidades] = useState<number[]>([]);
+  const [cPrecios, setCPrecios] = useState<Record<number, string>>({});
   const [cFecha, setCFecha] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -114,41 +114,57 @@ export default function AsignacionesPage() {
   }, [filterIngrediente, filterLocalidad, filterProveedor]);
 
   function openCreate() {
-    setCProveedor("");
-    setCIngrediente("");
-    setCLocalidad("");
-    setCPrecio("");
+    setCProveedor(proveedores.some((p) => p.activo && String(p.id) === filterProveedor) ? filterProveedor : "");
+    setCIngrediente(ingredientes.some((i) => i.activo && String(i.id) === filterIngrediente) ? filterIngrediente : "");
+    setCLocalidades(localidades.some((l) => l.activo && String(l.id) === filterLocalidad) ? [Number(filterLocalidad)] : []);
+    setCPrecios({});
     setCFecha("");
     setFormError(null);
     setCreateOpen(true);
   }
 
   async function handleCreate() {
+    if (saving) return;
     setFormError(null);
-    if (!cProveedor || !cIngrediente || !cLocalidad) {
-      setFormError("Proveedor, ingrediente y localidad son obligatorios");
+    if (!cProveedor || !cIngrediente) {
+      setFormError("Seleccioná un ingrediente y un proveedor");
       return;
     }
-    const precio = Number(cPrecio);
-    if (!cPrecio || Number.isNaN(precio) || precio <= 0) {
-      setFormError("El precio debe ser un número mayor a 0");
+    if (cLocalidades.length === 0) {
+      setFormError("Seleccioná al menos una localidad");
+      return;
+    }
+    const invalidLocalidad = cLocalidades.find((id) => {
+      const precio = Number(cPrecios[id]);
+      return !cPrecios[id]?.trim() || !Number.isFinite(precio) || precio < 0.01
+        || precio > 9999999999.99
+        || Math.abs(precio * 100 - Math.round(precio * 100)) > 0.000001;
+    });
+    if (invalidLocalidad !== undefined) {
+      const nombre = localidades.find((l) => l.id === invalidLocalidad)?.nombre;
+      setFormError(`Ingresá un precio válido mayor a 0, con hasta 2 decimales, para ${nombre}`);
+      document.getElementById(`precio-localidad-${invalidLocalidad}`)?.focus();
       return;
     }
     setSaving(true);
     try {
-      await apiCreateAsignacion({
+      await apiCreateAsignacionesLote({
         proveedor_id: Number(cProveedor),
         ingrediente_id: Number(cIngrediente),
-        localidad_id: Number(cLocalidad),
-        precio_unitario: precio,
+        localidades: cLocalidades.map((id) => ({
+          localidad_id: id,
+          precio_unitario: Number(cPrecios[id]),
+        })),
         fecha_desde: cFecha || null,
       });
       setCreateOpen(false);
       await loadAsignaciones();
-      showSuccessToast("Asignacion creada correctamente");
+      showSuccessToast(cLocalidades.length === 1
+        ? "Asignación creada correctamente"
+        : `${cLocalidades.length} asignaciones creadas correctamente`);
     } catch (e: unknown) {
       setFormError(
-        e instanceof Error ? e.message : "Error al crear la asignación",
+        e instanceof Error ? e.message : "Error al crear las asignaciones",
       );
     } finally {
       setSaving(false);
@@ -211,6 +227,9 @@ export default function AsignacionesPage() {
 
   const selectCls =
     "border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white";
+  const localidadesActivas = localidades.filter((l) => l.activo);
+  const allSelected = localidadesActivas.length > 0 && cLocalidades.length === localidadesActivas.length;
+  const unidadPrecio = ingredientes.find((i) => String(i.id) === cIngrediente)?.unidad_medida;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -369,100 +388,160 @@ export default function AsignacionesPage() {
       {/* Modal crear */}
       <CrudFormModal
         open={createOpen}
-        title="Nueva asignación"
+        title="Asignar ingrediente a localidades"
         error={formError}
         saving={saving}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => { if (!saving) setCreateOpen(false); }}
         onSubmit={handleCreate}
+        width="max-w-2xl"
+        submitLabel={cLocalidades.length > 0
+          ? `Guardar en ${cLocalidades.length} ${cLocalidades.length === 1 ? "localidad" : "localidades"}`
+          : "Guardar asignaciones"}
+        submitDisabled={localidadesActivas.length === 0}
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ingrediente
-            </label>
-            <select
-              value={cIngrediente}
-              onChange={(e) => setCIngrediente(e.target.value)}
-              className={`w-full ${selectCls}`}
-              autoFocus
-            >
-              <option value="">Seleccionar...</option>
-              {ingredientes
-                .filter((i) => i.activo)
-                .map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.nombre} ({i.unidad_medida})
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Localidad
-            </label>
-            <select
-              value={cLocalidad}
-              onChange={(e) => setCLocalidad(e.target.value)}
-              className={`w-full ${selectCls}`}
-            >
-              <option value="">Seleccionar...</option>
-              {localidades
-                .filter((l) => l.activo)
-                .map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.nombre}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Proveedor
-            </label>
-            <select
-              value={cProveedor}
-              onChange={(e) => setCProveedor(e.target.value)}
-              className={`w-full ${selectCls}`}
-            >
-              <option value="">Seleccionar...</option>
-              {proveedores
-                .filter((p) => p.activo)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Precio unitario
+        <p className="text-sm text-gray-500 mb-5">
+          Elegí el ingrediente y el proveedor una sola vez. Marcá las localidades
+          donde lo vas a cargar y completá el precio de cada una.
+        </p>
+        <fieldset disabled={saving} className="space-y-5 disabled:opacity-70">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="asignacion-ingrediente" className="block text-sm font-medium text-gray-700 mb-1">
+                Ingrediente
               </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={cPrecio}
-                onChange={(e) => setCPrecio(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ej: 1900.00"
-              />
+              <select
+                id="asignacion-ingrediente"
+                value={cIngrediente}
+                onChange={(e) => {
+                  setCIngrediente(e.target.value);
+                  setFormError(null);
+                }}
+                className={`w-full ${selectCls}`}
+                autoFocus
+              >
+                <option value="">Seleccionar...</option>
+                {ingredientes
+                  .filter((i) => i.activo)
+                  .map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.nombre} ({i.unidad_medida})
+                    </option>
+                  ))}
+              </select>
             </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha desde
+            <div>
+              <label htmlFor="asignacion-proveedor" className="block text-sm font-medium text-gray-700 mb-1">
+                Proveedor
               </label>
+              <select
+                id="asignacion-proveedor"
+                value={cProveedor}
+                onChange={(e) => {
+                  setCProveedor(e.target.value);
+                  setFormError(null);
+                }}
+                className={`w-full ${selectCls}`}
+              >
+                <option value="">Seleccionar...</option>
+                {proveedores
+                  .filter((p) => p.activo)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-gray-50 px-4 py-3 border-b border-gray-200">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800">Localidades y precios</h3>
+                <p className="text-xs text-gray-500 mt-0.5" aria-live="polite">
+                  {cLocalidades.length} de {localidadesActivas.length} seleccionadas
+                  {unidadPrecio && ` · Precio en $ por ${unidadPrecio}`}
+                </p>
+              </div>
+              {localidadesActivas.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCLocalidades(allSelected ? [] : localidadesActivas.map((l) => l.id));
+                    setFormError(null);
+                  }}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-800 rounded-lg px-2 py-1"
+                >
+                  {allSelected ? "Desmarcar todas" : "Seleccionar todas"}
+                </button>
+              )}
+            </div>
+            <div className="divide-y divide-gray-100">
+              {localidadesActivas.map((localidad) => {
+                const selected = cLocalidades.includes(localidad.id);
+                return (
+                  <div key={localidad.id} className={`grid grid-cols-1 sm:grid-cols-[1fr_12rem] items-center gap-2 sm:gap-4 px-4 py-3 ${selected ? "bg-blue-50/50" : "bg-white"}`}>
+                    <label className="flex items-center gap-3 text-sm font-medium text-gray-800 cursor-pointer py-1">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => {
+                          setCLocalidades((ids) => selected
+                            ? ids.filter((id) => id !== localidad.id)
+                            : [...ids, localidad.id]);
+                          setFormError(null);
+                        }}
+                        className="h-4 w-4 accent-blue-600 shrink-0"
+                      />
+                      {localidad.nombre}
+                    </label>
+                    <div className="relative ml-7 sm:ml-0">
+                      <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                      <input
+                        id={`precio-localidad-${localidad.id}`}
+                        aria-label={`Precio unitario en ${localidad.nombre}`}
+                        type="number"
+                        inputMode="decimal"
+                        min="0.01"
+                        max="9999999999.99"
+                        step="0.01"
+                        disabled={!selected}
+                        value={cPrecios[localidad.id] ?? ""}
+                        onChange={(e) => {
+                          setCPrecios((precios) => ({ ...precios, [localidad.id]: e.target.value }));
+                          setFormError(null);
+                        }}
+                        className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40"
+                        placeholder={selected ? "Ej: 1900.00" : "Marcá la localidad"}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+              {localidadesActivas.length === 0 && (
+                <p className="px-4 py-5 text-sm text-gray-500">No hay localidades activas. Creá o activá una en Localidades para continuar.</p>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-[12rem_1fr] gap-3 items-end">
+            <div>
+              <label htmlFor="asignacion-fecha" className="block text-sm font-medium text-gray-700 mb-1">Vigente desde</label>
               <input
+                id="asignacion-fecha"
                 type="date"
                 value={cFecha}
-                onChange={(e) => setCFecha(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  setCFecha(e.target.value);
+                  setFormError(null);
+                }}
+                className={`w-full ${selectCls}`}
               />
-              <p className="text-xs text-gray-400 mt-1">Vacío = hoy</p>
             </div>
+            <p className="text-xs text-gray-500 pb-2">Se aplica a todas las localidades seleccionadas. Si dejás la fecha vacía, se usa hoy.</p>
           </div>
-        </div>
+          <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+            Si ya existe una asignación vigente, se reemplaza en esa localidad y la anterior queda en el historial.
+          </p>
+        </fieldset>
       </CrudFormModal>
 
       {/* Modal editar precio */}
