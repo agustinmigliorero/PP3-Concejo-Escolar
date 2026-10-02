@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -18,6 +18,25 @@ class UpdatePrecioRequest(BaseModel):
     """Solo se permite editar el precio de la asignación vigente."""
 
     precio_unitario: Decimal = Field(..., gt=0)
+
+
+class AsignacionPrecioHistorialResponse(BaseModel):
+    """Un cambio de precio ya ocurrido. `variacion` es `precio_nuevo -
+    precio_anterior`: negativa si el precio bajó."""
+
+    id: int
+    asignacion_id: int
+    precio_anterior: Decimal
+    precio_nuevo: Decimal
+    variacion: Decimal
+    variacion_pct: Optional[Decimal] = None
+    proveedor_nombre: Optional[str] = None
+    precio_actual: Optional[Decimal] = None
+    vigente: bool = False
+    modificado_por_username: Optional[str] = None
+    modificado_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AsignacionResponse(BaseModel):

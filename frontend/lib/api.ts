@@ -1075,6 +1075,35 @@ export async function apiGetAsignacionHistorial(
   return res.json();
 }
 
+export interface AsignacionPrecioHistorialRecord {
+  id: number;
+  asignacion_id: number;
+  precio_anterior: string;
+  precio_nuevo: string;
+  variacion: string;
+  variacion_pct: string | null;
+  proveedor_nombre: string | null;
+  precio_actual: string | null;
+  vigente: boolean;
+  modificado_por_username: string | null;
+  modificado_at: string;
+}
+
+export async function apiGetAsignacionPrecioHistorial(
+  ingrediente_id: number,
+  localidad_id: number,
+): Promise<AsignacionPrecioHistorialRecord[]> {
+  const res = await apiFetch(
+    `/asignaciones/historial-precio?ingrediente_id=${ingrediente_id}&localidad_id=${localidad_id}`,
+  );
+  if (!res.ok)
+    throw await buildApiError(
+      res,
+      "Error al obtener el historial de cambios de precio",
+    );
+  return res.json();
+}
+
 export async function apiCreateAsignacion(data: {
   proveedor_id: number;
   ingrediente_id: number;
