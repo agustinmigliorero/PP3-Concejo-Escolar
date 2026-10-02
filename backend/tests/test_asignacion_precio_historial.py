@@ -7,21 +7,17 @@ previo y su autor.
 """
 
 import os
-import tempfile
 import unittest
 from decimal import Decimal
-from pathlib import Path
 
-# El engine de app.config.database se arma al importarse, leyendo settings. Se
-# desvía la URL a una base temporal ANTES de importar app para que los tests no
-# toquen la base real de desarrollo. SECRET_KEY es obligatoria en settings.
-_TMP_DIR = tempfile.mkdtemp()
-os.environ["DATABASE_URL"] = f"sqlite:///{Path(_TMP_DIR) / 'precio_historial_test.db'}"
+# Permite ejecutar la suite sin credenciales de desarrollo; la base es en memoria.
 os.environ.setdefault("SECRET_KEY", "clave_de_pruebas_no_usar_en_produccion")
 
 from fastapi import HTTPException  # noqa: E402
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
-from app.config.database import Base, SessionLocal  # noqa: E402
+from app.config.database import Base  # noqa: E402
 from app.controllers.asignacion_proveedor_controller import (  # noqa: E402
     CreateAsignacionRequest,
     UpdatePrecioRequest,
@@ -38,16 +34,11 @@ from app.services import asignacion_proveedor_service as svc  # noqa: E402
 
 
 class PrecioHistorialTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls._engine = SessionLocal.kw["bind"]
-
     def setUp(self):
-        # proveedores/ingredientes/localidades/users tienen nombre único: se
-        # recrea el esquema para que cada test arranque limpio.
-        Base.metadata.drop_all(bind=self._engine)
+        # La base es propia del test: no depende del orden de imports ni de .env.
+        self._engine = create_engine("sqlite://")
         Base.metadata.create_all(bind=self._engine)
-        self.db = SessionLocal()
+        self.db = Session(self._engine)
         proveedor = Proveedor(nombre="Proveedor", contacto="c", activo=True)
         ingrediente = Ingrediente(nombre="Arroz", unidad_medida="kg", activo=True)
         localidad = Localidad(nombre="Localidad", activo=True)
@@ -68,6 +59,7 @@ class PrecioHistorialTests(unittest.TestCase):
 
     def tearDown(self):
         self.db.close()
+        self._engine.dispose()
 
     def _cambiar_precio(self, precio: str) -> None:
         svc.update_precio(

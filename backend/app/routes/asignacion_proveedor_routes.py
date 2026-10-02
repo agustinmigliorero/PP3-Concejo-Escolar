@@ -8,6 +8,7 @@ from app.controllers.asignacion_proveedor_controller import (
     AsignacionPrecioHistorialResponse,
     AsignacionResponse,
     CreateAsignacionRequest,
+    CreateAsignacionesLoteRequest,
     UpdatePrecioRequest,
 )
 from app.middlewares.auth_middleware import require_admin
@@ -61,6 +62,15 @@ def create_asignacion(
     _=Depends(require_admin),
 ):
     return asignacion_proveedor_service.create_asignacion(db, body)
+
+
+@router.post("/lote", response_model=list[AsignacionResponse], status_code=201)
+def create_asignaciones_lote(
+    body: CreateAsignacionesLoteRequest,
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    return asignacion_proveedor_service.create_asignaciones_lote(db, body)
 
 
 @router.put("/{asignacion_id}", response_model=AsignacionResponse)
