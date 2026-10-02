@@ -5,10 +5,12 @@ import {
   apiCreateAsignacionesLote,
   apiGetAsignaciones,
   apiGetAsignacionHistorial,
+  apiGetAsignacionPrecioHistorial,
   apiGetIngredientes,
   apiGetLocalidades,
   apiGetProveedores,
   apiUpdateAsignacionPrecio,
+  type AsignacionPrecioHistorialRecord,
   type AsignacionRecord,
   type IngredienteRecord,
   type LocalidadRecord,
@@ -20,7 +22,7 @@ import { StatusBanner } from "@/components/status-banner";
 import { PageHeader } from "@/components/page-header";
 import { TableState } from "@/components/table-state";
 import { CrudFormModal } from "@/components/crud-form-modal";
-import { formatMoney } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 
 // Fecha local solo-fecha (DD/MM/YYYY, "—" si falta). NO es formatDate de
 // lib/format (esa es fecha+hora es-AR con "Sin carga"); se conserva local para
@@ -67,6 +69,9 @@ export default function AsignacionesPage() {
   // Modal historial
   const [histTarget, setHistTarget] = useState<AsignacionRecord | null>(null);
   const [historial, setHistorial] = useState<AsignacionRecord[]>([]);
+  const [precioHistorial, setPrecioHistorial] = useState<
+    AsignacionPrecioHistorialRecord[]
+  >([]);
   const [histLoading, setHistLoading] = useState(false);
 
   async function loadAsignaciones() {
@@ -203,16 +208,19 @@ export default function AsignacionesPage() {
   async function openHistorial(a: AsignacionRecord) {
     setHistTarget(a);
     setHistorial([]);
+    setPrecioHistorial([]);
     setHistLoading(true);
-    try {
-      setHistorial(
-        await apiGetAsignacionHistorial(a.ingrediente_id, a.localidad_id),
-      );
-    } catch {
-      setHistorial([]);
-    } finally {
-      setHistLoading(false);
-    }
+    // Ambas tablas son del mismo (ingrediente, localidad): los tramos de
+    // proveedor y las correcciones de precio aplicadas sobre ellos.
+    const [tramos, cambios] = await Promise.allSettled([
+      apiGetAsignacionHistorial(a.ingrediente_id, a.localidad_id),
+      apiGetAsignacionPrecioHistorial(a.ingrediente_id, a.localidad_id),
+    ]);
+    setHistorial(tramos.status === "fulfilled" ? tramos.value : []);
+    setPrecioHistorial(
+      cambios.status === "fulfilled" ? cambios.value : [],
+    );
+    setHistLoading(false);
   }
 
   if (!isAdmin) {
@@ -594,7 +602,7 @@ export default function AsignacionesPage() {
       {/* Modal historial */}
       {histTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 sm:p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-5 sm:p-6">
             <h2 className="text-lg font-bold text-gray-800 mb-1">Historial</h2>
             <p className="text-sm text-gray-500 mb-4">
               {histTarget.ingrediente_nombre} · {histTarget.localidad_nombre}
@@ -602,7 +610,10 @@ export default function AsignacionesPage() {
             {histLoading ? (
               <p className="text-gray-400 text-sm py-4">Cargando...</p>
             ) : (
-              <div className="max-h-80 overflow-y-auto">
+              <div className="max-h-96 overflow-y-auto">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                  Tramos de proveedor
+                </h3>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 text-gray-500">
@@ -641,6 +652,81 @@ export default function AsignacionesPage() {
                           className="py-6 text-center text-gray-400"
                         >
                           Sin historial.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                <h3 className="text-sm font-semibold text-gray-700 mt-6 mb-2">
+                  Cambios de precio
+                </h3>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-gray-500">
+                      <th className="text-left py-2 font-medium">Fecha</th>
+                      <th className="text-left py-2 font-medium">Usuario</th>
+                      <th className="text-right py-2 font-medium">Anterior</th>
+                      <th className="text-right py-2 pl-3 font-medium">
+                        Nuevo
+                      </th>
+                      <th className="text-right py-2 font-medium">
+                        Variación
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {precioHistorial.map((c) => {
+                      const bajo = Number(c.variacion) < 0;
+                      return (
+                        <tr key={c.id} className="border-b border-gray-50">
+                          <td className="py-2 text-gray-600 whitespace-nowrap">
+                            {formatDate(c.modificado_at)}
+                          </td>
+                          <td className="py-2 text-gray-800">
+                            {c.modificado_por_username ?? "—"}
+                          </td>
+                          <td className="py-2 text-right text-gray-500 line-through">
+                            {formatMoney(c.precio_anterior)}
+                          </td>
+                          <td className="py-2 text-right pl-3 text-gray-800 font-medium">
+                            {formatMoney(c.precio_nuevo)}
+                          </td>
+                          <td className="py-2 text-right">
+                            <span
+                              className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                                bajo
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {bajo ? "−" : "+"}
+                              {formatMoney(
+                                Math.abs(Number(c.variacion)),
+                              )}
+                              {c.variacion_pct !== null && (
+                                <span className="ml-1">
+                                  (
+                                  {Number(c.variacion_pct) > 0 ? "+" : ""}
+                                  {Number(c.variacion_pct).toLocaleString(
+                                    "es-AR",
+                                    { maximumFractionDigits: 2 },
+                                  )}
+                                  %)
+                                </span>
+                              )}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {precioHistorial.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="py-6 text-center text-gray-400"
+                        >
+                          El precio nunca fue editado.
                         </td>
                       </tr>
                     )}

@@ -270,6 +270,11 @@ function buildSections(role: Role): ManualSection[] {
             nada.
           </Tip>
           <p className="mt-3 text-sm leading-6 text-slate-700">
+            Si corregís el precio de una asignación vigente, queda registrado quién lo hizo y
+            cuándo. Lo ves en el botón <strong>Historial</strong>: abajo está la tabla{" "}
+            <strong>Cambios de precio</strong>, con el precio anterior, el nuevo y la variación.
+          </p>
+          <p className="mt-3 text-sm leading-6 text-slate-700">
             Si un ingrediente no tiene proveedor vigente en una localidad, ese ingrediente
             queda fuera del pedido y el sistema te lo avisa aparte para resolverlo a mano.
           </p>

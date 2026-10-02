@@ -85,10 +85,13 @@ A continuación, se listan los recursos HTTP desarrollados actualmente en el sis
 Determina qué proveedor entrega cada ingrediente en cada localidad y a qué precio, con historial inmutable.
 *   `GET /asignaciones`: Lista asignaciones; filtros opcionales `ingrediente_id`, `localidad_id`, `proveedor_id` y `solo_vigentes` (default `true`) (Admin).
 *   `GET /asignaciones/historial?ingrediente_id=&localidad_id=`: Historial completo de cambios de proveedor/precio para una combinación (Admin).
+*   `GET /asignaciones/historial-precio?ingrediente_id=&localidad_id=`: Historial de **correcciones de precio** aplicadas sobre las asignaciones de esa combinación, con precio anterior, nuevo, variación y autor (Admin).
 *   `POST /asignaciones`: Crea una asignación; cierra automáticamente la vigente anterior de esa combinación (`ingrediente`, `localidad`) (Admin).
 *   `PUT /asignaciones/{id}`: Edita el precio de la asignación **vigente** (Admin).
 
 > **Convención de fechas:** `fecha_hasta` es exclusiva. Una asignación está vigente en una fecha `d` si `fecha_desde <= d < fecha_hasta` (o `fecha_hasta IS NULL`). Solo una asignación por combinación puede tener `fecha_hasta = NULL`.
+
+> **Historial de precios:** `PUT /asignaciones/{id}` sobrescribe `asignaciones_proveedor.precio_unitario`, por lo que cada cambio real (precio distinto al anterior) se asienta en `asignaciones_precio_historial` con `precio_anterior`, `precio_nuevo`, `modificado_por_username` y `modificado_at`. Esa tabla es de solo escritura (auditoría) y se consulta vía `/asignaciones/historial-precio`. Guardar el mismo precio no genera una entrada.
 
 ### 3.8. Stock Previo (`/stock-previo`)
 Permite cargar las cantidades sobrantes que se descontarán del próximo pedido.

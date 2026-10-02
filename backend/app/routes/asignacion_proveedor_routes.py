@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.config.database import get_db
 from app.controllers.asignacion_proveedor_controller import (
+    AsignacionPrecioHistorialResponse,
     AsignacionResponse,
     CreateAsignacionRequest,
     CreateAsignacionesLoteRequest,
@@ -44,6 +45,16 @@ def get_historial(
     return asignacion_proveedor_service.get_historial(db, ingrediente_id, localidad_id)
 
 
+@router.get("/historial-precio", response_model=list[AsignacionPrecioHistorialResponse])
+def get_precio_historial(
+    ingrediente_id: int = Query(...),
+    localidad_id: int = Query(...),
+    db: Session = Depends(get_db),
+    _=Depends(require_admin),
+):
+    return asignacion_proveedor_service.get_precio_historial(db, ingrediente_id, localidad_id)
+
+
 @router.post("", response_model=AsignacionResponse, status_code=201)
 def create_asignacion(
     body: CreateAsignacionRequest,
@@ -67,6 +78,6 @@ def update_precio(
     asignacion_id: int,
     body: UpdatePrecioRequest,
     db: Session = Depends(get_db),
-    _=Depends(require_admin),
+    current_user=Depends(require_admin),
 ):
-    return asignacion_proveedor_service.update_precio(db, asignacion_id, body)
+    return asignacion_proveedor_service.update_precio(db, asignacion_id, body, current_user)

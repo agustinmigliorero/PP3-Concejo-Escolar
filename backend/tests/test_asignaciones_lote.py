@@ -168,6 +168,50 @@ class AsignacionesLoteTests(unittest.TestCase):
             self.assertEqual(client.post("/asignaciones/lote", json=self.payload()).status_code, 403)
         self.assertEqual(self.db.query(AsignacionProveedor).count(), 0)
 
+    def test_batch_price_edits_and_replacements_preserve_both_histories(self):
+        admin = User(username="audit_admin", password="test", role=UserRole.admin)
+        self.db.add(admin)
+        self.db.commit()
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_db] = lambda: self.db
+        app.dependency_overrides[require_admin] = lambda: admin
+        with TestClient(app) as client:
+            created = client.post("/asignaciones/lote", json=self.payload()).json()
+            for row, price in zip(created, [2500, 2400]):
+                response = client.put(f"/asignaciones/{row['id']}", json={"precio_unitario": price})
+                self.assertEqual(response.status_code, 200)
+                # Repetir el precio no crea un segundo cambio de auditoría.
+                self.assertEqual(client.put(
+                    f"/asignaciones/{row['id']}", json={"precio_unitario": price},
+                ).status_code, 200)
+
+            response = client.post("/asignaciones/lote", json=self.payload(localidades=[
+                {"localidad_id": 1, "precio_unitario": 2700},
+                {"localidad_id": 3, "precio_unitario": 2800},
+            ]))
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(self.db.query(AsignacionProveedor).count(), 2)
+
+            response = client.post("/asignaciones/lote", json=self.payload(fecha_desde="2026-10-03"))
+            self.assertEqual(response.status_code, 201)
+            for row, previous, price in zip(created, ["1900.25", "2100.50"], ["2500.00", "2400.00"]):
+                params = {"ingrediente_id": 1, "localidad_id": row["localidad_id"]}
+                history = client.get("/asignaciones/historial-precio", params=params)
+                self.assertEqual(history.status_code, 200)
+                changes = history.json()
+                self.assertEqual(len(changes), 1)
+                self.assertEqual(changes[0]["precio_anterior"], previous)
+                self.assertEqual(changes[0]["precio_nuevo"], price)
+                self.assertEqual(changes[0]["modificado_por_username"], "audit_admin")
+                self.assertFalse(changes[0]["vigente"])
+                periods = client.get("/asignaciones/historial", params=params).json()
+                self.assertEqual(len(periods), 2)
+                self.assertEqual(sum(period["vigente"] for period in periods), 1)
+                self.assertEqual(client.put(
+                    f"/asignaciones/{row['id']}", json={"precio_unitario": 1},
+                ).status_code, 409)
+
 
 if __name__ == "__main__":
     unittest.main()
