@@ -168,26 +168,6 @@ def _sync_school_matriculas(
             row.cantidad = cantidad
 
 
-def update_school_matriculas_for_user(
-    db: Session,
-    user: User,
-    matriculas_por_tipo: list[dict],
-    matriculation: Optional[int] = None,
-) -> dict:
-    school = _get_own_active_school(db, user)
-    if matriculation is not None:
-        school.matriculation = matriculation
-    _sync_school_matriculas(
-        db,
-        school,
-        list(school.tipos_comida),
-        matriculas_por_tipo,
-    )
-    db.commit()
-    db.refresh(school)
-    return _school_to_response(school)
-
-
 def update_school_contact_for_user(
     db: Session,
     user: User,

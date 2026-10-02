@@ -398,17 +398,12 @@ export async function apiGetMySchool(): Promise<SchoolRecord> {
 }
 
 export async function apiUpdateMySchoolMatriculation(
-  data:
-    | number
-    | {
-        matriculation?: number;
-        matriculas_por_tipo?: MatriculaPorTipoInput[];
-      },
+  matriculation: number,
 ): Promise<SchoolRecord> {
   const res = await apiFetch("/schools/me/matriculation", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(typeof data === "number" ? { matriculation: data } : data),
+    body: JSON.stringify({ matriculation }),
   });
   if (!res.ok) throw await buildApiError(res, "Error al actualizar la matricula");
   return res.json();

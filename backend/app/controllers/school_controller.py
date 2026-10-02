@@ -1,7 +1,7 @@
 import re
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.controllers.tipo_comida_controller import TipoComidaResponse
 
@@ -206,23 +206,9 @@ class UpdateSchoolRequest(BaseModel):
 
 
 class UpdateMySchoolMatriculationRequest(BaseModel):
-    # Se mantiene matriculation para compatibilidad con clientes existentes.
-    matriculation: Optional[int] = Field(default=None, ge=0)
-    matriculas_por_tipo: Optional[list[MatriculaPorTipoRequest]] = None
+    matriculation: int = Field(ge=0)
 
-    @field_validator("matriculas_por_tipo")
-    @classmethod
-    def matriculas_valid(
-        cls,
-        v: Optional[list[MatriculaPorTipoRequest]],
-    ) -> Optional[list[MatriculaPorTipoRequest]]:
-        return _validate_matriculas_por_tipo(v)
-
-    @model_validator(mode="after")
-    def at_least_one_value(self):
-        if self.matriculation is None and self.matriculas_por_tipo is None:
-            raise ValueError("Debe informar la matrícula general o la matrícula por servicio")
-        return self
+    model_config = {"extra": "forbid"}
 
 
 class UpdateMySchoolContactRequest(BaseModel):

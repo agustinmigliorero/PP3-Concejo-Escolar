@@ -19,7 +19,6 @@ export default function MiEscuelaPage() {
   const { user } = useUser();
   const [school, setSchool] = useState<SchoolRecord | null>(null);
   const [matriculation, setMatriculation] = useState("");
-  const [matriculasPorTipo, setMatriculasPorTipo] = useState<Record<number, string>>({});
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [stockItems, setStockItems] = useState<StockPrevioItem[]>([]);
@@ -38,17 +37,6 @@ export default function MiEscuelaPage() {
       const [data, stock] = await Promise.all([apiGetMySchool(), apiGetMyStock()]);
       setSchool(data);
       setMatriculation(String(data.matriculation));
-      const savedMatriculas = new Map(
-        (data.matriculas_por_tipo ?? []).map((item) => [item.tipo_comida_id, item.cantidad]),
-      );
-      setMatriculasPorTipo(
-        Object.fromEntries(
-          data.tipos_comida.map((tipo) => [
-            tipo.id,
-            String(savedMatriculas.get(tipo.id) ?? data.matriculation),
-          ]),
-        ),
-      );
       setPhone(data.phone ?? "");
       setEmail(data.email ?? "");
       setStockItems(stock.items);
@@ -82,28 +70,11 @@ export default function MiEscuelaPage() {
       return;
     }
 
-    const matriculas = (school?.tipos_comida ?? []).map((tipo) => ({
-      tipo_comida_id: tipo.id,
-      cantidad: Number(matriculasPorTipo[tipo.id] ?? 0),
-    }));
-    if (matriculas.some((item) => !Number.isInteger(item.cantidad) || item.cantidad < 0)) {
-      setError("Las matrículas por servicio deben ser números enteros mayores o iguales a 0");
-      return;
-    }
-
     setSaving(true);
     try {
-      const updated = await apiUpdateMySchoolMatriculation({
-        matriculation: nextMatriculation,
-        matriculas_por_tipo: matriculas,
-      });
+      const updated = await apiUpdateMySchoolMatriculation(nextMatriculation);
       setSchool(updated);
       setMatriculation(String(updated.matriculation));
-      setMatriculasPorTipo(
-        Object.fromEntries(
-          updated.matriculas_por_tipo.map((item) => [item.tipo_comida_id, String(item.cantidad)]),
-        ),
-      );
       setSuccess("Matricula actualizada correctamente");
       showSuccessToast("Matricula actualizada correctamente");
     } catch (e: unknown) {
@@ -320,30 +291,25 @@ export default function MiEscuelaPage() {
           <div className="mt-5 border-t border-gray-100 pt-5">
             <h2 className="text-sm font-semibold text-gray-800 mb-1">Cupos por servicio</h2>
             <p className="text-xs text-gray-500 mb-3">
-              Indicá cuántos alumnos reciben cada servicio para calcular el pedido.
+              Los cupos los configuran los administradores y gestores.
             </p>
             {school.tipos_comida.length === 0 ? (
               <p className="text-sm text-gray-400">La escuela no tiene servicios asignados.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {school.tipos_comida.map((tipo) => (
-                  <label key={tipo.id} className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-gray-700">{tipo.nombre}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={matriculasPorTipo[tipo.id] ?? 0}
-                      onChange={(e) =>
-                        setMatriculasPorTipo((current) => ({
-                          ...current,
-                          [tipo.id]: e.target.value,
-                        }))
-                      }
-                      className="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </label>
-                ))}
+                {school.tipos_comida.map((tipo) => {
+                  const cupo = school.matriculas_por_tipo?.find(
+                    (item) => item.tipo_comida_id === tipo.id,
+                  )?.cantidad ?? school.matriculation;
+                  return (
+                    <div key={tipo.id} className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-gray-700">{tipo.nombre}</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        {cupo.toLocaleString("es-AR")}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
