@@ -27,6 +27,7 @@ from app.routes import (
 
 # Register models so SQLAlchemy creates their tables
 import app.models.asignacion_proveedor_model  # noqa: F401
+import app.models.asignacion_precio_historial_model  # noqa: F401
 import app.models.evento_model  # noqa: F401
 import app.models.ingrediente_model  # noqa: F401
 import app.models.patio_model  # noqa: F401

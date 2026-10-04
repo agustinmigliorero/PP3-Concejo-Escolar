@@ -258,12 +258,22 @@ function buildSections(role: Role): ManualSection[] {
             <strong>ingrediente en una localidad</strong>, qué <strong>proveedor</strong> lo
             provee y a qué <strong>precio unitario</strong>, con su vigencia (desde / hasta).
           </p>
+          <p className="mt-3 text-sm leading-6 text-slate-700">
+            En <strong>Nueva asignación</strong> podés cargar el mismo ingrediente en varias
+            localidades a la vez: elegí el proveedor, marcá las localidades y completá el
+            precio de cada una. La fecha de vigencia se aplica a todas las seleccionadas.
+          </p>
           <Tip>
             Por cada combinación (ingrediente + localidad) hay <strong>una sola</strong>{" "}
             asignación vigente. Cuando cargás una nueva (por ejemplo, una nueva licitación), la
             anterior se cierra automáticamente y queda en el historial. No hace falta borrar
             nada.
           </Tip>
+          <p className="mt-3 text-sm leading-6 text-slate-700">
+            Si corregís el precio de una asignación vigente, queda registrado quién lo hizo y
+            cuándo. Lo ves en el botón <strong>Historial</strong>: abajo está la tabla{" "}
+            <strong>Cambios de precio</strong>, con el precio anterior, el nuevo y la variación.
+          </p>
           <p className="mt-3 text-sm leading-6 text-slate-700">
             Si un ingrediente no tiene proveedor vigente en una localidad, ese ingrediente
             queda fuera del pedido y el sistema te lo avisa aparte para resolverlo a mano.

@@ -14,12 +14,14 @@ export function InlineModal({
   onClose,
   children,
   width = "max-w-md",
+  scrollBody = true,
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   width?: string;
+  scrollBody?: boolean;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -34,9 +36,14 @@ export function InlineModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className={`bg-white rounded-2xl shadow-xl w-full ${width} p-5 sm:p-6`}>
-        <h2 className="text-lg font-bold text-gray-800 mb-5">{title}</h2>
-        {children}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`bg-white rounded-2xl shadow-xl w-full ${width} max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden p-5 sm:p-6`}
+      >
+        <h2 className="text-lg font-bold text-gray-800 mb-5 shrink-0">{title}</h2>
+        {scrollBody ? <div className="min-h-0 overflow-y-auto">{children}</div> : children}
       </div>
     </div>
   );

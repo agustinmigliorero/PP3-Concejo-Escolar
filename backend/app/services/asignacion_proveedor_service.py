@@ -1,18 +1,23 @@
 from datetime import date
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.controllers.asignacion_proveedor_controller import (
+    AsignacionPrecioHistorialResponse,
     AsignacionResponse,
     CreateAsignacionRequest,
+    CreateAsignacionesLoteRequest,
     UpdatePrecioRequest,
 )
+from app.models.asignacion_precio_historial_model import AsignacionPrecioHistorial
 from app.models.asignacion_proveedor_model import AsignacionProveedor
 from app.models.ingrediente_model import Ingrediente
 from app.models.location_model import Localidad
 from app.models.proveedor_model import Proveedor
+from app.models.user_model import User
 
 
 def _to_response(asignacion: AsignacionProveedor) -> AsignacionResponse:
@@ -85,7 +90,61 @@ def get_historial(
     return [_to_response(r) for r in rows]
 
 
-def create_asignacion(db: Session, data: CreateAsignacionRequest) -> AsignacionResponse:
+def _to_precio_historial_response(
+    registro: AsignacionPrecioHistorial, asignacion: AsignacionProveedor
+) -> AsignacionPrecioHistorialResponse:
+    variacion = registro.precio_nuevo - registro.precio_anterior
+    variacion_pct: Optional[Decimal] = None
+    if registro.precio_anterior:
+        variacion_pct = (
+            variacion / registro.precio_anterior * Decimal("100")
+        ).quantize(Decimal("0.01"))
+    return AsignacionPrecioHistorialResponse(
+        id=registro.id,
+        asignacion_id=registro.asignacion_id,
+        precio_anterior=registro.precio_anterior,
+        precio_nuevo=registro.precio_nuevo,
+        variacion=variacion,
+        variacion_pct=variacion_pct,
+        proveedor_nombre=asignacion.proveedor.nombre if asignacion.proveedor else None,
+        precio_actual=asignacion.precio_unitario,
+        vigente=asignacion.fecha_hasta is None,
+        modificado_por_username=registro.modificado_por_username,
+        modificado_at=registro.modificado_at,
+    )
+
+
+def get_precio_historial(
+    db: Session, ingrediente_id: int, localidad_id: int
+) -> list[AsignacionPrecioHistorialResponse]:
+    """Historial de cambios de precio de todas las asignaciones de un
+    (ingrediente, localidad), del más reciente al más antiguo.
+
+    Complementa a `get_historial`: ese muestra los tramos de proveedor y sus
+    precios; este muestra las correcciones de precio aplicadas dentro de ellos.
+    """
+    rows = (
+        db.query(AsignacionPrecioHistorial, AsignacionProveedor)
+        .join(
+            AsignacionProveedor,
+            AsignacionPrecioHistorial.asignacion_id == AsignacionProveedor.id,
+        )
+        .filter(
+            AsignacionProveedor.ingrediente_id == ingrediente_id,
+            AsignacionProveedor.localidad_id == localidad_id,
+        )
+        .order_by(
+            AsignacionPrecioHistorial.modificado_at.desc(),
+            AsignacionPrecioHistorial.id.desc(),
+        )
+        .all()
+    )
+    return [_to_precio_historial_response(h, a) for h, a in rows]
+
+
+def _prepare_asignacion(
+    db: Session, data: CreateAsignacionRequest
+) -> tuple[AsignacionProveedor, Optional[AsignacionProveedor]]:
     proveedor = db.query(Proveedor).filter(Proveedor.id == data.proveedor_id).first()
     if not proveedor:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proveedor no encontrado")
@@ -114,12 +173,9 @@ def create_asignacion(db: Session, data: CreateAsignacionRequest) -> AsignacionR
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
                     "La fecha desde no puede ser anterior al inicio de la asignación "
-                    f"vigente ({actual.fecha_desde.isoformat()})"
+                    f"vigente en {localidad.nombre} ({actual.fecha_desde.isoformat()})"
                 ),
             )
-        # fecha_hasta es exclusiva: la anterior queda vigente hasta el día en que
-        # empieza la nueva.
-        actual.fecha_hasta = fecha_desde
 
     nueva = AsignacionProveedor(
         proveedor_id=data.proveedor_id,
@@ -129,13 +185,54 @@ def create_asignacion(db: Session, data: CreateAsignacionRequest) -> AsignacionR
         fecha_desde=fecha_desde,
         fecha_hasta=None,
     )
-    db.add(nueva)
-    db.commit()
-    db.refresh(nueva)
-    return _to_response(nueva)
+    return nueva, actual
 
 
-def update_precio(db: Session, asignacion_id: int, data: UpdatePrecioRequest) -> AsignacionResponse:
+def _create_asignaciones(
+    db: Session, entries: list[CreateAsignacionRequest]
+) -> list[AsignacionResponse]:
+    try:
+        # Validar todo antes de cerrar vigencias o insertar filas.
+        prepared = [_prepare_asignacion(db, entry) for entry in entries]
+        for nueva, actual in prepared:
+            if actual is not None:
+                # Fecha de cierre exclusiva: la anterior termina al iniciar la nueva.
+                actual.fecha_hasta = nueva.fecha_desde
+            db.add(nueva)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return [_to_response(nueva) for nueva, _ in prepared]
+
+
+def create_asignacion(db: Session, data: CreateAsignacionRequest) -> AsignacionResponse:
+    return _create_asignaciones(db, [data])[0]
+
+
+def create_asignaciones_lote(
+    db: Session, data: CreateAsignacionesLoteRequest
+) -> list[AsignacionResponse]:
+    fecha_desde = data.fecha_desde or date.today()
+    return _create_asignaciones(db, [
+        CreateAsignacionRequest(
+            proveedor_id=data.proveedor_id,
+            ingrediente_id=data.ingrediente_id,
+            localidad_id=localidad.localidad_id,
+            precio_unitario=localidad.precio_unitario,
+            fecha_desde=fecha_desde,
+        )
+        for localidad in data.localidades
+    ])
+
+
+def update_precio(
+    db: Session,
+    asignacion_id: int,
+    data: UpdatePrecioRequest,
+    usuario: User,
+) -> AsignacionResponse:
     asignacion = (
         db.query(AsignacionProveedor)
         .filter(AsignacionProveedor.id == asignacion_id)
@@ -149,7 +246,22 @@ def update_precio(db: Session, asignacion_id: int, data: UpdatePrecioRequest) ->
             detail="Solo se puede editar el precio de la asignación vigente",
         )
 
+    precio_anterior = asignacion.precio_unitario
     asignacion.precio_unitario = data.precio_unitario
+
+    # Solo se asienta el cambio cuando el precio difiere del anterior: guardar
+    # el mismo valor no es un cambio y solo ensuciaría el historial.
+    if precio_anterior != data.precio_unitario:
+        db.add(
+            AsignacionPrecioHistorial(
+                asignacion_id=asignacion.id,
+                precio_anterior=precio_anterior,
+                precio_nuevo=data.precio_unitario,
+                modificado_por_id=usuario.id,
+                modificado_por_username=usuario.username,
+            )
+        )
+
     db.commit()
     db.refresh(asignacion)
     return _to_response(asignacion)
