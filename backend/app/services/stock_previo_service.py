@@ -10,10 +10,11 @@ from app.controllers.stock_previo_controller import (
     UpdateStockPrevioRequest,
 )
 from app.models.ingrediente_model import Ingrediente
-from app.models.receta_model import RecetaIngrediente
+from app.models.receta_model import Receta, RecetaIngrediente
 from app.models.school_model import School
 from app.models.stock_previo_model import StockPrevio
 from app.models.temporada_model import DiaMenu, OpcionMenu, Temporada
+from app.models.tipo_comida_model import receta_tipos_comida
 from app.models.user_model import User, UserRole
 from app.services import notification_service
 
@@ -39,7 +40,72 @@ def _get_school_for_escuela_user(db: Session, user: User) -> School:
     return _get_school_or_404(db, user.school_id)
 
 
-def _get_active_ingredientes(db: Session) -> list[Ingrediente]:
+def _get_school_union_ingredientes(db: Session, school: School) -> list[Ingrediente]:
+    """Active ingredients of every receta served by the school's TipoComida services.
+
+    Static union over ALL the school's tipos (no DiaMenu narrowing), ordered by
+    Ingrediente.nombre.
+    """
+    tipo_ids = [tipo.id for tipo in school.tipos_comida]
+    if not tipo_ids:
+        return []
+    return (
+        db.query(Ingrediente)
+        .join(RecetaIngrediente, RecetaIngrediente.ingrediente_id == Ingrediente.id)
+        .join(Receta, Receta.id == RecetaIngrediente.receta_id)
+        .join(receta_tipos_comida, receta_tipos_comida.c.receta_id == Receta.id)
+        .filter(
+            receta_tipos_comida.c.tipo_comida_id.in_(tipo_ids),
+            Ingrediente.activo == True,
+        )
+        .distinct()
+        .order_by(Ingrediente.nombre)
+        .all()
+    )
+
+
+def _get_active_season_ingrediente_ids(db: Session) -> set[int] | None:
+    """Ids of active ingredients used by recetas of the active temporada.
+
+    Returns None when there is no active temporada, or an empty set when the
+    active temporada has no recetas (or none of them uses an active ingredient).
+    """
+    active_temporada = db.query(Temporada).filter(Temporada.activo == True).first()
+    if active_temporada is None:
+        return None
+    rows = (
+        db.query(RecetaIngrediente.ingrediente_id)
+        .join(Receta, Receta.id == RecetaIngrediente.receta_id)
+        .join(Ingrediente, Ingrediente.id == RecetaIngrediente.ingrediente_id)
+        .filter(
+            Receta.temporada_id == active_temporada.id,
+            Ingrediente.activo == True,
+        )
+        .distinct()
+        .all()
+    )
+    return {ingrediente_id for (ingrediente_id,) in rows}
+
+
+def _get_scoped_ingredientes(db: Session, school: School) -> list[Ingrediente]:
+    """visible = school-tipo union INTERSECT active-season ingredients (D7)."""
+    union = _get_school_union_ingredientes(db, school)
+    season_ids = _get_active_season_ingrediente_ids(db)
+    if not season_ids:
+        # No active temporada or no in-season ingredients: fall back to the
+        # school union itself, never to the global list (DD-5).
+        return union
+    # Non-empty season set: intersect even when the result is empty; an empty
+    # intersection is a legitimate empty state, not a fallback trigger (DD-5).
+    return [ingrediente for ingrediente in union if ingrediente.id in season_ids]
+
+
+def _get_active_ingredientes(
+    db: Session, scope_school: School | None = None
+) -> list[Ingrediente]:
+    if scope_school is not None:
+        return _get_scoped_ingredientes(db, scope_school)
+
     active_temporada = db.query(Temporada).filter(Temporada.activo == True).first()
     if active_temporada:
         ingredientes = (
@@ -66,8 +132,12 @@ def _get_active_ingredientes(db: Session) -> list[Ingrediente]:
     )
 
 
-def _build_response(db: Session, school: School) -> StockPrevioSchoolResponse:
-    ingredientes = _get_active_ingredientes(db)
+def _build_response(
+    db: Session,
+    school: School,
+    scope_school: School | None = None,
+) -> StockPrevioSchoolResponse:
+    ingredientes = _get_active_ingredientes(db, scope_school)
     rows = (
         db.query(StockPrevio)
         .filter(StockPrevio.escuela_id == school.id)
@@ -75,38 +145,41 @@ def _build_response(db: Session, school: School) -> StockPrevioSchoolResponse:
     )
     stock_by_ingrediente = {row.ingrediente_id: row for row in rows}
 
+    items = [
+        StockPrevioResponse(
+            ingrediente_id=ingrediente.id,
+            ingrediente_nombre=ingrediente.nombre,
+            unidad_medida=ingrediente.unidad_medida,
+            cantidad=(
+                stock_by_ingrediente[ingrediente.id].cantidad
+                if ingrediente.id in stock_by_ingrediente
+                else Decimal("0")
+            ),
+            previous_cantidad=(
+                stock_by_ingrediente[ingrediente.id].previous_cantidad
+                if ingrediente.id in stock_by_ingrediente
+                else None
+            ),
+            cargado_at=(
+                stock_by_ingrediente[ingrediente.id].cargado_at
+                if ingrediente.id in stock_by_ingrediente
+                else None
+            ),
+        )
+        for ingrediente in ingredientes
+    ]
+
     return StockPrevioSchoolResponse(
         escuela_id=school.id,
         escuela_nombre=school.name,
-        items=[
-            StockPrevioResponse(
-                ingrediente_id=ingrediente.id,
-                ingrediente_nombre=ingrediente.nombre,
-                unidad_medida=ingrediente.unidad_medida,
-                cantidad=(
-                    stock_by_ingrediente[ingrediente.id].cantidad
-                    if ingrediente.id in stock_by_ingrediente
-                    else Decimal("0")
-                ),
-                previous_cantidad=(
-                    stock_by_ingrediente[ingrediente.id].previous_cantidad
-                    if ingrediente.id in stock_by_ingrediente
-                    else None
-                ),
-                cargado_at=(
-                    stock_by_ingrediente[ingrediente.id].cargado_at
-                    if ingrediente.id in stock_by_ingrediente
-                    else None
-                ),
-            )
-            for ingrediente in ingredientes
-        ],
+        items=items,
+        sin_recetas=not items,
     )
 
 
 def get_my_stock(db: Session, user: User) -> StockPrevioSchoolResponse:
     school = _get_school_for_escuela_user(db, user)
-    return _build_response(db, school)
+    return _build_response(db, school, scope_school=school)
 
 
 def get_school_stock(db: Session, school_id: int) -> StockPrevioSchoolResponse:
@@ -119,6 +192,7 @@ def update_school_stock(
     school_id: int,
     data: UpdateStockPrevioRequest,
     user: User,
+    scope_school: School | None = None,
 ) -> StockPrevioSchoolResponse:
     school = _get_school_or_404(db, school_id)
     if not school.active:
@@ -180,7 +254,9 @@ def update_school_stock(
 
     db.commit()
 
-    all_ingredientes = _get_active_ingredientes(db)
+    # The notification payload is always built from the GLOBAL active list,
+    # even when the save came through PUT /stock-previo/me (DD-6).
+    all_ingredientes = _get_active_ingredientes(db, scope_school=None)
     all_stock_rows = (
         db.query(StockPrevio)
         .filter(StockPrevio.escuela_id == school.id)
@@ -211,7 +287,7 @@ def update_school_stock(
         })
 
     notification_service.create_stock_notification(db, school, user, items=items_detail)
-    return _build_response(db, school)
+    return _build_response(db, school, scope_school=scope_school)
 
 
 def update_my_stock(
@@ -220,4 +296,23 @@ def update_my_stock(
     user: User,
 ) -> StockPrevioSchoolResponse:
     school = _get_school_for_escuela_user(db, user)
-    return update_school_stock(db, school.id, data, user)
+
+    # Write allow-list: every ingrediente_id must belong to the school's scoped
+    # set BEFORE any mutation runs, so a rejected payload is atomic by
+    # construction (no partial writes). Unknown/inactive ids are trivially
+    # out-of-scope here and covered by the same gate (DD-3).
+    allowed_ids = {
+        ingrediente.id
+        for ingrediente in _get_active_ingredientes(db, scope_school=school)
+    }
+    for item in data.items:
+        if item.ingrediente_id not in allowed_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Ingrediente {item.ingrediente_id} fuera del alcance "
+                    "de los servicios de esta escuela"
+                ),
+            )
+
+    return update_school_stock(db, school.id, data, user, scope_school=school)

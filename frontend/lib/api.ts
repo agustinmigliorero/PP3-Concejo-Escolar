@@ -435,6 +435,7 @@ export interface StockPrevioSchoolRecord {
   escuela_id: number;
   escuela_nombre: string;
   items: StockPrevioItem[];
+  sin_recetas: boolean;
 }
 
 export async function apiGetMyStock(): Promise<StockPrevioSchoolRecord> {

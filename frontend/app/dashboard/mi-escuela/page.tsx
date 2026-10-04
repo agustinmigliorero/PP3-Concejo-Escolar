@@ -23,6 +23,7 @@ export default function MiEscuelaPage() {
   const [email, setEmail] = useState("");
   const [stockItems, setStockItems] = useState<StockPrevioItem[]>([]);
   const [stockDraft, setStockDraft] = useState<Record<number, string>>({});
+  const [stockSinRecetas, setStockSinRecetas] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [contactSaving, setContactSaving] = useState(false);
@@ -40,6 +41,7 @@ export default function MiEscuelaPage() {
       setPhone(data.phone ?? "");
       setEmail(data.email ?? "");
       setStockItems(stock.items);
+      setStockSinRecetas(stock.sin_recetas);
       setStockDraft(
         Object.fromEntries(
           stock.items.map((item) => [item.ingrediente_id, String(Number(item.cantidad))]),
@@ -127,6 +129,7 @@ export default function MiEscuelaPage() {
     try {
       const updated = await apiUpdateMyStock(items);
       setStockItems(updated.items);
+      setStockSinRecetas(updated.sin_recetas);
       setStockDraft(
         Object.fromEntries(
           updated.items.map((item) => [item.ingrediente_id, String(Number(item.cantidad))]),
@@ -335,7 +338,9 @@ export default function MiEscuelaPage() {
 
         {stockItems.length === 0 ? (
           <p className="text-sm text-gray-400 border border-dashed border-gray-200 rounded-lg px-4 py-8 text-center">
-            No hay ingredientes activos para cargar stock.
+            {stockSinRecetas
+              ? "Tu escuela no tiene recetas asociadas a sus servicios para cargar stock."
+              : "No hay ingredientes activos para cargar stock."}
           </p>
         ) : (
           <div className="overflow-x-auto border border-gray-100 rounded-lg">

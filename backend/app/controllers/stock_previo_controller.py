@@ -35,3 +35,6 @@ class StockPrevioSchoolResponse(BaseModel):
     escuela_id: int
     escuela_nombre: str
     items: list[StockPrevioResponse]
+    # True when the (possibly scoped) list came back empty, so the escuela panel
+    # can show the "no recipes for your services" copy instead of the generic one.
+    sin_recetas: bool

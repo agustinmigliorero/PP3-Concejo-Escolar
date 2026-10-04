@@ -25,6 +25,7 @@ pydantic_core==2.41.5
 python-dotenv==1.2.2
 python-jose==3.3.0
 python-multipart==0.0.22
+pytest==9.1.1
 reportlab==4.2.5
 rsa==4.9.1
 sentry-sdk==2.55.0
