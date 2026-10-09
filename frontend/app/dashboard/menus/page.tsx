@@ -106,7 +106,7 @@ export default function MenusPage() {
         recetas.filter(
           (receta) =>
             receta.activo &&
-            receta.temporada_id === temporadaId &&
+            receta.temporadas.some((temporada) => temporada.id === temporadaId) &&
             receta.tipos_comida.some((t) => t.id === tipo.id),
         ),
       ]),

@@ -2,6 +2,7 @@ from sqlalchemy import Boolean, Column, ForeignKey, Integer, Numeric, String, Un
 from sqlalchemy.orm import relationship
 
 from app.config.database import Base
+from app.models.temporada_model import receta_temporadas
 from app.models.tipo_comida_model import receta_tipos_comida
 
 
@@ -10,10 +11,13 @@ class Receta(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(200), unique=True, nullable=False, index=True)
-    temporada_id = Column(Integer, ForeignKey("temporadas.id"), nullable=True, index=True)
     activo = Column(Boolean, default=True, nullable=False)
 
-    temporada = relationship("Temporada")
+    temporadas = relationship(
+        "Temporada",
+        secondary=receta_temporadas,
+        order_by="Temporada.anio",
+    )
     tipos_comida = relationship(
         "TipoComida",
         secondary=receta_tipos_comida,

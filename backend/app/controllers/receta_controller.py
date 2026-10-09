@@ -3,6 +3,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.controllers.tipo_comida_controller import TipoComidaResponse
+from app.models.temporada_model import NombreTemporada
 
 
 class RecetaIngredienteItemRequest(BaseModel):
@@ -13,7 +14,7 @@ class RecetaIngredienteItemRequest(BaseModel):
 class CreateRecetaRequest(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=200)
     tipos_comida_ids: list[int] = Field(..., min_length=1)
-    temporada_id: int = Field(..., gt=0)
+    temporada_ids: list[int] = Field(..., min_length=1)
     ingredientes: list[RecetaIngredienteItemRequest]
 
     @field_validator("nombre")
@@ -28,6 +29,15 @@ class CreateRecetaRequest(BaseModel):
             raise ValueError("Tipo de comida invalido")
         if len(value) != len(set(value)):
             raise ValueError("No se puede repetir un tipo de comida en la receta")
+        return value
+
+    @field_validator("temporada_ids")
+    @classmethod
+    def validate_temporadas(cls, value: list[int]) -> list[int]:
+        if any(temporada_id <= 0 for temporada_id in value):
+            raise ValueError("Temporada invalida")
+        if len(value) != len(set(value)):
+            raise ValueError("No se puede repetir una temporada en la receta")
         return value
 
     @model_validator(mode="after")
@@ -53,13 +63,20 @@ class RecetaIngredienteResponse(BaseModel):
     cantidad_por_porcion: Decimal
 
 
+class RecetaTemporadaResponse(BaseModel):
+    id: int
+    nombre: NombreTemporada
+    anio: int
+    activo: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class RecetaResponse(BaseModel):
     id: int
     nombre: str
     tipos_comida: list[TipoComidaResponse]
-    temporada_id: int | None
-    temporada_nombre: str | None
-    temporada_anio: int | None
+    temporadas: list[RecetaTemporadaResponse]
     activo: bool
     ingredientes: list[RecetaIngredienteResponse]
 

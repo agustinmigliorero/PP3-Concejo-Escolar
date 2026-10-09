@@ -80,7 +80,10 @@ def update_temporada_menu(
 
     receta_ids = {item.receta_id for item in data.items}
     recetas = (
-        db.query(Receta).options(selectinload(Receta.tipos_comida)).filter(Receta.id.in_(receta_ids)).all()
+        db.query(Receta)
+        .options(selectinload(Receta.tipos_comida), selectinload(Receta.temporadas))
+        .filter(Receta.id.in_(receta_ids))
+        .all()
         if receta_ids
         else []
     )
@@ -95,7 +98,7 @@ def update_temporada_menu(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"La receta {receta.nombre} esta inactiva",
             )
-        if receta.temporada_id != temporada_id:
+        if temporada_id not in {temporada.id for temporada in receta.temporadas}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"La receta {receta.nombre} no pertenece a esta temporada",

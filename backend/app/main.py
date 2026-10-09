@@ -97,11 +97,38 @@ def _migrate_sqlite(conn) -> None:
                     ) from exc
 
 
+def _backfill_receta_temporadas(conn) -> None:
+    """Migra el antiguo FK recetas.temporada_id (relacion 1:N, una receta =
+    una temporada) a la nueva tabla intermedia receta_temporadas (relacion
+    N:N, una receta puede valer para varias temporadas, ej. "Pizza" en
+    verano e invierno), preservando las asignaciones ya cargadas.
+
+    La columna vieja 'temporada_id' queda en la tabla 'recetas' sin uso
+    (SQLite no soporta DROP COLUMN con FK facilmente y este proyecto no usa
+    migraciones), pero el modelo ORM ya no la referencia.
+    """
+    columnas = {
+        row[1] for row in conn.execute(text("PRAGMA table_info(recetas)")).fetchall()
+    }
+    if "temporada_id" not in columnas:
+        return
+
+    conn.execute(
+        text(
+            """
+            INSERT OR IGNORE INTO receta_temporadas (receta_id, temporada_id)
+            SELECT id, temporada_id FROM recetas WHERE temporada_id IS NOT NULL
+            """
+        )
+    )
+
+
 @app.on_event("startup")
 def create_tables() -> None:
     with engine.connect() as conn:
         Base.metadata.create_all(bind=engine)
         _migrate_sqlite(conn)
+        _backfill_receta_temporadas(conn)
         conn.commit()
 
 
