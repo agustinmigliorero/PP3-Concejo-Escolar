@@ -1297,11 +1297,13 @@ export async function apiDownloadPedidoExport(
     proveedor_id?: number | null;
     escuela_id?: number | null;
   },
+  includePrices = true,
 ): Promise<Blob> {
   const params = new URLSearchParams();
   if (filters?.localidad_id) params.set("localidad_id", String(filters.localidad_id));
   if (filters?.proveedor_id) params.set("proveedor_id", String(filters.proveedor_id));
   if (filters?.escuela_id) params.set("escuela_id", String(filters.escuela_id));
+  if (scope === "proveedores") params.set("incluir_precios", String(includePrices));
   const query = params.toString();
   const basePath =
     scope === "proveedores"
