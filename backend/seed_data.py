@@ -405,12 +405,14 @@ def _get_or_create_season(db) -> Temporada:
     return season
 
 
-def _upsert_recipe(db, name: str, tipos: list[TipoComida], season: Temporada, items, ingredients) -> Receta:
+def _upsert_recipe(
+    db, name: str, tipos: list[TipoComida], seasons: list[Temporada], items, ingredients
+) -> Receta:
     recipe = db.query(Receta).filter(Receta.nombre == name).first()
     if recipe is None:
         recipe = Receta(
             nombre=name,
-            temporada_id=season.id,
+            temporadas=seasons,
             activo=True,
             tipos_comida=tipos,
         )
@@ -420,7 +422,7 @@ def _upsert_recipe(db, name: str, tipos: list[TipoComida], season: Temporada, it
         recipe.ingredientes.clear()
         db.flush()
         recipe.tipos_comida = tipos
-        recipe.temporada_id = season.id
+        recipe.temporadas = seasons
         recipe.activo = True
 
     for ingredient_name, amount in items:
@@ -448,7 +450,7 @@ def _seed_menu(db, ingredients: dict[str, Ingrediente], tipos: dict[str, TipoCom
             db,
             "Desayuno agregado semana 1 - Invierno 2026",
             [desayuno],
-            season,
+            [season],
             BREAKFAST_RECIPE,
             ingredients,
         ),
@@ -456,7 +458,7 @@ def _seed_menu(db, ingredients: dict[str, Ingrediente], tipos: dict[str, TipoCom
             db,
             "Desayuno agregado semana 2 - Invierno 2026",
             [desayuno],
-            season,
+            [season],
             BREAKFAST_RECIPE,
             ingredients,
         ),
@@ -464,7 +466,7 @@ def _seed_menu(db, ingredients: dict[str, Ingrediente], tipos: dict[str, TipoCom
             db,
             "Almuerzo agregado semana 1 - Invierno 2026",
             [almuerzo],
-            season,
+            [season],
             LUNCH_RECIPE,
             ingredients,
         ),
@@ -472,7 +474,7 @@ def _seed_menu(db, ingredients: dict[str, Ingrediente], tipos: dict[str, TipoCom
             db,
             "Almuerzo agregado semana 2 - Invierno 2026",
             [almuerzo],
-            season,
+            [season],
             LUNCH_RECIPE,
             ingredients,
         ),
