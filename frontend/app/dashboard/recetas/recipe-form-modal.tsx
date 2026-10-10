@@ -19,7 +19,7 @@ export interface FormIngredient {
 export interface FormState {
   nombre: string;
   tipos_comida_ids: number[];
-  temporada_id: string;
+  temporada_ids: number[];
   ingredientes: FormIngredient[];
 }
 
@@ -88,45 +88,63 @@ export function RecipeFormModal({
         </h2>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre
-              </label>
-              <input
-                type="text"
-                value={form.nombre}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, nombre: event.target.value }))
-                }
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ej: Fideos con estofado"
-                autoFocus
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre
+            </label>
+            <input
+              type="text"
+              value={form.nombre}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, nombre: event.target.value }))
+              }
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ej: Fideos con estofado"
+              autoFocus
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Temporada
-              </label>
-              <select
-                value={form.temporada_id}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    temporada_id: event.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Seleccionar temporada</option>
-                {temporadas.map((temporada) => (
-                  <option key={temporada.id} value={temporada.id}>
-                    {(temporada.nombre === "VERANO" ? "Verano" : "Invierno")} {temporada.anio}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Temporadas
+            </label>
+            <p className="text-xs text-gray-500 mb-2">
+              Seleccioná una o ambas si la receta aplica a los dos menues (ej: pizza en verano e invierno).
+            </p>
+            {temporadas.length === 0 ? (
+              <p className="text-xs text-gray-400">
+                No hay temporadas creadas. Creá una en la sección &quot;Temporadas&quot;.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {temporadas.map((temporada) => {
+                  const checked = form.temporada_ids.includes(temporada.id);
+                  return (
+                    <label
+                      key={temporada.id}
+                      className="flex items-center gap-2 cursor-pointer border border-gray-200 rounded-lg px-3 py-2"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            temporada_ids: event.target.checked
+                              ? [...prev.temporada_ids, temporada.id]
+                              : prev.temporada_ids.filter((id) => id !== temporada.id),
+                          }))
+                        }
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {(temporada.nombre === "VERANO" ? "Verano" : "Invierno")} {temporada.anio}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div>

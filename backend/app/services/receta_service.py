@@ -12,7 +12,7 @@ def _receta_query(db: Session):
     return db.query(Receta).options(
         selectinload(Receta.ingredientes).joinedload(RecetaIngrediente.ingrediente),
         selectinload(Receta.tipos_comida),
-        selectinload(Receta.temporada),
+        selectinload(Receta.temporadas),
     )
 
 
@@ -24,9 +24,15 @@ def _receta_to_response(receta: Receta) -> dict:
             {"id": tipo.id, "nombre": tipo.nombre, "activo": tipo.activo}
             for tipo in receta.tipos_comida
         ],
-        "temporada_id": receta.temporada_id,
-        "temporada_nombre": receta.temporada.nombre.value if receta.temporada else None,
-        "temporada_anio": receta.temporada.anio if receta.temporada else None,
+        "temporadas": [
+            {
+                "id": temporada.id,
+                "nombre": temporada.nombre,
+                "anio": temporada.anio,
+                "activo": temporada.activo,
+            }
+            for temporada in receta.temporadas
+        ],
         "activo": receta.activo,
         "ingredientes": [
             {
@@ -66,14 +72,24 @@ def _get_ingredientes_map(db: Session, ingrediente_ids: list[int]) -> dict[int, 
     return ingredientes_map
 
 
-def _get_temporada(db: Session, temporada_id: int) -> Temporada:
-    temporada = db.query(Temporada).filter(Temporada.id == temporada_id).first()
-    if not temporada:
+def _get_temporadas_by_ids(db: Session, temporada_ids: list[int]) -> list[Temporada]:
+    """Valida y devuelve las temporadas indicadas, en el orden recibido.
+
+    Una receta puede asociarse a una o varias temporadas (ej. una receta de
+    pizza vale para verano e invierno).
+    """
+    unique_ids = list(dict.fromkeys(temporada_ids))
+    temporadas = db.query(Temporada).filter(Temporada.id.in_(unique_ids)).all()
+    found = {temporada.id: temporada for temporada in temporadas}
+
+    missing = [temporada_id for temporada_id in unique_ids if temporada_id not in found]
+    if missing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Temporada no encontrada",
+            detail="Una o más temporadas no existen",
         )
-    return temporada
+
+    return [found[temporada_id] for temporada_id in unique_ids]
 
 
 def get_all_recetas(db: Session, include_inactive: bool = False) -> list[dict]:
@@ -103,12 +119,12 @@ def create_receta(db: Session, data: CreateRecetaRequest) -> dict:
         db,
         [item.ingrediente_id for item in data.ingredientes],
     )
-    _get_temporada(db, data.temporada_id)
+    temporadas = _get_temporadas_by_ids(db, data.temporada_ids)
     tipos_comida = tipo_comida_service.get_tipos_comida_by_ids(db, data.tipos_comida_ids)
 
     receta = Receta(
         nombre=data.nombre,
-        temporada_id=data.temporada_id,
+        temporadas=temporadas,
         tipos_comida=tipos_comida,
     )
     db.add(receta)
@@ -131,7 +147,11 @@ def create_receta(db: Session, data: CreateRecetaRequest) -> dict:
 def update_receta(db: Session, receta_id: int, data: UpdateRecetaRequest) -> dict:
     receta = (
         db.query(Receta)
-        .options(selectinload(Receta.ingredientes), selectinload(Receta.tipos_comida))
+        .options(
+            selectinload(Receta.ingredientes),
+            selectinload(Receta.tipos_comida),
+            selectinload(Receta.temporadas),
+        )
         .filter(Receta.id == receta_id)
         .first()
     )
@@ -149,11 +169,11 @@ def update_receta(db: Session, receta_id: int, data: UpdateRecetaRequest) -> dic
         )
 
     _get_ingredientes_map(db, [item.ingrediente_id for item in data.ingredientes])
-    _get_temporada(db, data.temporada_id)
+    temporadas = _get_temporadas_by_ids(db, data.temporada_ids)
     tipos_comida = tipo_comida_service.get_tipos_comida_by_ids(db, data.tipos_comida_ids)
 
     receta.nombre = data.nombre
-    receta.temporada_id = data.temporada_id
+    receta.temporadas = temporadas
     receta.tipos_comida = tipos_comida
     receta.ingredientes.clear()
     db.flush()

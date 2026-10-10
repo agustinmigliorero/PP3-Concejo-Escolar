@@ -50,7 +50,7 @@ function createEmptyForm(): FormState {
   return {
     nombre: "",
     tipos_comida_ids: [],
-    temporada_id: "",
+    temporada_ids: [],
     ingredientes: [createIngredientRow()],
   };
 }
@@ -155,7 +155,7 @@ export default function RecetasPage() {
     setForm({
       nombre: receta.nombre,
       tipos_comida_ids: receta.tipos_comida.map((tipo) => tipo.id),
-      temporada_id: receta.temporada_id ? String(receta.temporada_id) : "",
+      temporada_ids: receta.temporadas.map((temporada) => temporada.id),
       ingredientes: receta.ingredientes.map((item) => ({
         tempId: createTempId(),
         ingrediente_id: String(item.ingrediente_id),
@@ -210,9 +210,8 @@ export default function RecetasPage() {
       return;
     }
 
-    const temporadaId = Number(form.temporada_id);
-    if (!temporadaId) {
-      setFormError("Seleccioná una temporada");
+    if (form.temporada_ids.length === 0) {
+      setFormError("Seleccioná al menos una temporada");
       return;
     }
 
@@ -254,7 +253,7 @@ export default function RecetasPage() {
       const payload = {
         nombre: form.nombre.trim(),
         tipos_comida_ids: form.tipos_comida_ids,
-        temporada_id: temporadaId,
+        temporada_ids: form.temporada_ids,
         ingredientes: cleanedIngredients,
       };
 
@@ -360,9 +359,20 @@ export default function RecetasPage() {
                   </div>
                 </td>
                 <td data-label="Temporada" className="px-5 py-3 text-gray-600">
-                  {receta.temporada_nombre && receta.temporada_anio
-                    ? `${receta.temporada_nombre === "VERANO" ? "Verano" : "Invierno"} ${receta.temporada_anio}`
-                    : "Sin temporada"}
+                  {receta.temporadas.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {receta.temporadas.map((temporada) => (
+                        <span
+                          key={temporada.id}
+                          className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 text-xs font-medium px-2.5 py-1"
+                        >
+                          {(temporada.nombre === "VERANO" ? "Verano" : "Invierno")} {temporada.anio}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">Sin temporada</span>
+                  )}
                 </td>
                 <td data-label="Ingredientes" className="px-5 py-3 text-gray-600">
                   <div className="max-w-md">

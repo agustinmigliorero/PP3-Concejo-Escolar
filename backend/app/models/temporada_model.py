@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, Enum, ForeignKey, Integer, String, Table, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.config.database import Base
@@ -9,6 +9,17 @@ from app.config.database import Base
 class NombreTemporada(str, enum.Enum):
     VERANO = "VERANO"
     INVIERNO = "INVIERNO"
+
+
+# Relacion N:N receta <-> temporada. Una receta puede ofrecerse en varias
+# temporadas (ej. "Pizza" se usa tanto en el menu de verano como en el de
+# invierno), o en una sola si es especifica de esa epoca del anio.
+receta_temporadas = Table(
+    "receta_temporadas",
+    Base.metadata,
+    Column("receta_id", Integer, ForeignKey("recetas.id"), primary_key=True),
+    Column("temporada_id", Integer, ForeignKey("temporadas.id"), primary_key=True),
+)
 
 
 class Temporada(Base):

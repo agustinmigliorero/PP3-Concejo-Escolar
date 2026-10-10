@@ -785,13 +785,18 @@ export interface RecetaIngredienteRecord {
   cantidad_por_porcion: number;
 }
 
+export interface RecetaTemporadaRecord {
+  id: number;
+  nombre: "VERANO" | "INVIERNO";
+  anio: number;
+  activo: boolean;
+}
+
 export interface RecetaRecord {
   id: number;
   nombre: string;
   tipos_comida: TipoComidaRecord[];
-  temporada_id: number | null;
-  temporada_nombre: "VERANO" | "INVIERNO" | null;
-  temporada_anio: number | null;
+  temporadas: RecetaTemporadaRecord[];
   activo: boolean;
   ingredientes: RecetaIngredienteRecord[];
 }
@@ -808,7 +813,7 @@ export async function apiGetRecetas(
 export async function apiCreateReceta(data: {
   nombre: string;
   tipos_comida_ids: number[];
-  temporada_id: number;
+  temporada_ids: number[];
   ingredientes: Array<{ ingrediente_id: number; cantidad_por_porcion: number }>;
 }): Promise<RecetaRecord> {
   const res = await apiFetch("/recetas", {
@@ -825,7 +830,7 @@ export async function apiUpdateReceta(
   data: {
     nombre: string;
     tipos_comida_ids: number[];
-    temporada_id: number;
+    temporada_ids: number[];
     ingredientes: Array<{ ingrediente_id: number; cantidad_por_porcion: number }>;
   },
 ): Promise<RecetaRecord> {
@@ -1293,11 +1298,13 @@ export async function apiDownloadPedidoExport(
     proveedor_id?: number | null;
     escuela_id?: number | null;
   },
+  includePrices = true,
 ): Promise<Blob> {
   const params = new URLSearchParams();
   if (filters?.localidad_id) params.set("localidad_id", String(filters.localidad_id));
   if (filters?.proveedor_id) params.set("proveedor_id", String(filters.proveedor_id));
   if (filters?.escuela_id) params.set("escuela_id", String(filters.escuela_id));
+  if (scope === "proveedores") params.set("incluir_precios", String(includePrices));
   const query = params.toString();
   const basePath =
     scope === "proveedores"

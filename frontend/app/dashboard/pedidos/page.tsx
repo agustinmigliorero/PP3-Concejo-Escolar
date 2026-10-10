@@ -353,15 +353,17 @@ export default function PedidosPage() {
     format: "pdf" | "excel",
     scope: PedidoExportScope,
     filters?: PedidoFilters,
+    includePrices = true,
   ) {
     setError(null);
     try {
-      const blob = await apiDownloadPedidoExport(pedido.id, format, scope, filters);
+      const blob = await apiDownloadPedidoExport(pedido.id, format, scope, filters, includePrices);
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       const extension = scope === "resumen" ? (format === "pdf" ? "pdf" : "xlsx") : "zip";
       link.href = url;
-      link.download = `${scope}_${pedido.id}_${pedido.semana_inicio}.${extension}`;
+      const variant = scope === "proveedores" ? `_${includePrices ? "con_precios" : "sin_precios"}_${format}` : "";
+      link.download = `${scope}_${pedido.id}_${pedido.semana_inicio}${variant}.${extension}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -1010,7 +1012,15 @@ export default function PedidosPage() {
                           onClick={() => downloadPedido(pedido, "pdf", "proveedores", historyFilters)}
                           className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
                         >
-                          Proveedor/localidad ZIP
+                          Proveedores con precios ZIP
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadPedido(pedido, "pdf", "proveedores", historyFilters, false)}
+                          title="Para entregar: ingredientes, unidades y cantidades, sin precios ni costos"
+                          className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          Proveedores sin precios ZIP
                         </button>
                         <button
                           type="button"
@@ -1022,7 +1032,7 @@ export default function PedidosPage() {
                       </div>
                     </td>
                     <td data-label="Excel" className="px-5 py-3">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => downloadPedido(pedido, "excel", "resumen", historyFilters)}
@@ -1035,7 +1045,15 @@ export default function PedidosPage() {
                           onClick={() => downloadPedido(pedido, "excel", "proveedores", historyFilters)}
                           className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
                         >
-                          Proveedores ZIP
+                          Proveedores con precios ZIP
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadPedido(pedido, "excel", "proveedores", historyFilters, false)}
+                          title="Para entregar: ingredientes, unidades y cantidades, sin precios ni costos"
+                          className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          Proveedores sin precios ZIP
                         </button>
                       </div>
                     </td>

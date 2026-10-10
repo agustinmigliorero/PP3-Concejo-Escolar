@@ -1142,7 +1142,7 @@ def export_resumen_pdf(
     return output
 
 
-def _provider_excel(snapshot: dict, provider: dict) -> BytesIO:
+def _provider_excel(snapshot: dict, provider: dict, include_prices: bool = True) -> BytesIO:
     from openpyxl import Workbook
     from openpyxl.styles import Font
 
@@ -1159,7 +1159,9 @@ def _provider_excel(snapshot: dict, provider: dict) -> BytesIO:
     header = ["Ingrediente", "Unidad", *[
         f"{school.get('escuela_codigo', '')} - {school.get('escuela_nombre', '')}"
         for school in schools
-    ], "TOTAL", "Precio unit.", "Costo estimado"]
+    ], "TOTAL"]
+    if include_prices:
+        header.extend(["Precio unit.", "Costo estimado"])
     sheet.append(header)
     for cell in sheet[6]:
         cell.font = Font(bold=True)
@@ -1167,16 +1169,20 @@ def _provider_excel(snapshot: dict, provider: dict) -> BytesIO:
     ingredientes = provider.get("ingredientes", [])
     for ingredient in ingredientes:
         quantities = {row["escuela_id"]: row.get("cantidad", "") for row in ingredient.get("escuelas", [])}
-        sheet.append([
+        row = [
             ingredient.get("ingrediente_nombre", ""),
             _commercial_unit_label(ingredient),
             *[quantities.get(school["escuela_id"], "0.00") for school in schools],
             _commercial_quantity_label(ingredient),
-            ingredient.get("precio_unitario", ""),
-            ingredient.get("costo_total", ""),
-        ])
+        ]
+        if include_prices:
+            row.extend([
+                ingredient.get("precio_unitario", ""),
+                ingredient.get("costo_total", ""),
+            ])
+        sheet.append(row)
 
-    if ingredientes:
+    if ingredientes and include_prices:
         total_cost = sum(
             (_dec(item.get("costo_total", "0")) for item in ingredientes),
             Decimal("0"),
@@ -1202,7 +1208,7 @@ def _provider_excel(snapshot: dict, provider: dict) -> BytesIO:
     return output
 
 
-def _provider_pdf(snapshot: dict, provider: dict) -> BytesIO:
+def _provider_pdf(snapshot: dict, provider: dict, include_prices: bool = True) -> BytesIO:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import getSampleStyleSheet
@@ -1253,12 +1259,13 @@ def _provider_pdf(snapshot: dict, provider: dict) -> BytesIO:
     ]))
     story.append(table)
 
-    total_cost = sum(
-        (_dec(item.get("costo_total", "0")) for item in provider.get("ingredientes", [])),
-        Decimal("0"),
-    )
-    story.append(Spacer(1, 8))
-    story.append(Paragraph(f"<b>Costo estimado total: {_money(total_cost)}</b>", styles["Normal"]))
+    if include_prices:
+        total_cost = sum(
+            (_dec(item.get("costo_total", "0")) for item in provider.get("ingredientes", [])),
+            Decimal("0"),
+        )
+        story.append(Spacer(1, 8))
+        story.append(Paragraph(f"<b>Costo estimado total: {_money(total_cost)}</b>", styles["Normal"]))
 
     doc.build(story)
     output.seek(0)
@@ -1272,6 +1279,7 @@ def export_proveedores_zip(
     localidad_id: int | None = None,
     proveedor_id: int | None = None,
     escuela_id: int | None = None,
+    include_prices: bool = True,
 ) -> BytesIO:
     snapshot = filtered_snapshot_for_export(pedido, user, localidad_id, proveedor_id, escuela_id)
     if file_format not in ("pdf", "excel"):
@@ -1287,10 +1295,12 @@ def export_proveedores_zip(
                 f"{provider.get('proveedor_nombre', 'proveedor')}_{provider.get('localidad_nombre', 'localidad')}"
             )
             content = (
-                _provider_pdf(snapshot, provider)
+                _provider_pdf(snapshot, provider, include_prices=include_prices)
                 if file_format == "pdf"
-                else _provider_excel(snapshot, provider)
+                else _provider_excel(snapshot, provider, include_prices=include_prices)
             )
+            if not include_prices:
+                base_name += "_sin_precios"
             archive.writestr(f"{base_name}.{extension}", content.getvalue())
 
     output.seek(0)

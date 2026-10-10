@@ -125,6 +125,7 @@ def export_proveedores_excel(
     localidad_id: int | None = Query(default=None, gt=0),
     proveedor_id: int | None = Query(default=None, gt=0),
     escuela_id: int | None = Query(default=None, gt=0),
+    incluir_precios: bool = Query(default=True),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -136,8 +137,10 @@ def export_proveedores_excel(
         localidad_id=localidad_id,
         proveedor_id=proveedor_id,
         escuela_id=escuela_id,
+        include_prices=incluir_precios,
     )
-    filename = f"ordenes_proveedores_{pedido.id}_{pedido.semana_inicio.isoformat()}.zip"
+    variant = "" if incluir_precios else "_sin_precios"
+    filename = f"ordenes_proveedores_{pedido.id}_{pedido.semana_inicio.isoformat()}{variant}.zip"
     return StreamingResponse(
         content,
         media_type="application/zip",
@@ -151,6 +154,7 @@ def export_proveedores_pdf(
     localidad_id: int | None = Query(default=None, gt=0),
     proveedor_id: int | None = Query(default=None, gt=0),
     escuela_id: int | None = Query(default=None, gt=0),
+    incluir_precios: bool = Query(default=True),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -162,8 +166,10 @@ def export_proveedores_pdf(
         localidad_id=localidad_id,
         proveedor_id=proveedor_id,
         escuela_id=escuela_id,
+        include_prices=incluir_precios,
     )
-    filename = f"ordenes_proveedores_{pedido.id}_{pedido.semana_inicio.isoformat()}.zip"
+    variant = "" if incluir_precios else "_sin_precios"
+    filename = f"ordenes_proveedores_{pedido.id}_{pedido.semana_inicio.isoformat()}{variant}.zip"
     return StreamingResponse(
         content,
         media_type="application/zip",
