@@ -9,6 +9,7 @@ hide-0 filtering.
 from decimal import Decimal
 from unittest.mock import patch
 
+from app.models.ingrediente_model import Ingrediente
 from app.models.receta_model import Receta, RecetaIngrediente
 from app.models.stock_previo_model import StockPrevio
 from app.models.temporada_model import DiaMenu, Temporada
@@ -74,7 +75,7 @@ def test_active_temporada_with_empty_intersection_returns_no_items(
     )
     receta_invierno = Receta(
         nombre="Receta Invierno Colacion",
-        temporada_id=seed.invierno.id,
+        temporadas=[seed.invierno],
         tipos_comida=[seed.escuela_b.tipos_comida[0]],
     )
     db.add(receta_invierno)
@@ -214,3 +215,135 @@ def test_zero_cantidad_items_remain_visible(client, seed, auth_headers, json_ite
     assert "sal" in items  # never got a stock row: quantity 0, still listed
     assert Decimal(str(items["sal"]["cantidad"])) == Decimal("0")
     assert Decimal(str(items["pan"]["cantidad"])) == Decimal("7")
+
+
+def test_multi_temporada_receta_in_season_for_active_membership(
+    client, seed, db, auth_headers
+):
+    # N:N: Pizza belongs to BOTH temporadas, so it is in season whichever
+    # one is active. New ingredientes (nombre is globally unique) extend
+    # Escuela A's union beyond the seed's {azucar, pan, sal}.
+    harina = Ingrediente(nombre="harina", unidad_medida="kg", activo=True)
+    queso = Ingrediente(nombre="queso", unidad_medida="kg", activo=True)
+    db.add_all([harina, queso])
+    db.commit()
+    receta_pizza = Receta(
+        nombre="Pizza",
+        temporadas=[seed.verano, seed.invierno],
+        tipos_comida=[seed.escuela_a.tipos_comida[0]],
+    )
+    db.add(receta_pizza)
+    db.commit()
+    db.add_all(
+        [
+            RecetaIngrediente(
+                receta=receta_pizza,
+                ingrediente=harina,
+                cantidad_por_porcion=Decimal("1"),
+            ),
+            RecetaIngrediente(
+                receta=receta_pizza,
+                ingrediente=queso,
+                cantidad_por_porcion=Decimal("1"),
+            ),
+        ]
+    )
+    db.commit()
+
+    # VERANO active: Almuerzo (pan, sal) + Pizza (harina, queso) in season;
+    # azucar stays out (no membership), pimienta stays out (other school).
+    res = client.get("/stock-previo/me", headers=auth_headers(seed.user_escuela_a))
+
+    assert res.status_code == 200
+    names = [item["ingrediente_nombre"] for item in res.json()["items"]]
+    assert names == ["harina", "pan", "queso", "sal"]
+
+    # Switch active temporada: Pizza remains in season via INVIERNO membership.
+    db.query(Temporada).filter(Temporada.id == seed.verano.id).update(
+        {"activo": False}, synchronize_session=False
+    )
+    db.query(Temporada).filter(Temporada.id == seed.invierno.id).update(
+        {"activo": True}, synchronize_session=False
+    )
+    db.commit()
+
+    res = client.get("/stock-previo/me", headers=auth_headers(seed.user_escuela_a))
+
+    assert res.status_code == 200
+    names = [item["ingrediente_nombre"] for item in res.json()["items"]]
+    assert names == ["harina", "queso"]
+    assert "pimienta" not in names  # escuela B's ingredient never leaks in
+
+
+def test_receta_without_temporada_membership_excluded(client, seed, db, auth_headers):
+    papa = Ingrediente(nombre="papa", unidad_medida="kg", activo=True)
+    db.add(papa)
+    db.commit()
+    receta_sin_membresia = Receta(
+        nombre="Receta Sin Membresia Extra",
+        temporadas=[],
+        tipos_comida=[seed.escuela_a.tipos_comida[0]],
+    )
+    db.add(receta_sin_membresia)
+    db.commit()
+    db.add(
+        RecetaIngrediente(
+            receta=receta_sin_membresia,
+            ingrediente=papa,
+            cantidad_por_porcion=Decimal("1"),
+        )
+    )
+    db.commit()
+
+    res = client.get("/stock-previo/me", headers=auth_headers(seed.user_escuela_a))
+
+    assert res.status_code == 200
+    names = [item["ingrediente_nombre"] for item in res.json()["items"]]
+    # Same contract as azucar (test_read_scope...): a union member with NO
+    # temporada membership is out of season while one is active.
+    assert names == ["pan", "sal"]
+    assert "papa" not in names
+
+
+def test_receta_non_active_temporada_excluded(client, seed, db, auth_headers):
+    zapallo = Ingrediente(nombre="zapallo", unidad_medida="kg", activo=True)
+    db.add(zapallo)
+    db.commit()
+    receta_guiso = Receta(
+        nombre="Guiso",
+        temporadas=[seed.invierno],
+        tipos_comida=[seed.escuela_a.tipos_comida[0]],
+    )
+    db.add(receta_guiso)
+    db.commit()
+    db.add(
+        RecetaIngrediente(
+            receta=receta_guiso,
+            ingrediente=zapallo,
+            cantidad_por_porcion=Decimal("1"),
+        )
+    )
+    db.commit()
+
+    # VERANO active: Guiso's INVIERNO-only membership keeps zapallo out.
+    res = client.get("/stock-previo/me", headers=auth_headers(seed.user_escuela_a))
+
+    assert res.status_code == 200
+    names = [item["ingrediente_nombre"] for item in res.json()["items"]]
+    assert names == ["pan", "sal"]
+    assert "zapallo" not in names
+
+    # Activate INVIERNO: Guiso becomes the only in-season escuela A receta.
+    db.query(Temporada).filter(Temporada.id == seed.verano.id).update(
+        {"activo": False}, synchronize_session=False
+    )
+    db.query(Temporada).filter(Temporada.id == seed.invierno.id).update(
+        {"activo": True}, synchronize_session=False
+    )
+    db.commit()
+
+    res = client.get("/stock-previo/me", headers=auth_headers(seed.user_escuela_a))
+
+    assert res.status_code == 200
+    names = [item["ingrediente_nombre"] for item in res.json()["items"]]
+    assert names == ["zapallo"]  # no union fallback: season set is non-empty

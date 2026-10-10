@@ -13,7 +13,7 @@ from app.models.ingrediente_model import Ingrediente
 from app.models.receta_model import Receta, RecetaIngrediente
 from app.models.school_model import School
 from app.models.stock_previo_model import StockPrevio
-from app.models.temporada_model import DiaMenu, OpcionMenu, Temporada
+from app.models.temporada_model import DiaMenu, OpcionMenu, Temporada, receta_temporadas
 from app.models.tipo_comida_model import receta_tipos_comida
 from app.models.user_model import User, UserRole
 from app.services import notification_service
@@ -76,9 +76,10 @@ def _get_active_season_ingrediente_ids(db: Session) -> set[int] | None:
     rows = (
         db.query(RecetaIngrediente.ingrediente_id)
         .join(Receta, Receta.id == RecetaIngrediente.receta_id)
+        .join(receta_temporadas, receta_temporadas.c.receta_id == Receta.id)
         .join(Ingrediente, Ingrediente.id == RecetaIngrediente.ingrediente_id)
         .filter(
-            Receta.temporada_id == active_temporada.id,
+            receta_temporadas.c.temporada_id == active_temporada.id,
             Ingrediente.activo == True,
         )
         .distinct()
