@@ -32,6 +32,7 @@ Aplicación web para la gestión de pedidos de ingredientes del Servicio Aliment
 | CRUD Escuelas                                 | ✅            | ✅     | ❌      |
 | Actualizar matrícula de escuelas              | ✅            | ✅     | ✅      |
 | Generar órdenes de compra                     | ✅            | ✅     | ❌      |
+| Editar cantidades de una orden regular generada | ✅            | ❌     | ❌      |
 | Ver historial de pedidos generados (todos)    | ✅            | ✅     | ❌      |
 | Cargar stock previo de su escuela             | ❌            | ❌     | ✅      |
 | Ver pedidos generados de su escuela           | ❌            | ❌     | ✅      |
@@ -198,7 +199,7 @@ GeneracionPedido
   - datos_snapshot: JSON  (precios unitarios y cantidades calculadas al momento de generación, para permitir re-descarga exacta de documentos anteriores)
 ```
 
-**Regla**: El snapshot se guarda al confirmar el pedido y nunca se modifica. Contiene, por escuela y por ingrediente: cantidad calculada, stock descontado, cantidad final pedida, y precio unitario del proveedor asignado en esa fecha. Esto garantiza que re-descargar un pedido anterior siempre produce el mismo documento original.
+**Regla**: El snapshot se guarda al confirmar el pedido y conserva, por escuela e ingrediente, la cantidad calculada, el stock descontado, la cantidad final pedida y el precio del proveedor asignado en esa fecha. Solo ADMIN puede corregir la cantidad final de una orden regular ya generada. La edición conserva el cálculo y el stock originales, y actualiza los totales y documentos descargables del pedido existente; no crea otra orden para la semana ni vuelve a descontar el stock.
 
 ### 3.13 StockPrevio
 

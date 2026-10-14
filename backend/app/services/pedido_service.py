@@ -1,3 +1,4 @@
+import copy
 import json
 import re
 import zipfile
@@ -9,7 +10,11 @@ from typing import NamedTuple
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, selectinload
 
-from app.controllers.pedido_controller import ConfirmPedidoRequest, PreviewPedidoRequest
+from app.controllers.pedido_controller import (
+    ConfirmPedidoRequest,
+    PreviewPedidoRequest,
+    UpdatePedidoItemsRequest,
+)
 from app.models.asignacion_proveedor_model import AsignacionProveedor
 from app.models.pedido_model import GeneracionPedido
 from app.models.receta_model import Receta, RecetaIngrediente
@@ -633,6 +638,186 @@ def confirm_pedido(db: Session, data: ConfirmPedidoRequest, user: User) -> Gener
             synchronize_session=False,
         )
 
+    db.commit()
+    db.refresh(pedido)
+    return pedido
+
+
+def _rebuild_snapshot_totals(snapshot: dict) -> None:
+    """Rebuild derived order quantities and costs from school-level lines."""
+    provider_groups: dict[str, dict] = {}
+    global_rows: dict[str, dict] = {}
+    costo_total = Decimal("0")
+
+    for school in snapshot.get("escuelas", []):
+        for item in school.get("ingredientes", []):
+            cantidad = _dec(item.get("cantidad_final", "0"))
+            contenido_por_unidad = item.get("contenido_por_unidad")
+            cantidad_contenido = None
+            if contenido_por_unidad is not None:
+                cantidad_contenido = cantidad * _dec(contenido_por_unidad)
+                item["cantidad_contenido_final"] = _qty(cantidad_contenido)
+            else:
+                item.pop("cantidad_contenido_final", None)
+
+            if "proveedor_id" not in item:
+                item.pop("costo_total", None)
+                continue
+
+            precio = _dec(item.get("precio_unitario", "0"))
+            costo = cantidad * precio
+            item["costo_total"] = _money(costo)
+            costo_total += costo
+
+            proveedor_key = f"{item['proveedor_id']}:{item['localidad_id']}"
+            provider = provider_groups.setdefault(
+                proveedor_key,
+                {
+                    "proveedor_id": item["proveedor_id"],
+                    "proveedor_nombre": item.get("proveedor_nombre", ""),
+                    "localidad_id": item["localidad_id"],
+                    "localidad_nombre": item.get("localidad_nombre", ""),
+                    "ingredientes": {},
+                },
+            )
+            ingrediente_key = str(item["ingrediente_id"])
+            provider_item = provider["ingredientes"].setdefault(
+                ingrediente_key,
+                {
+                    "ingrediente_id": item["ingrediente_id"],
+                    "ingrediente_nombre": item.get("ingrediente_nombre", ""),
+                    "unidad": item.get("unidad_final", ""),
+                    "contenido_por_unidad": contenido_por_unidad,
+                    "unidad_contenido": item.get("unidad_contenido"),
+                    "precio_unitario": _money(precio),
+                    "cantidad_total": Decimal("0"),
+                    "cantidad_contenido_total": Decimal("0"),
+                    "costo_total": Decimal("0"),
+                    "escuelas": [],
+                },
+            )
+            provider_item["cantidad_total"] += cantidad
+            if cantidad_contenido is not None:
+                provider_item["cantidad_contenido_total"] += cantidad_contenido
+            provider_item["costo_total"] += costo
+            school_row = {
+                "escuela_id": school["escuela_id"],
+                "escuela_codigo": school.get("codigo", ""),
+                "escuela_nombre": school.get("nombre", ""),
+                "cantidad": _qty(cantidad),
+                "cantidad_contenido": (
+                    _qty(cantidad_contenido) if cantidad_contenido is not None else None
+                ),
+            }
+            provider_item["escuelas"].append(school_row)
+
+            global_key = (
+                f"{item['ingrediente_id']}:{item['localidad_id']}:{item['proveedor_id']}"
+            )
+            global_item = global_rows.setdefault(
+                global_key,
+                {
+                    "ingrediente_id": item["ingrediente_id"],
+                    "ingrediente_nombre": item.get("ingrediente_nombre", ""),
+                    "unidad": item.get("unidad_final", ""),
+                    "contenido_por_unidad": contenido_por_unidad,
+                    "unidad_contenido": item.get("unidad_contenido"),
+                    "localidad_id": item["localidad_id"],
+                    "localidad_nombre": item.get("localidad_nombre", ""),
+                    "proveedor_id": item["proveedor_id"],
+                    "proveedor_nombre": item.get("proveedor_nombre", ""),
+                    "precio_unitario": _money(precio),
+                    "cantidad_total": Decimal("0"),
+                    "cantidad_contenido_total": Decimal("0"),
+                    "costo_total": Decimal("0"),
+                },
+            )
+            global_item["cantidad_total"] += cantidad
+            if cantidad_contenido is not None:
+                global_item["cantidad_contenido_total"] += cantidad_contenido
+            global_item["costo_total"] += costo
+
+    snapshot["proveedores"] = []
+    for provider in provider_groups.values():
+        ingredients = []
+        for item in provider["ingredientes"].values():
+            ingredients.append(
+                {
+                    **{
+                        key: value
+                        for key, value in item.items()
+                        if key not in ("cantidad_total", "cantidad_contenido_total", "costo_total")
+                    },
+                    "cantidad_total": _qty(item["cantidad_total"]),
+                    "cantidad_contenido_total": (
+                        _qty(item["cantidad_contenido_total"])
+                        if item["contenido_por_unidad"] is not None
+                        else None
+                    ),
+                    "costo_total": _money(item["costo_total"]),
+                }
+            )
+        snapshot["proveedores"].append(
+            {
+                **{key: value for key, value in provider.items() if key != "ingredientes"},
+                "ingredientes": ingredients,
+            }
+        )
+
+    snapshot["resumen_global"] = [
+        {
+            **{
+                key: value
+                for key, value in item.items()
+                if key not in ("cantidad_total", "cantidad_contenido_total", "costo_total")
+            },
+            "cantidad_total": _qty(item["cantidad_total"]),
+            "cantidad_contenido_total": (
+                _qty(item["cantidad_contenido_total"])
+                if item["contenido_por_unidad"] is not None
+                else None
+            ),
+            "costo_total": _money(item["costo_total"]),
+        }
+        for item in global_rows.values()
+    ]
+    snapshot["costo_total"] = _money(costo_total)
+
+
+def update_pedido_items(
+    db: Session,
+    pedido_id: int,
+    data: UpdatePedidoItemsRequest,
+) -> GeneracionPedido:
+    pedido = get_pedido_by_id(db, pedido_id)
+    if pedido.tipo != "REGULAR":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se pueden editar pedidos semanales regulares",
+        )
+
+    snapshot = copy.deepcopy(pedido.datos_snapshot)
+    changes = {
+        (item.escuela_id, item.ingrediente_id): _dec(item.cantidad_final)
+        for item in data.items
+    }
+    snapshot_keys = set()
+    for school in snapshot.get("escuelas", []):
+        for item in school.get("ingredientes", []):
+            key = (school.get("escuela_id"), item.get("ingrediente_id"))
+            if "proveedor_id" in item:
+                snapshot_keys.add(key)
+            if key in changes and "proveedor_id" in item:
+                item["cantidad_final"] = _qty(changes[key])
+
+    if not set(changes).issubset(snapshot_keys):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La escuela o el ingrediente no pertenecen a este pedido",
+        )
+
+    _rebuild_snapshot_totals(snapshot)
+    pedido.datos_snapshot = snapshot
     db.commit()
     db.refresh(pedido)
     return pedido

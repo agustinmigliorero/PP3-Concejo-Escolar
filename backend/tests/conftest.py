@@ -163,17 +163,16 @@ def seed(db) -> SeedData:
 
     receta_almuerzo = Receta(
         nombre="Receta Almuerzo",
-        temporada_id=verano.id,
+        temporadas=[verano],
         tipos_comida=[tipo_almuerzo],
     )
     receta_base = Receta(
         nombre="Receta Base Sin Temporada",
-        temporada_id=None,
         tipos_comida=[tipo_almuerzo],
     )
     receta_colacion = Receta(
         nombre="Receta Colacion",
-        temporada_id=verano.id,
+        temporadas=[verano],
         tipos_comida=[tipo_colacion],
     )
     db.add_all([receta_almuerzo, receta_base, receta_colacion])

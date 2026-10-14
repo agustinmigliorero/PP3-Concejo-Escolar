@@ -10,6 +10,7 @@ import {
   apiGetSchools,
   apiGetTemporadaActiva,
   apiPreviewPedido,
+  apiUpdatePedidoItems,
   type PedidoRecord,
   type PedidoSnapshot,
   type SchoolRecord,
@@ -17,6 +18,7 @@ import {
   type TemporadaRecord,
 } from "@/lib/api";
 import { showSuccessToast } from "@/components/toast";
+import { InlineModal } from "@/components/inline-modal";
 import { formatContextQuantity } from "@/lib/units";
 import { DAYS } from "@/lib/constants";
 import { formatLocalDate, formatMoney } from "@/lib/format";
@@ -77,6 +79,7 @@ function filteredPedidoCost(pedido: PedidoRecord, filters: PedidoFilters): strin
 export default function PedidosPage() {
   const { user } = useUser();
   const canGenerate = user?.role === "admin" || user?.role === "gestor";
+  const canEditOrders = user?.role === "admin";
   const canViewHistory = canGenerate || user?.role === "escuela";
 
   const [temporada, setTemporada] = useState<TemporadaRecord | null>(null);
@@ -90,6 +93,9 @@ export default function PedidosPage() {
   const [notas, setNotas] = useState("");
   const [snapshot, setSnapshot] = useState<PedidoSnapshot | null>(null);
   const [pedidos, setPedidos] = useState<PedidoRecord[]>([]);
+  const [editingPedido, setEditingPedido] = useState<PedidoRecord | null>(null);
+  const [editDraft, setEditDraft] = useState<Record<string, string>>({});
+  const [editError, setEditError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"generar" | "historial">("generar");
   const [historySearch, setHistorySearch] = useState("");
   const [historyLocalidadId, setHistoryLocalidadId] = useState("");
@@ -98,6 +104,7 @@ export default function PedidosPage() {
   const [loading, setLoading] = useState(true);
   const [previewing, setPreviewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -143,7 +150,9 @@ export default function PedidosPage() {
   );
 
   const existingPedido = useMemo(
-    () => pedidos.find((pedido) => pedido.semana_inicio === semanaInicio) ?? null,
+    () => pedidos.find(
+      (pedido) => pedido.semana_inicio === semanaInicio && pedido.datos_snapshot.tipo === "REGULAR",
+    ) ?? null,
     [pedidos, semanaInicio],
   );
   const currentTab = canGenerate ? activeTab : "historial";
@@ -345,6 +354,65 @@ export default function PedidosPage() {
       setError(e instanceof Error ? e.message : "Error al confirmar pedido");
     } finally {
       setConfirming(false);
+    }
+  }
+
+  function openPedidoEditor(pedido: PedidoRecord) {
+    const draft: Record<string, string> = {};
+    for (const school of pedido.datos_snapshot.escuelas) {
+      for (const item of school.ingredientes) {
+        if (item.proveedor_id === undefined) continue;
+        draft[`${school.escuela_id}:${item.ingrediente_id}`] = item.cantidad_final;
+      }
+    }
+    setEditDraft(draft);
+    setEditingPedido(pedido);
+    setEditError(null);
+    setError(null);
+  }
+
+  function closePedidoEditor() {
+    if (savingEdit) return;
+    setEditingPedido(null);
+    setEditDraft({});
+    setEditError(null);
+  }
+
+  async function savePedidoEdit() {
+    if (!editingPedido) return;
+
+    const items = editingPedido.datos_snapshot.escuelas.flatMap((school) =>
+      school.ingredientes
+        .filter((item) => item.proveedor_id !== undefined)
+        .map((item) => {
+          const key = `${school.escuela_id}:${item.ingrediente_id}`;
+          return {
+            escuela_id: school.escuela_id,
+            ingrediente_id: item.ingrediente_id,
+            cantidad_final: editDraft[key]?.trim() ?? "",
+          };
+        }),
+    );
+    if (items.some((item) => !/^\d+$/.test(item.cantidad_final))) {
+      setEditError("Ingresa cantidades enteras válidas, iguales o mayores que cero.");
+      return;
+    }
+
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const updated = await apiUpdatePedidoItems(
+        editingPedido.id,
+        items.map((item) => ({ ...item, cantidad_final: Number(item.cantidad_final) })),
+      );
+      setPedidos((current) => current.map((pedido) => pedido.id === updated.id ? updated : pedido));
+      setEditingPedido(null);
+      setEditDraft({});
+      showSuccessToast("Orden de compra actualizada correctamente");
+    } catch (e: unknown) {
+      setEditError(e instanceof Error ? e.message : "Error al actualizar el pedido");
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -585,6 +653,15 @@ export default function PedidosPage() {
                   No se genera un duplicado. Descarga el reporte anterior desde aca o desde el historial.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {canEditOrders && (
+                    <button
+                      type="button"
+                      onClick={() => openPedidoEditor(existingPedido)}
+                      className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-800 transition-colors hover:bg-amber-100"
+                    >
+                      Editar orden
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => downloadPedido(existingPedido, "pdf", "resumen")}
@@ -974,6 +1051,7 @@ export default function PedidosPage() {
                   <th className="px-5 py-3 text-right font-medium">Costo filtrado</th>
                   <th className="px-5 py-3 text-right font-medium">PDFs</th>
                   <th className="px-5 py-3 text-right font-medium">Excel</th>
+                  {canEditOrders && <th className="px-5 py-3 text-right font-medium">Acción</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -1057,11 +1135,24 @@ export default function PedidosPage() {
                         </button>
                       </div>
                     </td>
+                    {canEditOrders && (
+                      <td data-label="Acción" className="px-5 py-3 text-right">
+                        {pedido.datos_snapshot.tipo === "REGULAR" && (
+                          <button
+                            type="button"
+                            onClick={() => openPedidoEditor(pedido)}
+                            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+                          >
+                            Editar orden
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {filteredPedidos.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                    <td colSpan={canEditOrders ? 7 : 6} className="px-5 py-8 text-center text-gray-400">
                       No hay pedidos para los filtros seleccionados.
                     </td>
                   </tr>
@@ -1071,6 +1162,102 @@ export default function PedidosPage() {
           </div>
         </section>
       )}
+
+      <InlineModal
+        open={Boolean(editingPedido)}
+        title={editingPedido ? `Editar orden de compra · ${editingPedido.semana_inicio}` : "Editar orden de compra"}
+        onClose={closePedidoEditor}
+        width="max-w-6xl"
+      >
+        {editingPedido && (
+          <div>
+            <p className="text-sm text-slate-600">
+              Ajusta las cantidades por escuela e ingrediente. Se conservan el stock descontado, los precios y los proveedores guardados en esta orden.
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              Al guardar se actualizan los totales y las descargas. El stock actual de las escuelas no se modifica.
+            </p>
+
+            <div className="mt-4 max-h-[55vh] overflow-auto rounded-lg border border-gray-200">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-50 text-gray-600">
+                  <tr>
+                    <th className="min-w-56 px-4 py-3 text-left font-semibold">Escuela</th>
+                    <th className="min-w-48 px-4 py-3 text-left font-semibold">Ingrediente</th>
+                    <th className="min-w-36 px-4 py-3 text-right font-semibold">Stock descontado</th>
+                    <th className="min-w-48 px-4 py-3 text-right font-semibold">Cantidad a pedir</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {editingPedido.datos_snapshot.escuelas.flatMap((school) =>
+                    school.ingredientes
+                      .filter((item) => item.proveedor_id !== undefined)
+                      .map((item) => {
+                        const key = `${school.escuela_id}:${item.ingrediente_id}`;
+                        return (
+                          <tr key={key}>
+                            <td className="px-4 py-3 font-medium text-gray-800">
+                              {school.codigo} · {school.nombre}
+                            </td>
+                            <td className="px-4 py-3 text-gray-700">{item.ingrediente_nombre}</td>
+                            <td className="px-4 py-3 text-right text-gray-600">
+                              {formatContextQuantity(item.stock_descontado, item.unidad_calculo)}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="inline-flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  aria-label={`Cantidad a pedir de ${item.ingrediente_nombre} para ${school.nombre}`}
+                                  value={editDraft[key] ?? item.cantidad_final}
+                                  onChange={(event) => {
+                                    setEditDraft((current) => ({ ...current, [key]: event.target.value }));
+                                    setEditError(null);
+                                  }}
+                                  className="w-28 rounded-lg border border-gray-300 px-2 py-1.5 text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <span className="text-gray-500">{item.unidad_final}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }),
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {editError && (
+              <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {editError}
+              </p>
+            )}
+
+            <div className="mt-4 flex flex-col-reverse gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-500">Los cambios afectan los reportes de esta orden.</p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closePedidoEditor}
+                  disabled={savingEdit}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={savePedidoEdit}
+                  disabled={savingEdit || !editingPedido.datos_snapshot.escuelas.some((school) => school.ingredientes.some((item) => item.proveedor_id !== undefined))}
+                  className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:bg-slate-300 disabled:text-slate-600"
+                >
+                  {savingEdit ? "Guardando..." : "Guardar cambios"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </InlineModal>
     </div>
   );
 }

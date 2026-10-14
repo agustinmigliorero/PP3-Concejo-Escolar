@@ -10,8 +10,13 @@ from app.controllers.pedido_controller import (
     PedidoPreviewResponse,
     PedidoResponse,
     PreviewPedidoRequest,
+    UpdatePedidoItemsRequest,
 )
-from app.middlewares.auth_middleware import get_current_user, require_gestor_or_admin
+from app.middlewares.auth_middleware import (
+    get_current_user,
+    require_admin,
+    require_gestor_or_admin,
+)
 from app.models.user_model import User
 from app.services import pedido_service
 
@@ -47,6 +52,17 @@ def confirm_pedido(
     current_user: User = Depends(require_gestor_or_admin),
 ):
     return _pedido_response(pedido_service.confirm_pedido(db, body, current_user), current_user)
+
+
+@router.patch("/{pedido_id}/items", response_model=PedidoResponse)
+def edit_pedido_items(
+    pedido_id: int,
+    body: UpdatePedidoItemsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    pedido = pedido_service.update_pedido_items(db, pedido_id, body)
+    return _pedido_response(pedido, current_user)
 
 
 @router.get("", response_model=list[PedidoResponse])

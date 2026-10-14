@@ -76,9 +76,10 @@ def _get_active_season_ingrediente_ids(db: Session) -> set[int] | None:
     rows = (
         db.query(RecetaIngrediente.ingrediente_id)
         .join(Receta, Receta.id == RecetaIngrediente.receta_id)
+        .join(Receta.temporadas)
         .join(Ingrediente, Ingrediente.id == RecetaIngrediente.ingrediente_id)
         .filter(
-            Receta.temporada_id == active_temporada.id,
+            Temporada.id == active_temporada.id,
             Ingrediente.activo == True,
         )
         .distinct()

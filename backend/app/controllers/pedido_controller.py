@@ -55,6 +55,23 @@ class ConfirmPedidoRequest(PedidoBaseRequest):
     pass
 
 
+class EditPedidoItemRequest(BaseModel):
+    escuela_id: int = Field(..., gt=0)
+    ingrediente_id: int = Field(..., gt=0)
+    cantidad_final: Decimal = Field(..., ge=0, max_digits=12, decimal_places=0)
+
+
+class UpdatePedidoItemsRequest(BaseModel):
+    items: list[EditPedidoItemRequest] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def validate_unique_items(self):
+        keys = [(item.escuela_id, item.ingrediente_id) for item in self.items]
+        if len(keys) != len(set(keys)):
+            raise ValueError("No se puede repetir escuela e ingrediente en una edicion")
+        return self
+
+
 class PedidoPreviewResponse(BaseModel):
     snapshot: dict[str, Any]
 
