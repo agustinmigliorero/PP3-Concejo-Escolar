@@ -53,6 +53,18 @@ function uniqueById<T extends { id: number }>(items: T[]): T[] {
   return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }
 
+function filterEditSchools(schools: PedidoSnapshot["escuelas"], search: string) {
+  const normalize = (value: string) => value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  const query = normalize(search);
+  return schools.filter((school) =>
+    normalize(`${school.codigo} ${school.nombre} ${school.localidad_nombre}`).includes(query),
+  );
+}
+
 function filteredPedidoCost(pedido: PedidoRecord, filters: PedidoFilters): string {
   const total = pedido.datos_snapshot.escuelas.reduce((schoolTotal, school) => {
     if (filters.localidad_id && school.localidad_id !== filters.localidad_id) {
@@ -96,6 +108,7 @@ export default function PedidosPage() {
   const [editingPedido, setEditingPedido] = useState<PedidoRecord | null>(null);
   const [editDraft, setEditDraft] = useState<Record<string, string>>({});
   const [expandedEditSchoolId, setExpandedEditSchoolId] = useState<number | null>(null);
+  const [editSchoolSearch, setEditSchoolSearch] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"generar" | "historial">("generar");
   const [historySearch, setHistorySearch] = useState("");
@@ -255,6 +268,10 @@ export default function PedidosPage() {
       .filter((school) => school.ingredientes.length > 0),
     [editingPedido],
   );
+  const filteredEditSchools = useMemo(
+    () => filterEditSchools(editableSchools, editSchoolSearch),
+    [editableSchools, editSchoolSearch],
+  );
 
   function toggleDay(day: number) {
     setDiasHabiles((current) =>
@@ -377,6 +394,7 @@ export default function PedidosPage() {
     }
     setEditDraft(draft);
     setExpandedEditSchoolId(null);
+    setEditSchoolSearch("");
     setEditingPedido(pedido);
     setEditError(null);
     setError(null);
@@ -387,6 +405,7 @@ export default function PedidosPage() {
     setEditingPedido(null);
     setEditDraft({});
     setExpandedEditSchoolId(null);
+    setEditSchoolSearch("");
     setEditError(null);
   }
 
@@ -406,6 +425,7 @@ export default function PedidosPage() {
     );
     const invalidItem = items.find((item) => !/^\d+$/.test(item.cantidad_final));
     if (invalidItem) {
+      setEditSchoolSearch("");
       setExpandedEditSchoolId(invalidItem.escuela_id);
       setEditError("Ingresa cantidades enteras válidas, iguales o mayores que cero.");
       return;
@@ -422,6 +442,7 @@ export default function PedidosPage() {
       setEditingPedido(null);
       setEditDraft({});
       setExpandedEditSchoolId(null);
+      setEditSchoolSearch("");
       showSuccessToast("Orden de compra actualizada correctamente");
     } catch (e: unknown) {
       setEditError(e instanceof Error ? e.message : "Error al actualizar el pedido");
@@ -1196,8 +1217,44 @@ export default function PedidosPage() {
               Despliega una escuela para editar sus productos. Los cambios se conservan al cerrar cada sección.
             </p>
 
+            <div className="mt-4">
+              <label htmlFor="edit-school-search" className="block text-sm font-medium text-gray-700">
+                Buscar escuela
+              </label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  id="edit-school-search"
+                  type="search"
+                  value={editSchoolSearch}
+                  onChange={(event) => {
+                    const search = event.target.value;
+                    setEditSchoolSearch(search);
+                    const matches = filterEditSchools(editableSchools, search);
+                    if (search.trim() && matches.length === 1) {
+                      setExpandedEditSchoolId(matches[0].escuela_id);
+                    }
+                  }}
+                  placeholder="Nombre, código o localidad"
+                  aria-describedby="edit-school-search-results"
+                  className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {editSchoolSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setEditSchoolSearch("")}
+                    className="shrink-0 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+              <p id="edit-school-search-results" aria-live="polite" className="mt-1 text-xs text-slate-500">
+                {filteredEditSchools.length} de {editableSchools.length} escuelas
+              </p>
+            </div>
+
             <div className="mt-3 max-h-[55vh] space-y-2 overflow-y-auto">
-              {editableSchools.map((school) => {
+              {filteredEditSchools.map((school) => {
                 const expanded = expandedEditSchoolId === school.escuela_id;
                 const headingId = `edit-school-heading-${school.escuela_id}`;
                 const panelId = `edit-school-panel-${school.escuela_id}`;
@@ -1278,9 +1335,11 @@ export default function PedidosPage() {
                   </div>
                 );
               })}
-              {editableSchools.length === 0 && (
+              {filteredEditSchools.length === 0 && (
                 <p className="rounded-lg border border-gray-200 px-4 py-6 text-center text-sm text-slate-500">
-                  Esta orden no tiene productos para editar.
+                  {editableSchools.length === 0
+                    ? "Esta orden no tiene productos para editar."
+                    : "No se encontraron escuelas para esa búsqueda."}
                 </p>
               )}
             </div>
