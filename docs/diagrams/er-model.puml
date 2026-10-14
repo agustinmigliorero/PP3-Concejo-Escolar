@@ -1,0 +1,313 @@
+@startuml
+hide circle
+skinparam linetype ortho
+
+' Configuración general de estilos y legibilidad
+skinparam BackgroundColor #FEFEFE
+skinparam PackageFontStyle bold
+skinparam PackageFontSize 14
+skinparam DefaultTextAlignment center
+
+' ==========================================
+' Datos Maestros (#E3F2FD - Azul claro)
+' ==========================================
+package "Datos Maestros" #E3F2FD {
+  entity Localidad {
+    * id : Integer <<PK>>
+    --
+    * nombre : String <<UK>>
+    activo : Boolean
+    created_at : datetime
+    updated_at : datetime
+  }
+
+  entity School {
+    * id : Integer <<PK>>
+    --
+    name : String
+    code : String <<UK>>
+    locality_id : Integer <<FK>>
+    address : String
+    phone : String?
+    email : String?
+    matriculation : Integer
+    active : Boolean
+    created_at : datetime
+    updated_at : datetime
+  }
+
+  entity User {
+    * id : Integer <<PK>>
+    --
+    username : String <<UK>>
+    password : String
+    role : Enum(admin|gestor|escuela)
+    school_id : Integer? <<FK>>
+    active : Boolean
+    created_at : datetime
+    updated_at : datetime
+  }
+
+  entity school_tipo_comida_matriculas {
+    * school_id : Integer <<PK,FK>>
+    * tipo_comida_id : Integer <<PK,FK>>
+    --
+    cantidad : Integer
+  }
+
+  entity TipoComida {
+    * id : Integer <<PK>>
+    --
+    nombre : String <<UK>>
+    activo : Boolean
+  }
+}
+
+' ==========================================
+' Proveedores e Ingredientes (#E8F5E9 - Verde claro)
+' ==========================================
+package "Proveedores e Ingredientes" #E8F5E9 {
+  entity Ingrediente {
+    * id : Integer <<PK>>
+    --
+    nombre : String <<UK>>
+    unidad_medida : String
+    contenido_por_unidad : Numeric?
+    unidad_contenido : String?
+    indice_correccion : Numeric
+    activo : Boolean
+  }
+
+  entity Proveedor {
+    * id : Integer <<PK>>
+    --
+    nombre : String <<UK>>
+    contacto : String
+    activo : Boolean
+  }
+
+  entity AsignacionProveedor {
+    * id : Integer <<PK>>
+    --
+    proveedor_id : Integer <<FK>>
+    ingrediente_id : Integer <<FK>>
+    localidad_id : Integer <<FK>>
+    precio_unitario : Numeric
+    fecha_desde : Date
+    fecha_hasta : Date?
+  }
+
+  entity AsignacionPrecioHistorial {
+    * id : Integer <<PK>>
+    --
+    asignacion_id : Integer <<FK>>
+    precio_anterior : Numeric
+    precio_nuevo : Numeric
+    modificado_por_id : Integer? <<FK>>
+    modificado_username : String
+    modificado_at : datetime
+  }
+}
+
+' ==========================================
+' Recetas y Menús (#FFF3E0 - Naranja claro)
+' ==========================================
+package "Recetas y Menús" #FFF3E0 {
+  entity Temporada {
+    * id : Integer <<PK>>
+    --
+    nombre : Enum(VERANO|INVIERNO)
+    anio : Integer
+    activo : Boolean
+  }
+
+  entity Receta {
+    * id : Integer <<PK>>
+    --
+    nombre : String <<UK>>
+    tipo_comida_id : Integer? <<FK>>
+    activo : Boolean
+  }
+
+  entity OpcionMenu {
+    * id : Integer <<PK>>
+    --
+    temporada_id : Integer <<FK>>
+    numero_opcion : Integer
+    descripcion : String?
+  }
+
+  entity DiaMenu {
+    * id : Integer <<PK>>
+    --
+    opcion_menu_id : Integer <<FK>>
+    dia_semana : Integer (1-5)
+    tipo_comida_id : Integer <<FK>>
+    receta_id : Integer <<FK>>
+  }
+
+  entity RecetaIngrediente {
+    * id : Integer <<PK>>
+    --
+    receta_id : Integer <<FK>>
+    ingrediente_id : Integer <<FK>>
+    cantidad_por_porcion : Numeric
+  }
+}
+
+' ==========================================
+' Patios y Eventos (#F3E5F5 - Morado claro)
+' ==========================================
+package "Patios y Eventos" #F3E5F5 {
+  entity PatioMenu {
+    * id : Integer <<PK>>
+    --
+    nombre : String <<UK>>
+    descripcion : String?
+    activo : Boolean
+  }
+
+  entity PatioMenuReceta {
+    * id : Integer <<PK>>
+    --
+    patio_menu_id : Integer <<FK>>
+    receta_id : Integer <<FK>>
+  }
+
+  entity Evento {
+    * id : Integer <<PK>>
+    --
+    nombre : String
+    fecha : Date
+    descripcion : String?
+    activo : Boolean
+    created_at : datetime
+  }
+
+  entity EventoReceta {
+    * id : Integer <<PK>>
+    --
+    evento_id : Integer <<FK>>
+    receta_id : Integer <<FK>>
+  }
+}
+
+' ==========================================
+' Pedidos y Stock (#FFFDE7 - Amarillo claro)
+' ==========================================
+package "Pedidos y Stock" #FFFDE7 {
+  entity GeneracionPedido {
+    * id : Integer <<PK>>
+    --
+    tipo : String(REGULAR|PATIO|EVENTO)
+    semana_inicio : Date
+    opcion_menu_id : Integer? <<FK>>
+    evento_id : Integer? <<FK>>
+    dias_habiles : String (JSON)
+    generado_por_id : Integer <<FK>>
+    generado_at : datetime
+    notas : String?
+    datos_snapshot : JSON
+  }
+
+  entity StockPrevio {
+    * id : Integer <<PK>>
+    --
+    escuela_id : Integer <<FK>>
+    ingrediente_id : Integer <<FK>>
+    cantidad : Numeric
+    previous_cantidad : Numeric?
+    cargado_por_id : Integer <<FK>>
+    cargado_at : datetime?
+  }
+}
+
+' ==========================================
+' Seguridad y Notificaciones (#FFEBEE - Rojo/Rosa claro)
+' ==========================================
+package "Seguridad y Notificaciones" #FFEBEE {
+  entity RefreshToken {
+    * id : Integer <<PK>>
+    --
+    user_id : Integer <<FK>>
+    jti : String <<UK>>
+    token_family : String
+    expires_at : datetime
+    revoked_at : datetime?
+    replaced_by_jti : String?
+    created_at : datetime
+  }
+
+  entity Notification {
+    * id : Integer <<PK>>
+    --
+    user_id : Integer <<FK>>
+    type : String
+    message : String
+    escuela_id : Integer? <<FK>>
+    escuela_nombre : String?
+    cargado_por_username : String?
+    details : Text?
+    read : Boolean
+    read_at : datetime?
+    created_at : datetime
+  }
+}
+
+' ==========================================
+' Notas Informativas
+' ==========================================
+note "fecha_hasta es EXCLUSIVA.\nSolo una fila por\n(ingrediente, localidad)\ncon fecha_hasta IS NULL." as NoteAsignacion
+AsignacionProveedor .. NoteAsignacion
+
+note "Snapshot inmutable al confirmar.\nAlmacena cantidades, precios\ny stock por escuela." as NotePedido
+GeneracionPedido .. NotePedido
+
+' ==========================================
+' Relaciones
+' ==========================================
+
+' Datos Maestros
+Localidad ||--o{ School : "tiene"
+School ||--o{ User : "usuarios"
+School ||--o{ school_tipo_comida_matriculas
+TipoComida ||--o{ school_tipo_comida_matriculas
+User ||--o{ RefreshToken : "ref."
+User ||--o{ Notification : "emite / recibe"
+School ||--o{ Notification : "reporta"
+
+' Proveedores e Ingredientes
+Localidad ||--o{ AsignacionProveedor : "localidad"
+Proveedor ||--o{ AsignacionProveedor : "provee"
+Ingrediente ||--o{ AsignacionProveedor : "ingrediente"
+AsignacionProveedor ||--o{ AsignacionPrecioHistorial : "historial"
+
+' Recetas y Menús
+Temporada ||--o{ Receta : "temporada"
+Temporada ||--o{ OpcionMenu : "componente"
+Receta ||--o{ RecetaIngrediente : "compuesta"
+Ingrediente ||--o{ RecetaIngrediente : "asignada"
+Receta }o--|| TipoComida : "ofrece (N:N)"
+OpcionMenu ||--o{ DiaMenu : "slots"
+DiaMenu }o--|| TipoComida : "cargo"
+DiaMenu }o--|| Receta
+
+' Patios y Eventos
+PatioMenu ||--o{ PatioMenuReceta : "compuesto"
+Receta ||--o{ PatioMenuReceta
+Evento ||--o{ EventoReceta : "compuesto"
+Receta ||--o{ EventoReceta
+
+' Pedidos y Stock
+OpcionMenu ||--o{ GeneracionPedido : "origen"
+PatioMenu ||--o{ GeneracionPedido : "origen reg."
+Evento ||--o{ GeneracionPedido : "en eventos"
+User ||--o{ GeneracionPedido : "generó"
+TipoComida ||--o{ GeneracionPedido : "tipo"
+
+AsignacionProveedor ||--o{ GeneracionPedido : "modifica"
+StockPrevio }o--|| School
+StockPrevio }o--|| Ingrediente
+StockPrevio }o--|| User
+
+@enduml

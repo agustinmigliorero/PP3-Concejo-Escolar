@@ -220,3 +220,8 @@ __marimo__/
 #gentle-ai y engram
 .atl/
 openspec/
+
+#herramienta de los diagramas PLantUML
+docs/diagrams/plantuml-mit-1.20268.jar
+
+docs/diagrams/plantuml-mit-1.2026.8.jar
