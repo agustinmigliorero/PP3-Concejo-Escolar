@@ -95,6 +95,7 @@ export default function PedidosPage() {
   const [pedidos, setPedidos] = useState<PedidoRecord[]>([]);
   const [editingPedido, setEditingPedido] = useState<PedidoRecord | null>(null);
   const [editDraft, setEditDraft] = useState<Record<string, string>>({});
+  const [expandedEditSchoolId, setExpandedEditSchoolId] = useState<number | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"generar" | "historial">("generar");
   const [historySearch, setHistorySearch] = useState("");
@@ -245,6 +246,15 @@ export default function PedidosPage() {
   );
   const previewDisabled = previewing || !selectedOption || Boolean(existingPedido);
   const confirmDisabled = confirming || !snapshot || Boolean(existingPedido);
+  const editableSchools = useMemo(
+    () => (editingPedido?.datos_snapshot.escuelas ?? [])
+      .map((school) => ({
+        ...school,
+        ingredientes: school.ingredientes.filter((item) => item.proveedor_id !== undefined),
+      }))
+      .filter((school) => school.ingredientes.length > 0),
+    [editingPedido],
+  );
 
   function toggleDay(day: number) {
     setDiasHabiles((current) =>
@@ -366,6 +376,7 @@ export default function PedidosPage() {
       }
     }
     setEditDraft(draft);
+    setExpandedEditSchoolId(null);
     setEditingPedido(pedido);
     setEditError(null);
     setError(null);
@@ -375,15 +386,15 @@ export default function PedidosPage() {
     if (savingEdit) return;
     setEditingPedido(null);
     setEditDraft({});
+    setExpandedEditSchoolId(null);
     setEditError(null);
   }
 
   async function savePedidoEdit() {
     if (!editingPedido) return;
 
-    const items = editingPedido.datos_snapshot.escuelas.flatMap((school) =>
+    const items = editableSchools.flatMap((school) =>
       school.ingredientes
-        .filter((item) => item.proveedor_id !== undefined)
         .map((item) => {
           const key = `${school.escuela_id}:${item.ingrediente_id}`;
           return {
@@ -393,7 +404,9 @@ export default function PedidosPage() {
           };
         }),
     );
-    if (items.some((item) => !/^\d+$/.test(item.cantidad_final))) {
+    const invalidItem = items.find((item) => !/^\d+$/.test(item.cantidad_final));
+    if (invalidItem) {
+      setExpandedEditSchoolId(invalidItem.escuela_id);
       setEditError("Ingresa cantidades enteras válidas, iguales o mayores que cero.");
       return;
     }
@@ -408,6 +421,7 @@ export default function PedidosPage() {
       setPedidos((current) => current.map((pedido) => pedido.id === updated.id ? updated : pedido));
       setEditingPedido(null);
       setEditDraft({});
+      setExpandedEditSchoolId(null);
       showSuccessToast("Orden de compra actualizada correctamente");
     } catch (e: unknown) {
       setEditError(e instanceof Error ? e.message : "Error al actualizar el pedido");
@@ -1178,54 +1192,97 @@ export default function PedidosPage() {
               Al guardar se actualizan los totales y las descargas. El stock actual de las escuelas no se modifica.
             </p>
 
-            <div className="mt-4 max-h-[55vh] overflow-auto rounded-lg border border-gray-200">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-gray-50 text-gray-600">
-                  <tr>
-                    <th className="min-w-56 px-4 py-3 text-left font-semibold">Escuela</th>
-                    <th className="min-w-48 px-4 py-3 text-left font-semibold">Ingrediente</th>
-                    <th className="min-w-36 px-4 py-3 text-right font-semibold">Stock descontado</th>
-                    <th className="min-w-48 px-4 py-3 text-right font-semibold">Cantidad a pedir</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {editingPedido.datos_snapshot.escuelas.flatMap((school) =>
-                    school.ingredientes
-                      .filter((item) => item.proveedor_id !== undefined)
-                      .map((item) => {
-                        const key = `${school.escuela_id}:${item.ingrediente_id}`;
-                        return (
-                          <tr key={key}>
-                            <td className="px-4 py-3 font-medium text-gray-800">
-                              {school.codigo} · {school.nombre}
-                            </td>
-                            <td className="px-4 py-3 text-gray-700">{item.ingrediente_nombre}</td>
-                            <td className="px-4 py-3 text-right text-gray-600">
-                              {formatContextQuantity(item.stock_descontado, item.unidad_calculo)}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="inline-flex items-center gap-2">
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={1}
-                                  aria-label={`Cantidad a pedir de ${item.ingrediente_nombre} para ${school.nombre}`}
-                                  value={editDraft[key] ?? item.cantidad_final}
-                                  onChange={(event) => {
-                                    setEditDraft((current) => ({ ...current, [key]: event.target.value }));
-                                    setEditError(null);
-                                  }}
-                                  className="w-28 rounded-lg border border-gray-300 px-2 py-1.5 text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <span className="text-gray-500">{item.unidad_final}</span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      }),
-                  )}
-                </tbody>
-              </table>
+            <p className="mt-3 text-xs text-slate-500">
+              Despliega una escuela para editar sus productos. Los cambios se conservan al cerrar cada sección.
+            </p>
+
+            <div className="mt-3 max-h-[55vh] space-y-2 overflow-y-auto">
+              {editableSchools.map((school) => {
+                const expanded = expandedEditSchoolId === school.escuela_id;
+                const headingId = `edit-school-heading-${school.escuela_id}`;
+                const panelId = `edit-school-panel-${school.escuela_id}`;
+                return (
+                  <div key={school.escuela_id} className="overflow-hidden rounded-lg border border-gray-200">
+                    <h3>
+                      <button
+                        type="button"
+                        id={headingId}
+                        aria-expanded={expanded}
+                        aria-controls={panelId}
+                        onClick={() => setExpandedEditSchoolId(expanded ? null : school.escuela_id)}
+                        className="flex w-full items-center gap-3 bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-gray-800">{school.codigo} · {school.nombre}</span>
+                          <span className="block text-xs text-slate-500">{school.localidad_nombre}</span>
+                        </span>
+                        <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600">
+                          {school.ingredientes.length} {school.ingredientes.length === 1 ? "producto" : "productos"}
+                        </span>
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`}
+                        >
+                          <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    </h3>
+                    <div id={panelId} role="region" aria-labelledby={headingId} hidden={!expanded} className="overflow-x-auto border-t border-gray-200">
+                      {expanded && (
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 text-gray-600">
+                            <tr>
+                              <th className="min-w-48 px-4 py-3 text-left font-semibold">Producto</th>
+                              <th className="min-w-36 px-4 py-3 text-right font-semibold">Stock descontado</th>
+                              <th className="min-w-48 px-4 py-3 text-right font-semibold">Cantidad a pedir</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {school.ingredientes.map((item) => {
+                              const key = `${school.escuela_id}:${item.ingrediente_id}`;
+                              return (
+                                <tr key={key}>
+                                  <td className="px-4 py-3 text-gray-700">{item.ingrediente_nombre}</td>
+                                  <td className="px-4 py-3 text-right text-gray-600">
+                                    {formatContextQuantity(item.stock_descontado, item.unidad_calculo)}
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <div className="inline-flex items-center gap-2">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step={1}
+                                        disabled={savingEdit}
+                                        aria-label={`Cantidad a pedir de ${item.ingrediente_nombre} para ${school.nombre}`}
+                                        value={editDraft[key] ?? item.cantidad_final}
+                                        onChange={(event) => {
+                                          setEditDraft((current) => ({ ...current, [key]: event.target.value }));
+                                          setEditError(null);
+                                        }}
+                                        className="w-28 rounded-lg border border-gray-300 px-2 py-1.5 text-right focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                      />
+                                      <span className="text-gray-500">{item.unidad_final}</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {editableSchools.length === 0 && (
+                <p className="rounded-lg border border-gray-200 px-4 py-6 text-center text-sm text-slate-500">
+                  Esta orden no tiene productos para editar.
+                </p>
+              )}
             </div>
 
             {editError && (
@@ -1248,7 +1305,7 @@ export default function PedidosPage() {
                 <button
                   type="button"
                   onClick={savePedidoEdit}
-                  disabled={savingEdit || !editingPedido.datos_snapshot.escuelas.some((school) => school.ingredientes.some((item) => item.proveedor_id !== undefined))}
+                  disabled={savingEdit || editableSchools.length === 0}
                   className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:bg-slate-300 disabled:text-slate-600"
                 >
                   {savingEdit ? "Guardando..." : "Guardar cambios"}
