@@ -1152,6 +1152,7 @@ export async function apiUpdateAsignacionPrecio(
 // ── Pedidos (admin + gestor) ────────────────────────────────────────────────
 
 export interface PedidoSnapshot {
+  tipo?: "REGULAR" | "PATIO" | "EVENTO";
   semana_inicio: string;
   dias_habiles: number[];
   opcion_menu: {
@@ -1280,6 +1281,19 @@ export async function apiConfirmPedido(data: {
     body: JSON.stringify(data),
   });
   if (!res.ok) throw await buildApiError(res, "Error al confirmar pedido");
+  return res.json();
+}
+
+export async function apiUpdatePedidoItems(
+  id: number,
+  items: Array<{ escuela_id: number; ingrediente_id: number; cantidad_final: number }>,
+): Promise<PedidoRecord> {
+  const res = await apiFetch(`/pedidos/${id}/items`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) throw await buildApiError(res, "Error al actualizar el pedido");
   return res.json();
 }
 

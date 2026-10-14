@@ -74,7 +74,7 @@ def test_active_temporada_with_empty_intersection_returns_no_items(
     )
     receta_invierno = Receta(
         nombre="Receta Invierno Colacion",
-        temporada_id=seed.invierno.id,
+        temporadas=[seed.invierno],
         tipos_comida=[seed.escuela_b.tipos_comida[0]],
     )
     db.add(receta_invierno)

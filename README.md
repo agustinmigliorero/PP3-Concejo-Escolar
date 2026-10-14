@@ -506,6 +506,12 @@ La documentación interactiva completa está en `http://localhost:8000/docs` (Sw
 | GET    | `/stock-previo/{school_id}` | Ver stock sobrante de una escuela              | admin/gestor  |
 | PUT    | `/stock-previo/{school_id}` | Cargar/actualizar stock sobrante de una escuela | admin/gestor  |
 
+### Pedidos
+
+| Método | Endpoint                       | Descripción                                                      | Rol requerido |
+| ------ | ------------------------------ | ---------------------------------------------------------------- | ------------- |
+| PATCH  | `/pedidos/{pedido_id}/items`   | Editar cantidades de una orden regular ya generada, recalculando sus totales | admin |
+
 ### Tipos de comida
 
 Catálogo administrable de tipos de comida (desayuno, almuerzo, merienda y los que se agreguen). Cada receta y cada escuela se asocian a uno o varios tipos.

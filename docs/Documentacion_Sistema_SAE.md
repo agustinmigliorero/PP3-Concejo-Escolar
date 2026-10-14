@@ -106,7 +106,7 @@ Permite cargar las cantidades sobrantes que se descontarán del próximo pedido.
 
 El sistema implementa un modelo de Control de Acceso Basado en Roles (RBAC) con tres perfiles bien definidos:
 
-1.  **Administrador:** Acceso irrestricto. Responsable de la configuración estructural (ABM de Usuarios, Localidades, Ingredientes, Proveedores, Asignaciones, Recetas y Menús estacionales).
+1.  **Administrador:** Acceso irrestricto. Responsable de la configuración estructural (ABM de Usuarios, Localidades, Ingredientes, Proveedores, Asignaciones, Recetas y Menús estacionales) y único rol que puede editar las cantidades finales de órdenes regulares ya generadas.
 2.  **Gestor:** Acceso operativo. Gestiona la información de las Escuelas (matrículas), genera los pedidos semanales (con posibilidad de alterar días hábiles y editar stock previo) y consulta el historial global.
 3.  **Escuela:** Acceso restringido. Cada usuario de este tipo está vinculado estrictamente a una (1) escuela. Puede actualizar la matrícula, cargar el stock sobrante (previo al pedido) y visualizar exclusivamente los pedidos donde su institución está incluida.
 
@@ -127,7 +127,7 @@ El modelo de dominio se basa en las siguientes entidades principales:
 *   **Receta e Ingredientes de Receta:** Composiciones estándar por porción para un tipo de comida específico.
 *   **Temporada y Menú:** Esquema de 2 semanas (Opción 1 y 2) que mapea una receta para cada combinación de "Día de la Semana + Tipo de Comida".
 *   **Stock Previo:** Cantidades sobrantes reportadas por las escuelas, descontables del próximo pedido.
-*   **Generación de Pedido:** Registro histórico (snapshot) inmutable de los cálculos, precios y escuelas involucradas en una semana determinada.
+*   **Generación de Pedido:** Registro histórico de los cálculos, precios y escuelas involucradas en una semana determinada. Solo ADMIN puede corregir las cantidades finales de una orden regular ya generada; el stock aplicado y los precios originales se conservan.
 
 ---
 
@@ -143,7 +143,7 @@ El corazón del sistema es el motor de cálculo de necesidades semanales. Para c
 ### Otras reglas de validación:
 *   Para cada pedido, el sistema selecciona automáticamente el proveedor basándose en la localidad de la escuela y la asignación activa en ese momento.
 *   Si un ingrediente requerido carece de proveedor en la localidad de una escuela, el sistema levanta una advertencia (Warning) en la pre-visualización del pedido.
-*   Los datos de los pedidos confirmados se congelan (snapshot de precios y cantidades). Las modificaciones futuras en matrículas o precios no alteran el histórico.
+*   Los pedidos confirmados guardan un snapshot de precios y cantidades. Cambios posteriores en matrículas o precios no alteran el histórico; ADMIN puede ajustar manualmente las cantidades finales de una orden regular y sus reportes derivados.
 
 ---
 
@@ -153,8 +153,8 @@ El Gestor o Administrador ejecuta las siguientes acciones:
 1.  **Parámetros Iniciales:** Selecciona la semana de ejecución, la temporada y la opción de menú.
 2.  **Ajuste de Días Hábiles:** Desmarca feriados o días de paro (afecta el factor multiplicador).
 3.  **Ajuste de Stock:** Valida o corrige en una matriz pre-completada los stocks sobrantes informados por las escuelas.
-4.  **Confirmación y Snapshot:** El sistema calcula las cantidades y precios. Se vacían los stocks previos (quedan en 0 para el ciclo siguiente) y se guarda el estado inmutable del pedido.
-5.  **Emisión:** Generación de un PDF y un Excel por cada proveedor (Órdenes de Compra) y un Resumen Global unificado para el Consejo.
+4.  **Confirmación y Snapshot:** El sistema calcula las cantidades y precios. Se vacían los stocks previos (quedan en 0 para el ciclo siguiente) y se guarda el pedido. ADMIN puede corregir luego las cantidades finales del pedido existente, conservando el stock aplicado.
+5.  **Emisión:** Generación de un PDF y un Excel por cada proveedor (Órdenes de Compra) y un Resumen Global unificado para el Consejo. ADMIN puede editar las cantidades de la orden existente; el sistema actualiza sus totales y descargas sin volver a barrer el stock.
 
 ---
 
