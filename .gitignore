@@ -148,6 +148,7 @@ celerybeat.pid
 .env
 .env.local
 .envrc
+.env.dokploy
 .venv
 env/
 venv/
