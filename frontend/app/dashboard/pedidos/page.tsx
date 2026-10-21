@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useUser } from "@/app/dashboard/user-context";
 import {
   apiConfirmPedido,
+  apiDownloadMiEscuelaPdf,
   apiDownloadPedidoExport,
   apiGetPedidos,
   apiGetSchoolStock,
@@ -65,6 +66,28 @@ function filterEditSchools(schools: PedidoSnapshot["escuelas"], search: string) 
   );
 }
 
+// Dias habiles del pedido por nombre ("Mar, Mie, Jue, Vie"), segun su numero
+// (1 = Lunes ... 5 = Viernes). Un dia ausente (feriado, paro) simplemente no aparece.
+function pedidoDiasLabel(diasHabiles: number[]): string {
+  const dias = DAYS.filter((day) => diasHabiles.includes(day.id));
+  return dias.length > 0 ? dias.map((day) => day.label).join(", ") : "-";
+}
+
+// Dias de la semana excluidos del pedido, para el tooltip de la celda.
+function pedidoDiasExcluidos(diasHabiles: number[]): string | undefined {
+  const excluidos = DAYS.filter((day) => !diasHabiles.includes(day.id));
+  return excluidos.length > 0
+    ? `Sin servicio: ${excluidos.map((day) => day.name).join(", ")}`
+    : undefined;
+}
+
+function pedidoMenuLabel(snapshot: PedidoSnapshot): string {
+  if (snapshot.opcion_menu) return `Opcion ${snapshot.opcion_menu.numero_opcion}`;
+  if (snapshot.tipo === "EVENTO") return `Evento${snapshot.evento_nombre ? ` - ${snapshot.evento_nombre}` : ""}`;
+  if (snapshot.tipo === "PATIO") return `Patio${snapshot.patio_menu_nombre ? ` - ${snapshot.patio_menu_nombre}` : ""}`;
+  return snapshot.titulo ?? "-";
+}
+
 function filteredPedidoCost(pedido: PedidoRecord, filters: PedidoFilters): string {
   const total = pedido.datos_snapshot.escuelas.reduce((schoolTotal, school) => {
     if (filters.localidad_id && school.localidad_id !== filters.localidad_id) {
@@ -92,7 +115,8 @@ export default function PedidosPage() {
   const { user } = useUser();
   const canGenerate = user?.role === "admin" || user?.role === "gestor";
   const canEditOrders = user?.role === "admin";
-  const canViewHistory = canGenerate || user?.role === "escuela";
+  const isSchoolUser = user?.role === "escuela";
+  const canViewHistory = canGenerate || isSchoolUser;
 
   const [temporada, setTemporada] = useState<TemporadaRecord | null>(null);
   const [schools, setSchools] = useState<SchoolRecord[]>([]);
@@ -224,7 +248,7 @@ export default function PedidosPage() {
       const matchesSearch =
         normalizedSearch.length === 0 ||
         pedido.semana_inicio.includes(normalizedSearch) ||
-        snapshot.opcion_menu.numero_opcion.toString().includes(normalizedSearch) ||
+        pedidoMenuLabel(snapshot).toLowerCase().includes(normalizedSearch) ||
         snapshot.escuelas.some((school) =>
           `${school.codigo} ${school.nombre} ${school.localidad_nombre}`
             .toLowerCase()
@@ -453,6 +477,24 @@ export default function PedidosPage() {
       setEditError(e instanceof Error ? e.message : "Error al actualizar el pedido");
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  // Rol escuela: un unico PDF con los articulos de su escuela, sin precios.
+  async function downloadMiEscuelaPdf(pedido: PedidoRecord) {
+    setError(null);
+    try {
+      const blob = await apiDownloadMiEscuelaPdf(pedido.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `pedido_${pedido.semana_inicio}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error al descargar pedido");
     }
   }
 
@@ -994,7 +1036,7 @@ export default function PedidosPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <div className={`mt-4 grid grid-cols-1 gap-3 ${isSchoolUser ? "md:grid-cols-2" : "md:grid-cols-4"}`}>
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
                   Buscar
@@ -1006,6 +1048,7 @@ export default function PedidosPage() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              {!isSchoolUser && (
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
                   Localidad
@@ -1026,6 +1069,7 @@ export default function PedidosPage() {
                   ))}
                 </select>
               </div>
+              )}
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
                   Proveedor
@@ -1043,6 +1087,7 @@ export default function PedidosPage() {
                   ))}
                 </select>
               </div>
+              {!isSchoolUser && (
               <div>
                 <label className="mb-1 block text-xs font-bold uppercase tracking-[0.06em] text-slate-500">
                   Escuela
@@ -1062,6 +1107,7 @@ export default function PedidosPage() {
                     ))}
                 </select>
               </div>
+              )}
             </div>
 
             {(historySearch || historyLocalidadId || historyProveedorId || historyEscuelaId) && (
@@ -1089,9 +1135,15 @@ export default function PedidosPage() {
                   <th className="px-5 py-3 text-left font-medium">Semana</th>
                   <th className="px-5 py-3 text-left font-medium">Menu</th>
                   <th className="px-5 py-3 text-left font-medium">Dias</th>
-                  <th className="px-5 py-3 text-right font-medium">Costo filtrado</th>
-                  <th className="px-5 py-3 text-right font-medium">PDFs</th>
-                  <th className="px-5 py-3 text-right font-medium">Excel</th>
+                  {isSchoolUser ? (
+                    <th className="px-5 py-3 text-right font-medium">Descarga</th>
+                  ) : (
+                    <>
+                      <th className="px-5 py-3 text-right font-medium">Costo filtrado</th>
+                      <th className="px-5 py-3 text-right font-medium">PDFs</th>
+                      <th className="px-5 py-3 text-right font-medium">Excel</th>
+                    </>
+                  )}
                   {canEditOrders && <th className="px-5 py-3 text-right font-medium">Acción</th>}
                 </tr>
               </thead>
@@ -1102,11 +1154,26 @@ export default function PedidosPage() {
                       {pedido.semana_inicio}
                     </td>
                     <td data-label="Menú" className="px-5 py-3 text-gray-600">
-                      Opcion {pedido.datos_snapshot.opcion_menu.numero_opcion}
+                      {pedidoMenuLabel(pedido.datos_snapshot)}
                     </td>
                     <td data-label="Días" className="px-5 py-3 text-gray-600">
-                      {pedido.dias_habiles.join(", ")}
+                      <span title={pedidoDiasExcluidos(pedido.dias_habiles)}>
+                        {pedidoDiasLabel(pedido.dias_habiles)}
+                      </span>
                     </td>
+                    {isSchoolUser ? (
+                      <td data-label="Descarga" className="px-5 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => downloadMiEscuelaPdf(pedido)}
+                          title="Artículos, cantidades y proveedor de tu escuela para esta semana"
+                          className="rounded-lg px-2 py-1 font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                        >
+                          Descargar PDF
+                        </button>
+                      </td>
+                    ) : (
+                    <>
                     <td data-label="Costo filtrado" className="px-5 py-3 text-right text-gray-800">
                       {formatMoney(filteredPedidoCost(pedido, historyFilters))}
                     </td>
@@ -1176,6 +1243,8 @@ export default function PedidosPage() {
                         </button>
                       </div>
                     </td>
+                    </>
+                    )}
                     {canEditOrders && (
                       <td data-label="Acción" className="px-5 py-3 text-right">
                         {pedido.datos_snapshot.tipo === "REGULAR" && (
@@ -1193,7 +1262,7 @@ export default function PedidosPage() {
                 ))}
                 {filteredPedidos.length === 0 && (
                   <tr>
-                    <td colSpan={canEditOrders ? 7 : 6} className="px-5 py-8 text-center text-gray-400">
+                    <td colSpan={isSchoolUser ? 4 : canEditOrders ? 7 : 6} className="px-5 py-8 text-center text-gray-400">
                       No hay pedidos para los filtros seleccionados.
                     </td>
                   </tr>

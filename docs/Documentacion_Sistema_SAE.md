@@ -102,13 +102,24 @@ Permite cargar las cantidades sobrantes que se descontarán del próximo pedido.
 
 ---
 
+### 3.9. Pedidos (`/pedidos`)
+*   `POST /pedidos/preview` y `POST /pedidos`: Previsualiza y confirma la orden semanal (Admin/Gestor).
+*   `PATCH /pedidos/{id}/items`: Corrige las cantidades finales de una orden regular ya generada (Admin).
+*   `GET /pedidos` y `GET /pedidos/{id}`: Historial de pedidos. Admin y Gestor reciben el snapshot completo; la Escuela recibe solo sus filas, con proveedor pero sin precios ni costos.
+*   `GET /pedidos/{id}/export/{excel|pdf}`: Resumen global con precios y costos (Admin/Gestor).
+*   `GET /pedidos/{id}/export/proveedores/{excel|pdf}?incluir_precios=`: ZIP de órdenes de compra por proveedor, con o sin precios (Admin/Gestor).
+*   `GET /pedidos/{id}/export/localidades/pdf` y `GET /pedidos/{id}/export/escuelas/pdf`: ZIP de pedidos por localidad y por escuela (Admin/Gestor).
+*   `GET /pedidos/{id}/export/mi-escuela/pdf`: PDF único del pedido de la propia escuela: ingrediente, unidad, cantidad y proveedor, sin precios (Escuela).
+
+---
+
 ## 4. Roles y Seguridad
 
 El sistema implementa un modelo de Control de Acceso Basado en Roles (RBAC) con tres perfiles bien definidos:
 
 1.  **Administrador:** Acceso irrestricto. Responsable de la configuración estructural (ABM de Usuarios, Localidades, Ingredientes, Proveedores, Asignaciones, Recetas y Menús estacionales) y único rol que puede editar las cantidades finales de órdenes regulares ya generadas.
 2.  **Gestor:** Acceso operativo. Gestiona la información de las Escuelas (matrículas), genera los pedidos semanales (con posibilidad de alterar días hábiles y editar stock previo) y consulta el historial global.
-3.  **Escuela:** Acceso restringido. Cada usuario de este tipo está vinculado estrictamente a una (1) escuela. Puede actualizar la matrícula, cargar el stock sobrante (previo al pedido) y visualizar exclusivamente los pedidos donde su institución está incluida.
+3.  **Escuela:** Acceso restringido. Cada usuario de este tipo está vinculado estrictamente a una (1) escuela. Puede actualizar la matrícula, cargar el stock sobrante (previo al pedido) y visualizar exclusivamente los pedidos donde su institución está incluida. En esos pedidos ve artículos, cantidades y el proveedor de cada artículo, **sin precios, costos ni resumen global** (el backend los quita del snapshot que devuelve). Su única descarga es el PDF del pedido de su escuela (`GET /pedidos/{id}/export/mi-escuela/pdf`); el resto de las exportaciones de pedidos son exclusivas de Admin y Gestor.
 
 *Seguridad:* Las contraseñas están hasheadas usando `bcrypt`. Todas las transacciones en producción deben operar bajo HTTPS.
 

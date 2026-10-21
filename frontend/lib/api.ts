@@ -1155,12 +1155,18 @@ export interface PedidoSnapshot {
   tipo?: "REGULAR" | "PATIO" | "EVENTO";
   semana_inicio: string;
   dias_habiles: number[];
+  titulo?: string;
+  evento_id?: number;
+  evento_nombre?: string;
+  patio_menu_id?: number;
+  patio_menu_nombre?: string;
+  // null en pedidos de tipo EVENTO y PATIO (no usan una opción de menú semanal).
   opcion_menu: {
     id: number;
     numero_opcion: number;
     descripcion: string | null;
     temporada: { id: number | null; nombre: string | null; anio: number | null };
-  };
+  } | null;
   proveedores: Array<{
     proveedor_id: number;
     proveedor_nombre: string;
@@ -1301,6 +1307,14 @@ export async function apiGetPedidos(): Promise<PedidoRecord[]> {
   const res = await apiFetch("/pedidos");
   if (!res.ok) throw await buildApiError(res, "Error al obtener pedidos");
   return res.json();
+}
+
+// Rol escuela: PDF del pedido de su propia escuela (articulos, cantidades y
+// proveedor, sin precios ni costos).
+export async function apiDownloadMiEscuelaPdf(id: number): Promise<Blob> {
+  const res = await apiFetch(`/pedidos/${id}/export/mi-escuela/pdf`);
+  if (!res.ok) throw await buildApiError(res, "Error al descargar el pedido");
+  return res.blob();
 }
 
 export async function apiDownloadPedidoExport(

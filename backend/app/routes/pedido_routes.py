@@ -92,7 +92,7 @@ def export_pedido_excel(
     proveedor_id: int | None = Query(default=None, gt=0),
     escuela_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_gestor_or_admin),
 ):
     pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
     content = pedido_service.export_resumen_excel(
@@ -117,7 +117,7 @@ def export_pedido_pdf(
     proveedor_id: int | None = Query(default=None, gt=0),
     escuela_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_gestor_or_admin),
 ):
     pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
     content = pedido_service.export_resumen_pdf(
@@ -143,7 +143,7 @@ def export_proveedores_excel(
     escuela_id: int | None = Query(default=None, gt=0),
     incluir_precios: bool = Query(default=True),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_gestor_or_admin),
 ):
     pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
     content = pedido_service.export_proveedores_zip(
@@ -172,7 +172,7 @@ def export_proveedores_pdf(
     escuela_id: int | None = Query(default=None, gt=0),
     incluir_precios: bool = Query(default=True),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_gestor_or_admin),
 ):
     pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
     content = pedido_service.export_proveedores_zip(
@@ -200,7 +200,7 @@ def export_localidades_pdf(
     proveedor_id: int | None = Query(default=None, gt=0),
     escuela_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_gestor_or_admin),
 ):
     pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
     content = pedido_service.export_localidades_pdf_zip(
@@ -225,7 +225,7 @@ def export_escuelas_pdf(
     proveedor_id: int | None = Query(default=None, gt=0),
     escuela_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_gestor_or_admin),
 ):
     pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
     content = pedido_service.export_escuelas_pdf_zip(
@@ -239,5 +239,22 @@ def export_escuelas_pdf(
     return StreamingResponse(
         content,
         media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{pedido_id}/export/mi-escuela/pdf")
+def export_mi_escuela_pdf(
+    pedido_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """PDF del pedido de la propia escuela (rol escuela): articulos, cantidades y
+    proveedor, sin precios ni costos."""
+    pedido = pedido_service.get_pedido_for_user(db, pedido_id, current_user)
+    content, filename = pedido_service.export_mi_escuela_pdf(pedido, current_user)
+    return StreamingResponse(
+        content,
+        media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

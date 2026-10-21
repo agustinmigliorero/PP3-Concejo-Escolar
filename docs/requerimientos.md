@@ -34,8 +34,11 @@ Aplicación web para la gestión de pedidos de ingredientes del Servicio Aliment
 | Generar órdenes de compra                     | ✅            | ✅     | ❌      |
 | Editar cantidades de una orden regular generada | ✅            | ❌     | ❌      |
 | Ver historial de pedidos generados (todos)    | ✅            | ✅     | ❌      |
+| Ver precios, costos y resumen global de pedidos | ✅          | ✅     | ❌      |
+| Descargar documentos de compra (resumen, proveedores, localidades, escuelas) | ✅ | ✅ | ❌ |
 | Cargar stock previo de su escuela             | ❌            | ❌     | ✅      |
-| Ver pedidos generados de su escuela           | ❌            | ❌     | ✅      |
+| Ver pedidos generados de su escuela (cantidades y proveedor, sin precios) | ❌ | ❌ | ✅ |
+| Descargar el PDF del pedido de su escuela     | ❌            | ❌     | ✅      |
 
 ---
 
@@ -249,7 +252,7 @@ StockPrevio
 
 12. **Ingredientes por unidad**: Cuando `unidad_medida = "unidades"` y `contenido_por_unidad` está definido, la cantidad calculada en la unidad base se convierte a unidades comerciales redondeando siempre hacia arriba (`ceil`). Ejemplo: 1200 ml / 900 ml por botella = ceil(1.33) = 2 botellas. El descuento de stock también se expresa en la unidad base antes del redondeo.
 
-13. **Rol Escuela**: Cada usuario con rol ESCUELA está asociado a una única escuela. Puede actualizar la matrícula y cargar el stock previo de su propia escuela, además de ver el historial de pedidos generados que incluyen a su escuela. No puede generar pedidos, ver datos de otras escuelas ni acceder a ninguna función administrativa.
+13. **Rol Escuela**: Cada usuario con rol ESCUELA está asociado a una única escuela. Puede actualizar la matrícula y cargar el stock previo de su propia escuela, además de ver el historial de pedidos generados que incluyen a su escuela. En ese historial ve los artículos, las cantidades y el proveedor que entrega cada uno, pero **nunca precios unitarios, costos ni el resumen global**, que son de uso interno del Consejo. No puede generar pedidos, ver datos de otras escuelas ni acceder a ninguna función administrativa.
 
 ---
 
@@ -339,12 +342,16 @@ StockPrevio
 
 - Listado de pedidos generados (fecha, semana, menú usado, usuario)
 - Re-descarga de documentos de pedidos anteriores (snapshot al momento de generación)
+- Las descargas del historial (resumen, órdenes por proveedor con y sin precios, pedidos por localidad y por escuela) son exclusivas de Admin y Gestor. El rol Escuela tiene su propio historial reducido (ver 5.12).
 
 ### 5.12 Funcionalidades del usuario Escuela
 
 - **Actualizar matrícula y cupos por servicio**: modificar la matrícula general y la cantidad de alumnos/cupones de cada servicio de su escuela.
 - **Cargar stock previo**: tabla con los ingredientes relevantes para su escuela (los que aparecen en el menú activo). El usuario ingresa las cantidades disponibles en cada ingrediente. Solo se muestran ingredientes de la temporada activa.
-- **Ver historial de pedidos**: listado de pedidos generados que incluyen a su escuela, con los documentos descargables correspondientes (solo las filas de su escuela).
+- **Ver historial de pedidos**: listado de pedidos generados que incluyen a su escuela (semana, menú y días hábiles). Puede filtrar por proveedor.
+  - Ve los artículos, cantidades y el **proveedor** que entrega cada uno (para saber quién le entrega la mercadería).
+  - **No ve precios unitarios, costos ni el resumen global** del pedido, ni las cantidades de otras escuelas.
+  - **Única descarga disponible**: un PDF con la lista de artículos de su escuela para esa semana (ingrediente, unidad, cantidad y proveedor), sin precios ni costos. No accede al resumen, a las órdenes de compra por proveedor ni a los ZIP por localidad o por escuela.
 - No tiene acceso a datos de otras escuelas, proveedores, recetas, ni a la función de generación.
 
 ---
