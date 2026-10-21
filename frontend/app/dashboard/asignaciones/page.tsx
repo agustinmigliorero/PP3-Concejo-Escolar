@@ -50,6 +50,17 @@ export default function AsignacionesPage() {
   const [filterLocalidad, setFilterLocalidad] = useState<string>("");
   const [filterProveedor, setFilterProveedor] = useState<string>("");
 
+  // Al cambiar los filtros se marca la carga y se limpia el error en el mismo
+  // render, en lugar de hacerlo de forma síncrona dentro del efecto de recarga
+  // (patrón de React para ajustar estado cuando cambia un valor).
+  const filtersKey = `${filterIngrediente}|${filterLocalidad}|${filterProveedor}`;
+  const [loadedFiltersKey, setLoadedFiltersKey] = useState(filtersKey);
+  if (filtersKey !== loadedFiltersKey) {
+    setLoadedFiltersKey(filtersKey);
+    setLoading(true);
+    setError(null);
+  }
+
   // Modal crear
   const [createOpen, setCreateOpen] = useState(false);
   const [cProveedor, setCProveedor] = useState<string>("");
@@ -74,24 +85,34 @@ export default function AsignacionesPage() {
   >([]);
   const [histLoading, setHistLoading] = useState(false);
 
+  // Pide las asignaciones y escribe el estado en los callbacks de la promesa,
+  // cuando llega la respuesta.
+  function fetchAsignaciones() {
+    return apiGetAsignaciones({
+      ingrediente_id: filterIngrediente
+        ? Number(filterIngrediente)
+        : undefined,
+      localidad_id: filterLocalidad ? Number(filterLocalidad) : undefined,
+      proveedor_id: filterProveedor ? Number(filterProveedor) : undefined,
+      solo_vigentes: true,
+    })
+      .then((data) => {
+        setAsignaciones(data);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : "Error al cargar asignaciones");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }
+
+  // Recarga disparada por el usuario (después de crear o editar): vuelve a
+  // mostrar la carga y limpia el error antes de pedir los datos.
   async function loadAsignaciones() {
     setLoading(true);
     setError(null);
-    try {
-      const data = await apiGetAsignaciones({
-        ingrediente_id: filterIngrediente
-          ? Number(filterIngrediente)
-          : undefined,
-        localidad_id: filterLocalidad ? Number(filterLocalidad) : undefined,
-        proveedor_id: filterProveedor ? Number(filterProveedor) : undefined,
-        solo_vigentes: true,
-      });
-      setAsignaciones(data);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al cargar asignaciones");
-    } finally {
-      setLoading(false);
-    }
+    await fetchAsignaciones();
   }
 
   // Carga inicial de catálogos
@@ -114,7 +135,7 @@ export default function AsignacionesPage() {
 
   // Recarga al cambiar filtros
   useEffect(() => {
-    loadAsignaciones();
+    fetchAsignaciones();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterIngrediente, filterLocalidad, filterProveedor]);
 

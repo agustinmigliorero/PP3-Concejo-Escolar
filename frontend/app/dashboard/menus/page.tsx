@@ -41,10 +41,9 @@ export default function MenusPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAdmin) {
-      setLoading(false);
-      return;
-    }
+    // Sin permisos no se consulta nada: el render muestra el aviso sin esperar
+    // a `loading` (ver la condición de carga más abajo).
+    if (!isAdmin) return;
 
     (async () => {
       setLoading(true);
@@ -69,11 +68,10 @@ export default function MenusPage() {
   }, [isAdmin]);
 
   useEffect(() => {
-    if (!selectedTemporada) {
-      setOpciones([]);
-      setSelection({});
-      return;
-    }
+    // `selectedTemporada` solo vale "" antes de la primera carga (el selector
+    // no ofrece una opción vacía), y en ese momento `opciones` y `selection`
+    // conservan sus valores iniciales vacíos: no hay nada que limpiar.
+    if (!selectedTemporada) return;
 
     (async () => {
       setError(null);
@@ -154,7 +152,7 @@ export default function MenusPage() {
     }
   }
 
-  if (!user || loading) {
+  if (!user || (isAdmin && loading)) {
     return (
       <div className="max-w-6xl mx-auto">
         <p className="text-gray-400">Cargando...</p>

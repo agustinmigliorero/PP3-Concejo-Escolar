@@ -121,42 +121,46 @@ export default function PedidosPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Pide los datos y escribe el estado en los callbacks de la promesa, cuando
+  // llega la respuesta. La carga inicial parte de `loading = true`.
+  const fetchData = useCallback(
+    () =>
+      apiGetPedidos()
+        .then(async (pedidosData) => {
+          setPedidos(pedidosData);
+          if (canGenerate) {
+            const [activeSeason, schoolsData] = await Promise.all([
+              apiGetTemporadaActiva(),
+              apiGetSchools(),
+            ]);
+            setTemporada(activeSeason);
+            setSchools(schoolsData.filter((school) => school.active));
+            const firstOption = activeSeason.opciones_menu[0];
+            if (firstOption) setOpcionId(String(firstOption.id));
+          }
+        })
+        .catch((e: unknown) => {
+          setError(e instanceof Error ? e.message : "Error al cargar pedidos");
+        })
+        .finally(() => {
+          setLoading(false);
+        }),
+    [canGenerate],
+  );
+
+  // Recarga disparada por el usuario: vuelve a mostrar la carga y limpia el
+  // error antes de pedir los datos.
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const pedidosData = await apiGetPedidos();
-      setPedidos(pedidosData);
-      if (canGenerate) {
-        const [activeSeason, schoolsData] = await Promise.all([
-          apiGetTemporadaActiva(),
-          apiGetSchools(),
-        ]);
-        setTemporada(activeSeason);
-        setSchools(schoolsData.filter((school) => school.active));
-        const firstOption = activeSeason.opciones_menu[0];
-        if (firstOption) setOpcionId(String(firstOption.id));
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al cargar pedidos");
-    } finally {
-      setLoading(false);
-    }
-  }, [canGenerate]);
+    await fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     if (canViewHistory) {
-      loadData();
-    } else if (user) {
-      setLoading(false);
+      fetchData();
     }
-  }, [canViewHistory, loadData, user]);
-
-  useEffect(() => {
-    if (user?.role === "escuela") {
-      setActiveTab("historial");
-    }
-  }, [user?.role]);
+  }, [canViewHistory, fetchData]);
 
   const selectedOption = useMemo(
     () => temporada?.opciones_menu.find((opcion) => String(opcion.id) === opcionId),
@@ -169,6 +173,7 @@ export default function PedidosPage() {
     ) ?? null,
     [pedidos, semanaInicio],
   );
+  // Quien no puede generar pedidos (rol escuela) siempre ve el historial.
   const currentTab = canGenerate ? activeTab : "historial";
   const historyFilters = useMemo<PedidoFilters>(
     () => ({
@@ -476,7 +481,8 @@ export default function PedidosPage() {
     }
   }
 
-  if (!user || loading) {
+  // Sin permisos de historial no hay carga pendiente: se muestra el aviso.
+  if (!user || (canViewHistory && loading)) {
     return (
       <div className="max-w-6xl mx-auto">
         <p className="text-gray-400">Cargando...</p>

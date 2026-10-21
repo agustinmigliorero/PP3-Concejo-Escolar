@@ -55,27 +55,37 @@ export default function TemporadasPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Pide las temporadas y escribe el estado en los callbacks de la promesa,
+  // cuando llega la respuesta. La carga inicial parte de `loading = true`.
+  const fetchTemporadas = useCallback(
+    () =>
+      apiGetTemporadas(true)
+        .then((data) => {
+          setTemporadas(data);
+        })
+        .catch((e: unknown) => {
+          setError(e instanceof Error ? e.message : "Error al cargar temporadas");
+        })
+        .finally(() => {
+          setLoading(false);
+        }),
+    [],
+  );
+
+  // Recarga disparada por el usuario: vuelve a mostrar la carga y limpia el
+  // error antes de pedir los datos.
   const loadTemporadas = useCallback(async () => {
     setLoading(true);
     setError(null);
-
-    try {
-      const data = await apiGetTemporadas(true);
-      setTemporadas(data);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al cargar temporadas");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    await fetchTemporadas();
+  }, [fetchTemporadas]);
 
   useEffect(() => {
+    // Sin permisos la página muestra el aviso correspondiente y no usa `loading`.
     if (isAdmin) {
-      loadTemporadas();
-    } else {
-      setLoading(false);
+      fetchTemporadas();
     }
-  }, [isAdmin, loadTemporadas]);
+  }, [isAdmin, fetchTemporadas]);
 
   const confirmToggle = useConfirmToggle<TemporadaRecord>({
     toggle: (id) => apiToggleTemporadaActive(id),
