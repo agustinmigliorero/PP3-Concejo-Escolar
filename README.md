@@ -511,6 +511,12 @@ La documentación interactiva completa está en `http://localhost:8000/docs` (Sw
 | Método | Endpoint                       | Descripción                                                      | Rol requerido |
 | ------ | ------------------------------ | ---------------------------------------------------------------- | ------------- |
 | PATCH  | `/pedidos/{pedido_id}/items`   | Editar cantidades de una orden regular ya generada, recalculando sus totales | admin |
+| GET    | `/pedidos` · `/pedidos/{pedido_id}` | Historial. La escuela recibe solo sus filas, con proveedor y sin precios ni costos | todos |
+| GET    | `/pedidos/{pedido_id}/export/{excel\|pdf}` | Resumen global con precios y costos | admin/gestor |
+| GET    | `/pedidos/{pedido_id}/export/proveedores/{excel\|pdf}` | ZIP de órdenes por proveedor (`incluir_precios=true\|false`) | admin/gestor |
+| GET    | `/pedidos/{pedido_id}/export/localidades/pdf` | ZIP de pedidos por localidad | admin/gestor |
+| GET    | `/pedidos/{pedido_id}/export/escuelas/pdf` | ZIP de pedidos por escuela (con precios) | admin/gestor |
+| GET    | `/pedidos/{pedido_id}/export/mi-escuela/pdf` | PDF del pedido de la escuela propia: artículos, cantidades y proveedor, sin precios | escuela |
 
 ### Tipos de comida
 

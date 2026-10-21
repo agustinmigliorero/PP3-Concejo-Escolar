@@ -221,3 +221,6 @@ __marimo__/
 #gentle-ai y engram
 .atl/
 openspec/
+
+# Documentacion de seguridad: se comparte en privado con el equipo, no va al repo
+docs/seguridad/

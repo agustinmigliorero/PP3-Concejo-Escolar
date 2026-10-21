@@ -895,7 +895,32 @@ def get_pedido_for_user(db: Session, pedido_id: int, user: User) -> GeneracionPe
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
 
 
+# Datos economicos que el rol escuela no debe recibir (precios pactados con
+# proveedores y costos). El nombre del proveedor SI se muestra a la escuela
+# para que sepa quien le entrega cada articulo.
+_CAMPOS_PRECIO_OCULTOS_ESCUELA = frozenset({"precio_unitario", "costo_total"})
+
+
+def _sin_precios(value):
+    """Copia profunda del snapshot sin precios ni costos (rol escuela)."""
+    if isinstance(value, dict):
+        return {
+            key: _sin_precios(item)
+            for key, item in value.items()
+            if key not in _CAMPOS_PRECIO_OCULTOS_ESCUELA
+        }
+    if isinstance(value, list):
+        return [_sin_precios(item) for item in value]
+    return value
+
+
 def school_snapshot_for_user(snapshot: dict, user: User) -> dict:
+    """Snapshot visible para el usuario.
+
+    Admin y gestor reciben el snapshot completo. El rol escuela recibe solo las
+    filas de su escuela, con el proveedor que entrega cada articulo pero sin
+    precios, costos ni el resumen global interno del Consejo.
+    """
     if user.role in (UserRole.admin, UserRole.gestor):
         return snapshot
     if user.role != UserRole.escuela or user.school_id is None:
@@ -920,7 +945,26 @@ def school_snapshot_for_user(snapshot: dict, user: User) -> dict:
                 if row.get("escuela_id") in school_ids
             ]
             if school_rows:
-                ingredients.append({**ingredient, "escuelas": school_rows})
+                # El total del proveedor se recalcula solo con las filas de la
+                # escuela para no exponer cantidades de otras escuelas.
+                school_ingredient = {
+                    **ingredient,
+                    "escuelas": school_rows,
+                    "cantidad_total": _money(sum(
+                        (_dec(row.get("cantidad", "0")) for row in school_rows),
+                        Decimal("0"),
+                    )),
+                }
+                if "cantidad_contenido_total" in ingredient:
+                    contenidos = [
+                        row.get("cantidad_contenido") for row in school_rows
+                        if row.get("cantidad_contenido") not in (None, "")
+                    ]
+                    school_ingredient["cantidad_contenido_total"] = (
+                        _money(sum((_dec(c) for c in contenidos), Decimal("0")))
+                        if contenidos else None
+                    )
+                ingredients.append(school_ingredient)
         if ingredients:
             proveedores.append({**provider, "ingredientes": ingredients})
 
@@ -930,32 +974,10 @@ def school_snapshot_for_user(snapshot: dict, user: User) -> dict:
         if warning.get("escuela_id") in school_ids
     ]
 
-    resumen = []
-    total = Decimal("0")
-    for school in schools:
-        for item in school.get("ingredientes", []):
-            if "proveedor_id" not in item:
-                continue
-            cost = _dec(item.get("costo_total", "0"))
-            total += cost
-            resumen.append({
-                "ingrediente_id": item.get("ingrediente_id"),
-                "ingrediente_nombre": item.get("ingrediente_nombre", ""),
-                "unidad": item.get("unidad_final", ""),
-                "localidad_id": item.get("localidad_id"),
-                "localidad_nombre": item.get("localidad_nombre", ""),
-                "proveedor_id": item.get("proveedor_id"),
-                "proveedor_nombre": item.get("proveedor_nombre", ""),
-                "precio_unitario": item.get("precio_unitario", ""),
-                "cantidad_total": item.get("cantidad_final", ""),
-                "contenido_por_unidad": item.get("contenido_por_unidad"),
-                "unidad_contenido": item.get("unidad_contenido"),
-                "cantidad_contenido_total": item.get("cantidad_contenido_final"),
-                "costo_total": item.get("costo_total", ""),
-            })
-    filtered["resumen_global"] = resumen
-    filtered["costo_total"] = _money(total)
-    return filtered
+    # El resumen global y el costo total son de uso interno del Consejo.
+    filtered["resumen_global"] = []
+    filtered.pop("costo_total", None)
+    return _sin_precios(filtered)
 
 
 def _safe_filename(value: str) -> str:
@@ -1595,7 +1617,7 @@ def export_localidades_pdf_zip(
     return output
 
 
-def _school_pdf(snapshot: dict, school: dict) -> BytesIO:
+def _school_pdf(snapshot: dict, school: dict, include_prices: bool = True) -> BytesIO:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import getSampleStyleSheet
@@ -1622,13 +1644,15 @@ def _school_pdf(snapshot: dict, school: dict) -> BytesIO:
         Spacer(1, 12),
     ]
 
-    data = [["Ingrediente", "Unidad", "Cantidad", "Proveedor", "Precio unit.", "Costo"]]
+    header = ["Ingrediente", "Unidad", "Cantidad", "Proveedor"]
+    if include_prices:
+        header += ["Precio unit.", "Costo"]
+    data = [header]
     school_total = Decimal("0")
     for item in school.get("ingredientes", []):
         if "proveedor_id" not in item:
             continue
-        school_total += _dec(item.get("costo_total", "0"))
-        data.append([
+        row = [
             item.get("ingrediente_nombre", ""),
             _commercial_unit_label(item),
             _commercial_quantity_label(
@@ -1637,13 +1661,15 @@ def _school_pdf(snapshot: dict, school: dict) -> BytesIO:
                 "cantidad_contenido_final",
             ),
             item.get("proveedor_nombre", ""),
-            item.get("precio_unitario", ""),
-            item.get("costo_total", ""),
-        ])
+        ]
+        if include_prices:
+            school_total += _dec(item.get("costo_total", "0"))
+            row += [item.get("precio_unitario", ""), item.get("costo_total", "")]
+        data.append(row)
     has_rows = len(data) > 1
     if not has_rows:
-        data.append(["Sin datos", "", "", "", "", ""])
-    else:
+        data.append(["Sin datos"] + [""] * (len(header) - 1))
+    elif include_prices:
         data.append(["TOTAL", "", "", "", "", _money(school_total)])
 
     table_style = [
@@ -1653,7 +1679,7 @@ def _school_pdf(snapshot: dict, school: dict) -> BytesIO:
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]
-    if has_rows:
+    if has_rows and include_prices:
         table_style.append(("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"))
     table = Table(data, repeatRows=1)
     table.setStyle(TableStyle(table_style))
@@ -1661,6 +1687,25 @@ def _school_pdf(snapshot: dict, school: dict) -> BytesIO:
     doc.build(story)
     output.seek(0)
     return output
+
+
+def export_mi_escuela_pdf(pedido: GeneracionPedido, user: User) -> tuple[BytesIO, str]:
+    """PDF unico del pedido de la escuela del usuario (rol escuela).
+
+    Lista los articulos, cantidades y proveedor que entrega cada uno, sin
+    precios ni costos.
+    """
+    if user.role != UserRole.escuela:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    snapshot = _snapshot_for_pdf(school_snapshot_for_user(pedido.datos_snapshot, user))
+    schools = snapshot.get("escuelas", [])
+    if not schools:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    school = schools[0]
+    filename = _safe_filename(
+        f"pedido_{school.get('codigo', '') or 'escuela'}_{snapshot.get('semana_inicio', '')}"
+    )
+    return _school_pdf(snapshot, school, include_prices=False), f"{filename}.pdf"
 
 
 def export_escuelas_pdf_zip(
