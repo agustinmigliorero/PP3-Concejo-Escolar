@@ -6,18 +6,22 @@ import { apiLogin, tryRefresh } from "@/lib/api";
 import { getAccessToken, setAccessToken as storeToken } from "@/lib/auth";
 import { PasswordInput } from "@/components/password-input";
 
+// Destino al que volver tras iniciar sesión, tomado de `?from=` en la URL.
+// Se lee al usarlo (en el efecto y en el envío del formulario) en vez de
+// copiarlo a estado, porque no se muestra en pantalla.
+function getRedirectTarget(): string {
+  return new URLSearchParams(window.location.search).get("from") || "/dashboard";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [from, setFrom] = useState("/dashboard");
 
   useEffect(() => {
-    const nextFrom =
-      new URLSearchParams(window.location.search).get("from") || "/dashboard";
-    setFrom(nextFrom);
+    const nextFrom = getRedirectTarget();
 
     let active = true;
     async function redirectIfSessionIsValid() {
@@ -39,7 +43,7 @@ export default function LoginPage() {
     try {
       const data = await apiLogin(username, password);
       storeToken(data.access_token);
-      router.push(from);
+      router.push(getRedirectTarget());
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
       setUsername("");

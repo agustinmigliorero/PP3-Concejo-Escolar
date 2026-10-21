@@ -77,33 +77,41 @@ export default function RecetasPage() {
   const [confirmTarget, setConfirmTarget] = useState<RecetaRecord | null>(null);
   const [toggling, setToggling] = useState(false);
 
+  // Pide los datos y escribe el estado en los callbacks de la promesa, cuando
+  // llega la respuesta. La carga inicial parte de `loading = true`.
+  function fetchData() {
+    return Promise.all([
+      apiGetRecetas(true),
+      apiGetIngredientes(true),
+      apiGetTemporadas(true),
+      apiGetTiposComida(),
+    ])
+      .then(([recetasData, ingredientesData, temporadasData, tiposData]) => {
+        setRecetas(recetasData);
+        setIngredientes(ingredientesData);
+        setTemporadas(temporadasData);
+        setTiposComida(tiposData);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : "Error al cargar recetas");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }
+
+  // Recarga disparada por el usuario: vuelve a mostrar la carga y limpia el
+  // error antes de pedir los datos.
   async function loadData() {
     setLoading(true);
     setError(null);
-
-    try {
-      const [recetasData, ingredientesData, temporadasData, tiposData] = await Promise.all([
-        apiGetRecetas(true),
-        apiGetIngredientes(true),
-        apiGetTemporadas(true),
-        apiGetTiposComida(),
-      ]);
-      setRecetas(recetasData);
-      setIngredientes(ingredientesData);
-      setTemporadas(temporadasData);
-      setTiposComida(tiposData);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al cargar recetas");
-    } finally {
-      setLoading(false);
-    }
+    await fetchData();
   }
 
   useEffect(() => {
+    // Sin permisos la página muestra el aviso correspondiente y no usa `loading`.
     if (isAdmin) {
-      loadData();
-    } else {
-      setLoading(false);
+      fetchData();
     }
   }, [isAdmin]);
 

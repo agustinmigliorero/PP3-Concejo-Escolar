@@ -1,6 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useState } from "react";
+
+function depsChanged(
+  prev: ReadonlyArray<unknown>,
+  next: ReadonlyArray<unknown>,
+): boolean {
+  return (
+    prev.length !== next.length ||
+    prev.some((value, index) => !Object.is(value, next[index]))
+  );
+}
 
 /**
  * Carga datos asíncronos con la guardia "active" establecida para limpieza,
@@ -15,15 +25,26 @@ export function useAsyncData<T>(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const loaderRef = useRef(loader);
-  loaderRef.current = loader;
+
+  // El efecto siempre invoca el `loader` más reciente sin que éste sea una
+  // dependencia (antes se copiaba a una ref durante el render).
+  const runLoader = useEffectEvent(() => loader());
+
+  // Cuando cambian las dependencias de la carga (o se pide `reload`), se marca
+  // la carga y se limpia el error en el mismo render, en lugar de hacerlo de
+  // forma síncrona dentro del efecto (patrón de React para ajustar estado
+  // cuando cambia un valor).
+  const requestDeps = [...deps, refreshKey];
+  const [prevRequestDeps, setPrevRequestDeps] = useState(requestDeps);
+  if (depsChanged(prevRequestDeps, requestDeps)) {
+    setPrevRequestDeps(requestDeps);
+    setLoading(true);
+    setError(null);
+  }
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError(null);
-    loaderRef
-      .current()
+    runLoader()
       .then((result) => {
         if (!active) return;
         setData(result);

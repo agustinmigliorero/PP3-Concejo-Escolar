@@ -39,14 +39,32 @@ export default function ReportesPage() {
 
   const [estadisticas, setEstadisticas] = useState<Estadisticas | null>(null);
   const [statAnio, setStatAnio] = useState<string>("");
-  const [loadingStats, setLoadingStats] = useState(true);
 
   const [meses, setMeses] = useState<MesDisponible[]>([]);
   const [selectedMes, setSelectedMes] = useState<string>("");
-  const [loadingMeses, setLoadingMeses] = useState(true);
   const [reporte, setReporte] = useState<ReporteMensual | null>(null);
-  const [loadingReporte, setLoadingReporte] = useState(false);
   const [downloading, setDownloading] = useState<"pdf" | "excel" | null>(null);
+
+  // Los indicadores de carga se derivan de la última combinación de filtros
+  // cuya petición terminó: hay carga pendiente mientras los filtros actuales
+  // no coincidan con ella. Así los efectos no marcan la carga de forma
+  // síncrona; solo registran la clave al terminar la petición.
+  const statsKey = `${statAnio}|${tipo}`;
+  const [loadedStatsKey, setLoadedStatsKey] = useState<string | null>(null);
+  const loadingStats = loadedStatsKey !== statsKey;
+
+  const [loadedMesesKey, setLoadedMesesKey] = useState<string | null>(null);
+  const loadingMeses = loadedMesesKey !== tipo;
+
+  const reporteKey = selectedMes ? `${selectedMes}|${tipo}` : null;
+  const [loadedReporteKey, setLoadedReporteKey] = useState<string | null>(null);
+  const loadingReporte = reporteKey !== null && loadedReporteKey !== reporteKey;
+
+  // Sin mes seleccionado (no hay meses para el filtro) no hay reporte que
+  // mostrar: se descarta en el mismo render en vez de hacerlo en el efecto.
+  if (!selectedMes && reporte !== null) {
+    setReporte(null);
+  }
 
   // Cada efecto usa una guarda `active` para descartar respuestas fuera de
   // orden: al cambiar los filtros el efecto se re-ejecuta y su cleanup marca
@@ -57,7 +75,6 @@ export default function ReportesPage() {
   useEffect(() => {
     if (!canView) return;
     let active = true;
-    setLoadingStats(true);
     apiGetEstadisticas(statAnio ? Number(statAnio) : null, tipo || undefined)
       .then((data) => {
         if (!active) return;
@@ -68,17 +85,16 @@ export default function ReportesPage() {
         if (active) setStatsError(e instanceof Error ? e.message : "Error al cargar las estadísticas");
       })
       .finally(() => {
-        if (active) setLoadingStats(false);
+        if (active) setLoadedStatsKey(statsKey);
       });
     return () => {
       active = false;
     };
-  }, [canView, statAnio, tipo]);
+  }, [canView, statAnio, tipo, statsKey]);
 
   useEffect(() => {
     if (!canView) return;
     let active = true;
-    setLoadingMeses(true);
     apiGetReporteMeses(tipo || undefined)
       .then((data) => {
         if (!active) return;
@@ -96,7 +112,7 @@ export default function ReportesPage() {
         if (active) setMensualError(e instanceof Error ? e.message : "Error al cargar los meses disponibles");
       })
       .finally(() => {
-        if (active) setLoadingMeses(false);
+        if (active) setLoadedMesesKey(tipo);
       });
     return () => {
       active = false;
@@ -104,13 +120,9 @@ export default function ReportesPage() {
   }, [canView, tipo]);
 
   useEffect(() => {
-    if (!canView || !selectedMes) {
-      setReporte(null);
-      return;
-    }
+    if (!canView || !reporteKey) return;
     const [anio, mes] = selectedMes.split("-").map(Number);
     let active = true;
-    setLoadingReporte(true);
     apiGetReporteMensual(anio, mes, tipo || undefined)
       .then((data) => {
         if (!active) return;
@@ -121,12 +133,12 @@ export default function ReportesPage() {
         if (active) setMensualError(e instanceof Error ? e.message : "Error al cargar el reporte mensual");
       })
       .finally(() => {
-        if (active) setLoadingReporte(false);
+        if (active) setLoadedReporteKey(reporteKey);
       });
     return () => {
       active = false;
     };
-  }, [canView, selectedMes, tipo]);
+  }, [canView, selectedMes, tipo, reporteKey]);
 
   const trendData = useMemo(
     () =>

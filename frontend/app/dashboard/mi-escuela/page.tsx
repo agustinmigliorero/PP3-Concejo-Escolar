@@ -31,34 +31,35 @@ export default function MiEscuelaPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  async function loadSchool() {
-    setLoading(true);
-    setError(null);
-    try {
-      const [data, stock] = await Promise.all([apiGetMySchool(), apiGetMyStock()]);
-      setSchool(data);
-      setMatriculation(String(data.matriculation));
-      setPhone(data.phone ?? "");
-      setEmail(data.email ?? "");
-      setStockItems(stock.items);
-      setStockSinRecetas(stock.sin_recetas);
-      setStockDraft(
-        Object.fromEntries(
-          stock.items.map((item) => [item.ingrediente_id, String(Number(item.cantidad))]),
-        ),
-      );
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al cargar la escuela");
-    } finally {
-      setLoading(false);
-    }
+  // Pide la escuela y su stock, y escribe el estado en los callbacks de la
+  // promesa, cuando llega la respuesta. La carga inicial parte de `loading = true`.
+  function fetchSchool() {
+    return Promise.all([apiGetMySchool(), apiGetMyStock()])
+      .then(([data, stock]) => {
+        setSchool(data);
+        setMatriculation(String(data.matriculation));
+        setPhone(data.phone ?? "");
+        setEmail(data.email ?? "");
+        setStockItems(stock.items);
+        setStockSinRecetas(stock.sin_recetas);
+        setStockDraft(
+          Object.fromEntries(
+            stock.items.map((item) => [item.ingrediente_id, String(Number(item.cantidad))]),
+          ),
+        );
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : "Error al cargar la escuela");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }
 
   useEffect(() => {
+    // Otros roles ven el aviso de permisos antes de que se evalúe `loading`.
     if (user?.role === "escuela") {
-      loadSchool();
-    } else if (user) {
-      setLoading(false);
+      fetchSchool();
     }
   }, [user]);
 
