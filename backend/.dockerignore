@@ -3,3 +3,12 @@ __pycache__
 *.pyc
 *.pyo
 .env
+
+# SEC-14: no meter en la imagen bases locales, tests ni scripts que borran o cargan datos de prueba.
+# En desarrollo siguen disponibles porque docker-compose.dev.yml monta ./backend en /app.
+data/
+*.db
+tests/
+.pytest_cache
+clean_*.py
+seed_stock_*.py
