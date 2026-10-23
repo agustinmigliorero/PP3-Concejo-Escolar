@@ -13,6 +13,8 @@ FROM deps AS builder
 WORKDIR /app
 COPY . .
 ENV NODE_ENV=production
+ARG ENVIRONMENT=development
+ENV ENVIRONMENT=$ENVIRONMENT
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN test -n "$NEXT_PUBLIC_API_URL" || (echo "NEXT_PUBLIC_API_URL no definido" && exit 1)
@@ -21,6 +23,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ARG ENVIRONMENT=development
+ENV ENVIRONMENT=$ENVIRONMENT
 
 COPY package*.json ./
 RUN npm ci --omit=dev
