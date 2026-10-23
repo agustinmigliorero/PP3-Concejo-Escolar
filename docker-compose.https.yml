@@ -1,0 +1,28 @@
+# Activar junto con TLS en un proxy conectado a la red Docker (ej. Dokploy).
+# Apache instalado en el host requiere adaptar los puertos; ver la guia HTTPS.
+# No combinar con docker-compose.dev.yml.
+# docker compose -f docker-compose.yml -f docker-compose.https.yml ...
+# !reset elimina las publicaciones heredadas, no basta con poner ports: [].
+services:
+  backend:
+    ports: !reset []
+    expose:
+      - "8000"
+    environment:
+      ENVIRONMENT: production
+      REFRESH_COOKIE_SECURE: "true"
+      CORS_ORIGINS: ${CORS_ORIGINS:?Defini el origen HTTPS del frontend}
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:?Defini la IP o red de confianza del proxy inverso}
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers
+
+  frontend:
+    ports: !reset []
+    expose:
+      - "3001"
+    build:
+      args:
+        ENVIRONMENT: production
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Defini la URL HTTPS de la API}
+    environment:
+      ENVIRONMENT: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Defini la URL HTTPS de la API}

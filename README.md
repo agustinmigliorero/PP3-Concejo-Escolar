@@ -431,6 +431,11 @@ docs: agregar guía de desarrollo
 
 ## Deploy a producción
 
+La preparacion de **SEC-03 (HTTPS y cookie Secure)** y los pasos para activarla
+cuando este disponible el certificado estan en [Despliegue HTTPS](docs/despliegue-https.md).
+El archivo adicional `docker-compose.https.yml` se activa junto con TLS en
+Dokploy; el compose base conserva temporalmente el despliegue HTTP actual.
+
 El deploy es **automático**: cada push a `main` en GitHub dispara un redeploy en Dokploy.
 
 ### Qué hace Dokploy al detectar un push

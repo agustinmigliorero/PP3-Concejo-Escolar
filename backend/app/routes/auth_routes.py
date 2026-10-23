@@ -80,6 +80,9 @@ def _clear_refresh_cookie(response: Response) -> None:
         "refresh_token",
         path="/",
         domain=settings.REFRESH_COOKIE_DOMAIN or None,
+        secure=settings.REFRESH_COOKIE_SECURE,
+        httponly=True,
+        samesite="lax",
     )
 
 

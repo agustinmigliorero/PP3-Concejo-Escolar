@@ -16,6 +16,8 @@ services:
       # Por eso cada variable que el backend necesita se mapea explícitamente.
       SECRET_KEY: ${SECRET_KEY:?Falta SECRET_KEY - definila en las env vars (Dokploy) o en backend/.env}
       DATABASE_URL: sqlite:////app/data/concejo_escolar.db
+      # Transicion HTTP actual. Para HTTPS usar tambien docker-compose.https.yml.
+      ENVIRONMENT: ${ENVIRONMENT:-development}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3005,http://localhost:3001}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin1234}

@@ -1,5 +1,7 @@
 from pathlib import Path
+from typing import Literal
 
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 # Carpeta `backend/` (raíz del proyecto backend), independiente del cwd
@@ -16,6 +18,7 @@ _INSECURE_SECRET_KEYS = {"", "cambia_esto_por_una_clave_segura"}
 
 
 class Settings(BaseSettings):
+    ENVIRONMENT: Literal["development", "test", "production"] = "development"
     # Obligatorio: debe venir del .env (dev) o de las env vars del contenedor
     # (Dokploy). Default "" para poder dar un error claro abajo en vez de un
     # ValidationError críptico de pydantic.
@@ -39,6 +42,20 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "extra": "ignore",
     }
+
+    @field_validator("ENVIRONMENT", mode="before")
+    @classmethod
+    def normalize_environment(cls, value: str) -> str:
+        return value.strip().lower() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def require_secure_production_cookie(self) -> "Settings":
+        if self.ENVIRONMENT == "production" and not self.REFRESH_COOKIE_SECURE:
+            raise ValueError(
+                "En production REFRESH_COOKIE_SECURE debe ser true; "
+                "configura HTTPS en el proxy inverso antes de activar este entorno."
+            )
+        return self
 
 
 settings = Settings()

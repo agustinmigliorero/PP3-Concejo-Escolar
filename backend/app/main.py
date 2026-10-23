@@ -61,6 +61,16 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def add_transport_security_header(request: Request, call_next):
+    response = await call_next(request)
+    # El proxy inverso termina TLS. Uvicorn solo debe aceptar X-Forwarded-Proto de los
+    # proxies configurados en FORWARDED_ALLOW_IPS, nunca de cualquier cliente.
+    if settings.ENVIRONMENT == "production" and request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000"
+    return response
+
+
 def _migrate_sqlite(conn) -> None:
     """Add any columns present in the ORM models but missing from existing tables.
 
