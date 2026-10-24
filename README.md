@@ -265,6 +265,7 @@ Estos archivos están en `.gitignore` y **nunca se commitean**.
 | `ADMIN_USERNAME` | Usuario admin del seed inicial | `admin` |
 | `ADMIN_PASSWORD` | Contraseña admin del seed inicial | `admin1234` |
 | `CORS_ORIGINS` | Orígenes CORS permitidos (separados por coma) | `http://localhost:3000,...` |
+| `TRUSTED_PROXY_IPS` | Proxies de confianza (IP o CIDR, separados por coma) para resolver la IP real del cliente en el login. Vacío = no se confía en `X-Forwarded-For` | `""` |
 
 > Para generar una `SECRET_KEY` segura:
 > ```bash
@@ -272,6 +273,8 @@ Estos archivos están en `.gitignore` y **nunca se commitean**.
 > ```
 
 > En producción, `DATABASE_URL` apunta a `sqlite:////app/data/concejo_escolar.db` (volumen Docker persistente).
+
+> Si el backend queda detrás de un proxy inverso (Traefik), poné en `TRUSTED_PROXY_IPS` la IP o la red del proxy. Si no, todos los usuarios comparten la IP del proxy y el límite de intentos del login (SEC-07) bloquearía a todos a la vez. Nunca uses un rango abierto: un atacante podría falsear su propia IP y esquivar el límite.
 
 ### Frontend (`frontend/.env.local`)
 
