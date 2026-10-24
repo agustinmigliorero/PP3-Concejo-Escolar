@@ -2,6 +2,9 @@ services:
   backend:
     environment:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3005,http://localhost:3001}
+      # En desarrollo se deja la documentación de la API disponible (Swagger).
+      # En producción viene apagada (SEC-10).
+      ENABLE_API_DOCS: "true"
     command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
     volumes:
       - ./backend:/app

@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
@@ -44,17 +44,64 @@ import app.models.temporada_model  # noqa: F401
 import app.models.tipo_comida_model  # noqa: F401
 import app.models.user_model  # noqa: F401
 
-app = FastAPI(title="Concejo Escolar API")
+# SEC-10: la documentación de la API publica el mapa completo de rutas,
+# esquemas y roles. Solo se expone si ENABLE_API_DOCS está activo (dev).
+app = FastAPI(
+    title="Concejo Escolar API",
+    docs_url="/docs" if settings.ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if settings.ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if settings.ENABLE_API_DOCS else None,
+)
 
 origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")]
 
+# CORS acotado a lo que el frontend usa de verdad: credenciales (cookie de
+# refresh), Authorization y Content-Type. Con "*" cualquier origen permitted
+# podia pedir cualquier metodo con cualquier header.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+
+# CSP de las respuestas de la API: la API no sirve HTML, asi que se cierra por
+# completo. Las rutas de documentacion interactiva (Swagger/ReDoc) son la
+# excepcion: necesitan cargar sus assets del CDN y el bootstrap inline de
+# Swagger, sin ellos la pagina queda en blanco aunque el endpoint responda 200.
+_CSP_API = "default-src 'none'; frame-ancestors 'none'"
+_CSP_DOCS = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+    "font-src 'self' data: https://fonts.gstatic.com; "
+    "img-src 'self' data: https://fastapi.tiangolo.com https://validator.swagger.io; "
+    "connect-src 'self' https://validator.swagger.io; "
+    "frame-ancestors 'none'"
+)
+_RUTAS_DOCUMENTACION = ("/docs", "/redoc")
+
+
+# SEC-10: cabeceras de endurecimiento en todas las respuestas. Se declara
+# DESPUÉS del CORS para quedar por fuera de la pila: así las respuestas de
+# preflight (que CORS corta sin llamar a la app) también las reciben.
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    h = response.headers
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("X-Frame-Options", "DENY")
+    h.setdefault("Referrer-Policy", "no-referrer")
+    if settings.ENABLE_API_DOCS and request.url.path in _RUTAS_DOCUMENTACION:
+        h.setdefault("Content-Security-Policy", _CSP_DOCS)
+    else:
+        h.setdefault("Content-Security-Policy", _CSP_API)
+    h.setdefault("Cache-Control", "no-store")
+    if settings.REFRESH_COOKIE_SECURE:
+        h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
 
 
 def _migrate_sqlite(conn) -> None:
