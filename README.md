@@ -601,4 +601,7 @@ npm run start
 
 # Lint
 npm run lint
+
+# Tests (vitest)
+npm test
 ```
