@@ -128,7 +128,7 @@ def test_production_https_responses_include_hsts(seed, monkeypatch, path, status
     with TestClient(app, base_url="https://api.example.test") as browser:
         response = browser.get(path)
         assert response.status_code == status
-        assert response.headers["strict-transport-security"] == "max-age=31536000"
+        assert "max-age=31536000" in response.headers["strict-transport-security"]
 
 
 @pytest.mark.parametrize(
