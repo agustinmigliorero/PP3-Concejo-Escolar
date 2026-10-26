@@ -1,3 +1,7 @@
+import os
+import tempfile
+from contextlib import contextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -99,7 +103,9 @@ async def security_headers(request: Request, call_next):
     else:
         h.setdefault("Content-Security-Policy", _CSP_API)
     h.setdefault("Cache-Control", "no-store")
-    if settings.REFRESH_COOKIE_SECURE:
+    if settings.REFRESH_COOKIE_SECURE or (
+        settings.ENVIRONMENT == "production" and request.url.scheme == "https"
+    ):
         h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     return response
 
@@ -329,9 +335,33 @@ def _rebuild_legacy_tables(conn) -> None:
         )
 
 
+@contextmanager
+def _startup_lock():
+    """Serializa la migracion de arranque entre los workers de uvicorn.
+
+    Con --workers 2 los dos procesos corren create_tables a la vez: sobre una
+    base vacia el segundo falla con "table ... already exists" y uvicorn detiene
+    todo el servidor. El lock (en /tmp, compartido por los workers del mismo
+    contenedor) hace que el segundo espere y encuentre la base ya migrada.
+    En Windows no hay fcntl, pero en desarrollo corre un solo proceso.
+    """
+    try:
+        import fcntl
+    except ImportError:
+        yield
+        return
+    path = os.path.join(tempfile.gettempdir(), "concejo_escolar_startup.lock")
+    with open(path, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
 @app.on_event("startup")
 def create_tables() -> None:
-    with engine.connect() as conn:
+    with _startup_lock(), engine.connect() as conn:
         Base.metadata.create_all(bind=engine)
         _backfill_receta_temporadas(conn)
         _backfill_tipos_comida_legacy(conn)

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import bcrypt
-from jose import jwt
+import jwt
 
 from app.config.settings import settings
 
@@ -48,4 +48,10 @@ def create_refresh_token(user_id: int, family: Optional[str] = None) -> tuple[st
 
 
 def decode_token(token: str) -> dict:
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    # Se exigen exp, sub y type: un token sin vencimiento no debe ser valido nunca.
+    return jwt.decode(
+        token,
+        settings.SECRET_KEY,
+        algorithms=[settings.ALGORITHM],
+        options={"require": ["exp", "sub", "type"]},
+    )

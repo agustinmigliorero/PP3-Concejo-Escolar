@@ -27,6 +27,16 @@ const contentSecurityPolicy = [
   "form-action 'self'",
 ].join("; ");
 
+// ENVIRONMENT es el modo de transporte del despliegue; NODE_ENV también es
+// production en builds HTTP durante la transición y no sirve para decidir HSTS.
+const httpsProduction = process.env.ENVIRONMENT === "production";
+if (httpsProduction) {
+  const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL ?? "");
+  if (apiUrl.protocol !== "https:") {
+    throw new Error("En production NEXT_PUBLIC_API_URL debe usar HTTPS");
+  }
+}
+
 const nextConfig: NextConfig = {
   // No anunciar la tecnología del servidor.
   poweredByHeader: false,
@@ -44,6 +54,12 @@ const nextConfig: NextConfig = {
       headers.push({
         key: "Content-Security-Policy",
         value: contentSecurityPolicy,
+      });
+    }
+    if (httpsProduction) {
+      headers.push({
+        key: "Strict-Transport-Security",
+        value: "max-age=31536000",
       });
     }
     return [{ source: "/:path*", headers }];

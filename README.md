@@ -173,8 +173,8 @@ python -m venv .venv
 # macOS / Linux
 source .venv/bin/activate
 
-# Instalar dependencias
-pip install -r requirements.txt
+# Instalar dependencias (requirements-dev.txt incluye requirements.txt + pytest)
+pip install -r requirements-dev.txt
 
 # Crear archivo de entorno (ver sección Variables de entorno)
 cp .env.example .env   # o crearlo manualmente
@@ -223,17 +223,22 @@ El frontend queda en **http://localhost:3000**.
 
 ```bash
 # Con el venv activado
-pip install nombre-paquete
-
-# Actualizar requirements.txt (en Windows, guardar en UTF-8 sin BOM)
-pip freeze > requirements.txt
+pip install nombre-paquete==X.Y.Z
 ```
 
-> **Importante en Windows**: `pip freeze >` puede guardar el archivo en UTF-16. Verificá que sea UTF-8 antes de commitear, o usá:
->
-> ```powershell
-> pip freeze | Out-File -Encoding utf8 requirements.txt
-> ```
+Agregar la línea `nombre-paquete==X.Y.Z` a mano en el archivo que corresponda:
+
+- `requirements.txt`: lo que necesita la app en producción (es lo que instala la imagen de Docker).
+- `requirements-dev.txt`: herramientas de desarrollo y tests (pytest, httpx). No van a la imagen.
+
+No usar `pip freeze > requirements.txt` con el venv de desarrollo: metería pytest y el resto de las herramientas de test en la imagen de producción. Antes de commitear, verificar que no haya dependencias con vulnerabilidades conocidas:
+
+```bash
+pip install pip-audit
+pip-audit -r requirements.txt
+```
+
+> **Importante en Windows**: si editás los requirements desde PowerShell, guardalos en UTF-8 sin BOM (pip en Linux falla con otros encodings).
 
 **Frontend:**
 
@@ -431,6 +436,11 @@ docs: agregar guía de desarrollo
 ---
 
 ## Deploy a producción
+
+La preparacion de **SEC-03 (HTTPS y cookie Secure)** y los pasos para activarla
+cuando este disponible el certificado estan en [Despliegue HTTPS](docs/despliegue-https.md).
+El archivo adicional `docker-compose.https.yml` se activa junto con TLS en
+Dokploy; el compose base conserva temporalmente el despliegue HTTP actual.
 
 El deploy es **automático**: cada push a `main` en GitHub dispara un redeploy en Dokploy.
 

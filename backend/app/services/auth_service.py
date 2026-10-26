@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
-from jose import JWTError
+from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from app.config.security import (
@@ -82,7 +82,7 @@ def login(db: Session, username: str, password: str) -> dict:
 def refresh_access_token(db: Session, refresh_token: str) -> dict:
     try:
         payload = decode_token(refresh_token)
-    except JWTError:
+    except InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido")
 
     if payload.get("type") != "refresh":
@@ -197,5 +197,5 @@ def logout(db: Session, refresh_token: str) -> None:
         if db_token and not db_token.is_revoked:
             db_token.revoked_at = _now()
             db.commit()
-    except JWTError:
+    except InvalidTokenError:
         pass
