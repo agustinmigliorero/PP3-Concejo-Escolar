@@ -27,6 +27,13 @@ services:
       # Así la cookie de sesión se comparte entre sae.* y el subdominio del back.
       REFRESH_COOKIE_SECURE: ${REFRESH_COOKIE_SECURE:-false}
       REFRESH_COOKIE_DOMAIN: ${REFRESH_COOKIE_DOMAIN:-}
+      # Proxies de confianza para resolver la IP real del cliente en el login.
+      # Vacío = no se confía en X-Forwarded-For (comportamiento por defecto).
+      # Necesario solo si el backend queda detrás de un proxy inverso.
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-}
+      # Documentación de la API (/docs, /redoc, /openapi.json): apagada por
+      # defecto en producción (SEC-10). Subirla solo para una demo temporal.
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-false}
 
   frontend:
     build:

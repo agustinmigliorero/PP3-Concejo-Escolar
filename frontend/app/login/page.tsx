@@ -4,13 +4,16 @@ import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiLogin, tryRefresh } from "@/lib/api";
 import { getAccessToken, setAccessToken as storeToken } from "@/lib/auth";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import { PasswordInput } from "@/components/password-input";
 
 // Destino al que volver tras iniciar sesión, tomado de `?from=` en la URL.
+// Se valida con `safeRedirectPath` para impedir open redirect (SEC-09): solo
+// se admite una ruta interna; cualquier otro valor cae en "/dashboard".
 // Se lee al usarlo (en el efecto y en el envío del formulario) en vez de
 // copiarlo a estado, porque no se muestra en pantalla.
 function getRedirectTarget(): string {
-  return new URLSearchParams(window.location.search).get("from") || "/dashboard";
+  return safeRedirectPath(new URLSearchParams(window.location.search).get("from"));
 }
 
 export default function LoginPage() {

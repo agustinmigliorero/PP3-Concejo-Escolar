@@ -5,6 +5,7 @@ from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from app.config.security import (
+    DUMMY_PASSWORD_HASH,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -34,9 +35,30 @@ def _get_active_user(db: Session, user_id: int) -> User:
     return user
 
 
+def _verify_password(password: str, user: User | None) -> bool:
+    """Verifica la contraseña contra el hash del usuario, o contra un hash
+    señuelo si el usuario no existe.
+
+    Siempre se ejecuta un bcrypt completo: sin esto, un usuario inexistente
+    responde mucho más rápido que uno existente y permite enumerar cuentas
+    midiendo la latencia (SEC-07 · CWE-204).
+    """
+    hashed = user.password if user else DUMMY_PASSWORD_HASH
+    try:
+        return verify_password(password, hashed)
+    except (TypeError, ValueError):
+        # Hash corrupto o con formato desconocido en la base: el login se
+        # rechaza (no se devuelve un 500), pero se gasta el mismo bcrypt que
+        # con un usuario válido para no filtrar por tiempo que ese registro
+        # está corrupto.
+        verify_password(password, DUMMY_PASSWORD_HASH)
+        return False
+
+
 def login(db: Session, username: str, password: str) -> dict:
     user = db.query(User).filter(User.username == username, User.active == True).first()
-    if not user or not verify_password(password, user.password):
+    password_ok = _verify_password(password, user)
+    if not user or not password_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario o contrasena incorrectos",

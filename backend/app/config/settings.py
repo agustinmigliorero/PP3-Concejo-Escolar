@@ -33,6 +33,16 @@ class Settings(BaseSettings):
     # cookie se comparta entre todos: ".agustinmigliorero.com".
     REFRESH_COOKIE_DOMAIN: str = ""
     DATABASE_URL: str = "sqlite:///./concejo_escolar.db"
+    # Proxies de confianza (IP o CIDR, separados por coma) para resolver la IP
+    # real del cliente desde X-Forwarded-For en el login. Vacío = no se confía
+    # en ninguna cabecera, que es el comportamiento seguro por defecto.
+    # Solo poner acá la red/IP del proxy (ej. Traefik), nunca un rango abierto.
+    TRUSTED_PROXY_IPS: str = ""
+    # Documentación interactiva de la API (/docs, /redoc, /openapi.json).
+    # Apagada por defecto: expone el mapa completo de rutas, esquemas y roles,
+    # que acelera el reconocimiento por un atacante (SEC-10).
+    # En desarrollo se habilita con ENABLE_API_DOCS=true en backend/.env.
+    ENABLE_API_DOCS: bool = False
     admin_username: str = "admin"
     admin_password: str = "admin1234"
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:3005"

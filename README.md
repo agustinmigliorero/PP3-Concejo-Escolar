@@ -270,6 +270,8 @@ Estos archivos están en `.gitignore` y **nunca se commitean**.
 | `ADMIN_USERNAME` | Usuario admin del seed inicial | `admin` |
 | `ADMIN_PASSWORD` | Contraseña admin del seed inicial | `admin1234` |
 | `CORS_ORIGINS` | Orígenes CORS permitidos (separados por coma) | `http://localhost:3000,...` |
+| `TRUSTED_PROXY_IPS` | Proxies de confianza (IP o CIDR, separados por coma) para resolver la IP real del cliente en el login. Vacío = no se confía en `X-Forwarded-For` | `""` |
+| `ENABLE_API_DOCS` | Publica `/docs`, `/redoc` y `/openapi.json`. Apagado por defecto (SEC-10); poné `true` solo en desarrollo | `false` |
 
 > Para generar una `SECRET_KEY` segura:
 > ```bash
@@ -278,6 +280,8 @@ Estos archivos están en `.gitignore` y **nunca se commitean**.
 
 > En producción, `DATABASE_URL` apunta a `sqlite:////app/data/concejo_escolar.db` (volumen Docker persistente).
 
+> Si el backend queda detrás de un proxy inverso (Traefik), poné en `TRUSTED_PROXY_IPS` la IP o la red del proxy. Si no, todos los usuarios comparten la IP del proxy y el límite de intentos del login (SEC-07) bloquearía a todos a la vez. Nunca uses un rango abierto: un atacante podría falsear su propia IP y esquivar el límite.
+
 ### Frontend (`frontend/.env.local`)
 
 | Variable | Descripción | Default |
@@ -285,6 +289,8 @@ Estos archivos están en `.gitignore` y **nunca se commitean**.
 | `NEXT_PUBLIC_API_URL` | URL pública del backend | `http://localhost:8000` |
 
 > **Importante (Next.js):** `NEXT_PUBLIC_API_URL` se embebe en el bundle durante el `build`. Si cambiás la URL en producción, necesitás rebuildar la imagen Docker del frontend.
+
+> **Cabeceras de seguridad (SEC-10):** el frontend envía `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` y `Permissions-Policy` en todas las rutas. En producción se suma una `Content-Security-Policy` estricta (`default-src 'self'`, `frame-ancestors 'none'`). La CSP **no** se aplica en desarrollo: rompería el hot reload (el websocket de HMR no está cubierto por `connect-src 'self'`).
 
 ### Producción con Docker Compose / Dokploy
 
@@ -485,7 +491,7 @@ NEXT_PUBLIC_API_URL=http://<TU_IP>:8000
 
 ## Referencia rápida de la API
 
-La documentación interactiva completa está en `http://localhost:8000/docs` (Swagger UI).
+La documentación interactiva completa (Swagger UI) está en `http://localhost:8000/docs`, pero **solo si el backend arranca con `ENABLE_API_DOCS=true`**: por defecto está apagada (SEC-10) y `/docs`, `/redoc` y `/openapi.json` devuelven 404.
 
 ### Autenticación
 
@@ -546,6 +552,8 @@ Catálogo administrable de tipos de comida (desayuno, almuerzo, merienda y los q
 | PATCH  | `/schools/me/contact`    | Editar teléfono y email propios (ambos opcionales) | escuela       |
 
 ### Cómo autenticarse en Swagger
+
+> La documentación interactiva está **deshabilitada por defecto** (SEC-10): `/docs`, `/redoc` y `/openapi.json` devuelven 404. Para verla en desarrollo, poné `ENABLE_API_DOCS=true` en `backend/.env` (el `docker-compose.dev.yml` ya lo activa). En producción queda apagada salvo que la subas a propósito.
 
 1. Llamar a `POST /auth/login` con body `{ "username": "admin", "password": "..." }`
 2. Copiar el `access_token` de la respuesta
@@ -608,4 +616,7 @@ npm run start
 
 # Lint
 npm run lint
+
+# Tests (vitest)
+npm test
 ```

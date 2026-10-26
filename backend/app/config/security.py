@@ -7,6 +7,12 @@ import jwt
 
 from app.config.settings import settings
 
+# Hash válido de una contraseña ficticia. Cuando el usuario no existe, el
+# login verifica la contraseña contra este hash en lugar de saltarse el
+# cálculo: así el tiempo de respuesta es el mismo exista o no la cuenta y no
+# se puede enumerar usuarios midiendo la latencia (SEC-07 · CWE-204).
+DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"usuario-inexistente", bcrypt.gensalt()).decode()
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
