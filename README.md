@@ -457,6 +457,41 @@ El deploy es **automático**: cada push a `main` en GitHub dispara un redeploy e
 
 En Dokploy, ir a la aplicación y revisar la pestaña **Logs**. Un deploy exitoso termina con los contenedores en estado `running`.
 
+### Recuperar los datos tras el cambio de montaje de SQLite
+
+El commit `d26e6a2` cambió `/app/data` del volumen Docker
+`concejo_escolar_sqlite_data` a la carpeta `./backend/data` del checkout.
+Ese cambio no copia ni migra la base anterior: si la carpeta está vacía, el
+backend crea otra base sin los usuarios y datos existentes. La configuración
+corregida vuelve a montar el volumen original y mantiene la misma `DATABASE_URL`.
+
+Antes de redesplegar, desde una terminal del **host VPS**:
+
+```bash
+# Debe existir el volumen original. Si no existe, no crear uno vacío como recuperación.
+docker volume inspect concejo_escolar_sqlite_data
+
+# Identificar el backend y comprobar qué almacenamiento está usando realmente.
+docker ps --format 'table {{.ID}}\t{{.Names}}'
+docker inspect <ID_BACKEND> --format '{{json .Mounts}}'
+```
+
+Si el volumen existe, verificar que contenga `concejo_escolar.db` con los datos
+esperados. Detener el backend desde Dokploy y respaldar **ambos** almacenamientos
+(el volumen original y la carpeta indicada por `Source` en el montaje actual),
+incluidos los archivos auxiliares de SQLite si existen. Mantener detenido el
+backend durante la copia evita un respaldo inconsistente.
+
+Luego desplegar esta configuración desde Dokploy. Comprobar con `docker inspect`
+que `/app/data` tenga `Type: volume` y `Name: concejo_escolar_sqlite_data`, revisar
+los logs e ingresar con un usuario anterior para confirmar sus datos.
+
+Si el volumen no existe o está vacío, buscar el volumen o respaldo anterior antes
+de continuar. No ejecutar `seed.py`, `docker compose down -v` ni una limpieza de
+volúmenes para intentar recuperar los datos. Conservar también `backend/data`:
+los registros creados durante el montaje incorrecto no se fusionan automáticamente
+con la base original.
+
 ### Primera vez en producción (o luego de recrear el volumen)
 
 Después de un deploy exitoso, crear el admin desde la terminal de Docker en Dokploy:
