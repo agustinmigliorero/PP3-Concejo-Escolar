@@ -418,7 +418,8 @@ export default function PedidosPage() {
     for (const school of pedido.datos_snapshot.escuelas) {
       for (const item of school.ingredientes) {
         if (item.proveedor_id === undefined) continue;
-        draft[`${school.escuela_id}:${item.ingrediente_id}`] = item.cantidad_final;
+        // Keep snapshot precision while displaying a locale-independent editable value.
+        draft[`${school.escuela_id}:${item.ingrediente_id}`] = String(Number(item.cantidad_final));
       }
     }
     setEditDraft(draft);
@@ -452,11 +453,17 @@ export default function PedidosPage() {
           };
         }),
     );
-    const invalidItem = items.find((item) => !/^\d+$/.test(item.cantidad_final));
+    const decimalItems = items.map((item) => ({
+      ...item,
+      cantidad_final: item.cantidad_final.replace(",", "."),
+    }));
+    const invalidItem = decimalItems.find(
+      (item) => !/^\d+(?:\.\d{1,2})?$/.test(item.cantidad_final),
+    );
     if (invalidItem) {
       setEditSchoolSearch("");
       setExpandedEditSchoolId(invalidItem.escuela_id);
-      setEditError("Ingresa cantidades enteras válidas, iguales o mayores que cero.");
+      setEditError("Ingresa cantidades válidas (hasta 2 decimales), iguales o mayores que cero.");
       return;
     }
 
@@ -465,7 +472,7 @@ export default function PedidosPage() {
     try {
       const updated = await apiUpdatePedidoItems(
         editingPedido.id,
-        items.map((item) => ({ ...item, cantidad_final: Number(item.cantidad_final) })),
+        decimalItems.map((item) => ({ ...item, cantidad_final: Number(item.cantidad_final) })),
       );
       setPedidos((current) => current.map((pedido) => pedido.id === updated.id ? updated : pedido));
       setEditingPedido(null);
@@ -1385,9 +1392,9 @@ export default function PedidosPage() {
                                   <td className="px-4 py-3 text-right">
                                     <div className="inline-flex items-center gap-2">
                                       <input
-                                        type="number"
-                                        min={0}
-                                        step={1}
+                                        type="text"
+                                        inputMode="decimal"
+                                        pattern="[0-9]*[.,]?[0-9]{0,2}"
                                         disabled={savingEdit}
                                         aria-label={`Cantidad a pedir de ${item.ingrediente_nombre} para ${school.nombre}`}
                                         value={editDraft[key] ?? item.cantidad_final}

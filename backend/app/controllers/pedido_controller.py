@@ -58,7 +58,7 @@ class ConfirmPedidoRequest(PedidoBaseRequest):
 class EditPedidoItemRequest(BaseModel):
     escuela_id: int = Field(..., gt=0)
     ingrediente_id: int = Field(..., gt=0)
-    cantidad_final: Decimal = Field(..., ge=0, max_digits=12, decimal_places=0)
+    cantidad_final: Decimal = Field(..., ge=0, max_digits=12, decimal_places=2)
 
 
 class UpdatePedidoItemsRequest(BaseModel):
